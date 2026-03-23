@@ -51,7 +51,7 @@ npm install -g @anthropic-ai/claude-code
 ```
 Then open it in the project folder: `claude` — it will pick up `CLAUDE.md` automatically.
 
-**gstack** is a set of AI slash-command skills already included in this repo at `.claude/skills/gstack/`. After cloning, build it once:
+**[gstack](https://github.com/garrytan/gstack)** is a set of AI slash-command skills already included in this repo at `.claude/skills/gstack/`. After cloning, build it once:
 ```bash
 # Requires bun: https://bun.sh/
 curl -fsSL https://bun.sh/install | bash
