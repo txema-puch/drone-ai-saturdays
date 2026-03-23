@@ -41,6 +41,32 @@ src/            # Source code / modules
 tests/          # Tests
 ```
 
+## Working with Claude Code + gstack
+
+This project is set up for AI-assisted development with [Claude Code](https://docs.anthropic.com/en/docs/claude-code) (Anthropic's CLI coding assistant).
+
+**Install Claude Code:**
+```bash
+npm install -g @anthropic-ai/claude-code
+```
+Then open it in the project folder: `claude` — it will pick up `CLAUDE.md` automatically.
+
+**gstack** is a set of AI slash-command skills already included in this repo at `.claude/skills/gstack/`. After cloning, build it once:
+```bash
+# Requires bun: https://bun.sh/
+curl -fsSL https://bun.sh/install | bash
+cd .claude/skills/gstack && ./setup
+```
+
+Useful gstack commands inside Claude Code:
+- `/browse <url>` — open a URL in a headless browser for testing
+- `/qa <url>` — automated QA testing with bug reports
+- `/review` — code review of your current branch before a PR
+- `/investigate` — systematic debugging when something is broken
+- `/retro` — weekly summary of what the team shipped
+
+See `CLAUDE.md` at the root for the full skill list.
+
 ## Contributing
 
 - Work on feature branches, not directly on `main`
