@@ -1,0 +1,34 @@
+# Secrets — never commit these
+.env
+
+# Python virtual environment — each person creates their own locally
+.venv/
+
+# Python build artifacts
+__pycache__/
+*.py[cod]
+*.pyo
+build/
+dist/
+*.egg-info/
+
+# Large files that don't belong in git (datasets, model weights)
+# Track the folder structure (.gitkeep) but ignore actual data files
+data/raw/*
+!data/raw/.gitkeep
+data/processed/train/*
+!data/processed/train/.gitkeep
+data/processed/test/*
+!data/processed/test/.gitkeep
+models/*.pt
+models/*.bin
+models/*.safetensors
+
+# Jupyter checkpoints
+.ipynb_checkpoints/
+
+# macOS
+.DS_Store
+
+# uv lockfile is committed (reproducibility), but not the venv
+uv.lock
