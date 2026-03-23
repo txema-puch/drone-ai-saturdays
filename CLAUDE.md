@@ -32,6 +32,21 @@ cd .claude/skills/gstack && ./setup
 - Secrets go in `.env` only — never committed. Share keys via password manager (1Password, Bitwarden).
 - Work on feature branches, not directly on `main`. Open PRs so teammates can review.
 
+## Project workspace
+`docs/` is the shared working space — treat it like Notion. Key files:
+- `docs/README.md` — navigation index
+- `docs/problem/use-cases.md` — 8 use case scenarios + team vote table
+- `docs/research/datasets.md` — all datasets found, with status and notes
+- `docs/research/links.md` — papers, tools, APIs, categorized
+- `docs/architecture/README.md` — proposed system design (not committed)
+- `docs/decisions/README.md` — log of key decisions (use case, modality, dataset)
+- `docs/weekly/README.md` — session notes
+
+When the team makes a decision (use case, modality, dataset), record it in `docs/decisions/README.md`.
+
+## Project status (as of 2026-03-23)
+Definition phase — no use case, modality, or dataset committed yet. Four open decisions in `docs/decisions/README.md`. Planning document (original) at `/Users/txemapuch/Downloads/Private & Shared 5/🛰️ Saturdays AI Proyecto Identificación y Predicci 32a7e26c8c7e803294fed9edfb36ba98.md`.
+
 # gstack
 
 Use the `/browse` skill from gstack for all web browsing. Never use `mcp__claude-in-chrome__*` tools.
