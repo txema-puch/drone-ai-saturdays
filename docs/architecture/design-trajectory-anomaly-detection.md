@@ -167,7 +167,7 @@ Model (two milestones)
     Outputs anomaly score per trajectory
     Serves as baseline for comparison with the LSTM approach
     
-  Milestone 2 — LSTM Autoencoder (target: Week 6)
+  Milestone 2 — LSTM Autoencoder (target: Week 3)
     Input: trajectory sequence of shape (T, D) where T = time steps, D = feature dim
     Encoder: 2-layer LSTM, hidden size 64, outputs fixed-size latent vector
     Decoder: 2-layer LSTM, reconstructs input sequence

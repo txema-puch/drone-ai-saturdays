@@ -1,8 +1,8 @@
 # Use Cases
 
-We've identified 8 scenarios where unauthorized drone detection matters. **We need to pick one as the primary focus** — each implies a different dataset, model, and demo.
+We identified 8 scenarios. **Decision made (2026-04-11, D-001):** Use Case 1 — Airports, anchored to LEMD.
 
-Use the [Decisions log](../decisions/README.md) to record the team's choice.
+The original Scenario 8 framing (three-class intent classification) was rejected — no labeled hostile dataset exists. Reframed as anomaly detection: learn what normal authorized flight looks like near LEMD, flag deviations. See [decisions/README.md](../decisions/README.md) for full rationale.
 
 ---
 
@@ -99,13 +99,6 @@ Use the [Decisions log](../decisions/README.md) to record the team's choice.
 
 ---
 
-## Team vote
+## Team decision
 
-Add your preference below (edit this file directly or drop a note in Discord):
-
-| Name | First choice | Second choice | Notes |
-|---|---|---|---|
-| txema | | | |
-| teammate 2 | | | |
-| teammate 3 | | | |
-| teammate 4 | | | |
+**Selected: Use Case 1 — Airports (LEMD)** — decided 2026-04-11, whole team. Logged as D-001 in [decisions/README.md](../decisions/README.md).

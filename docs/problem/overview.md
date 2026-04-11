@@ -2,9 +2,13 @@
 
 ## What are we building?
 
-A system to **detect and predict the routes of unauthorized drones** in restricted or sensitive airspace.
+A two-layer system to **detect unauthorized drones** operating near Madrid-Barajas (LEMD) using ADS-B trajectory data.
 
-The key word is *predict*. Existing systems (radar, ADS-B, visual monitoring) react after a drone is already in a restricted zone. Our goal is to anticipate where a drone is heading — with enough lead time for operators to act.
+**Layer 1 — Identity gate:** ICAO24 registry lookup + U-Space flight plan match. Pre-clears known authorized aircraft.
+
+**Layer 2 — Anomaly scorer:** LSTM Autoencoder trained on normal ADS-B flight patterns near LEMD. Flags trajectories that deviate from learned normal behavior. Binary output: normal / anomalous.
+
+Decision log: [decisions/README.md](../decisions/README.md)
 
 ---
 
@@ -41,23 +45,24 @@ The key word is *predict*. Existing systems (radar, ADS-B, visual monitoring) re
 
 ---
 
-## Proposed solution (high level)
+## Pipeline (as built)
 
-A layered ML system:
+1. **Data ingestion** — OpenSky ADS-B via Impala SQL (historical) and REST API (live demo). Bounding box: lat 40.3–40.6, lon -3.8–-3.5, alt < 1500m, velocity < 50 m/s.
+2. **Feature engineering** — per time step: `[lat, lon, alt, speed, heading, distance_to_lemd_arp, in_restricted_zone, time_of_day_sin, time_of_day_cos]`. Resampled to 10s intervals.
+3. **Identity gate** — ICAO24 lookup against OpenSky aircraft DB + U-Space flight plan match. Pre-clears known authorized vehicles; unidentified tracks proceed to scoring.
+4. **Anomaly scorer (two milestones):**
+   - Milestone 1 (Week 3): Isolation Forest on trajectory feature statistics — baseline
+   - Milestone 2 (Week 3): LSTM Autoencoder — reconstructs normal sequences; high reconstruction error = anomalous
+5. **Alerting** — flag anomalous tracks for operator review in Streamlit demo
 
-1. **Data ingestion** — ADS-B (OpenSky), RF signals, visual feeds, weather (AEMET), geofences (OSM)
-2. **Feature engineering** — speed, heading, turn rate, altitude, proximity to restricted zones, time context
-3. **Anomaly detection** — identify flights that don't match "normal" civil aviation patterns
-4. **Trajectory prediction** — predict where the drone will be in the next 5-10 minutes
-5. **Risk scoring** — combine signals into a 0-10 risk score per drone
-6. **Alerting** — threshold-based notifications to operators
-
-The architecture is designed to be modular: each data source and each model is a pluggable component.
+Full system design: [architecture/design-trajectory-anomaly-detection.md](../architecture/design-trajectory-anomaly-detection.md)
 
 ---
 
 ## What we are NOT building
 
+- Trajectory prediction (cut from scope — D-004; stretch goal only after Week 4)
+- Multi-modal fusion with RF, visual, or weather signals (ADS-B only for this course)
 - A drone interception / countermeasure system
-- A real-time production system (we're building a proof of concept)
-- A system that works globally (focus: Spain / Madrid area)
+- A real-time production system (proof of concept)
+- A system that works globally (focus: LEMD bounding box)
