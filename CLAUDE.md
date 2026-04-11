@@ -54,17 +54,19 @@ Design approved. 5-week plan locked. Heading into Week 1 execution.
 
 **Timeline:** 5 weeks, ~24h/person/week. Option B (visual) CUT. Option C (Android Remote ID) stretch only post Week 4.
 
-**Notebooks (Colab-ready):**
+**Notebooks (reference only — not the prescribed path):**
 - `notebooks/01_data_recon.ipynb` — Week 1: OpenSky EDA
 - `notebooks/02_pipeline.ipynb` — Week 2: segmentation, features, IF baseline
 - `notebooks/03_lstm.ipynb` — Week 3: LSTM autoencoder training
 - `notebooks/04_evaluation.ipynb` — Week 4: full metrics, ablation
 
+The team writes their own code. Notebooks are one possible implementation — use as inspiration or ignore.
+
 **Shared data:** Google Drive folder `drone-ai-saturdays/data/` — mount in Colab as `/content/drive/MyDrive/drone-ai-saturdays/data/`.
 
 **Design doc:** `docs/architecture/design-trajectory-anomaly-detection.md`
 **All decisions:** `docs/decisions/README.md`
-**Week 1 task:** Register OpenSky research account (do today), run `01_data_recon.ipynb`, share summary in Discord.
+**Week 1 task:** See `docs/tasks/week1.md` — register OpenSky account, set up Drive, query LEMD data, share recon summary in Discord, set up CI and Streamlit skeleton.
 
 # gstack
 
