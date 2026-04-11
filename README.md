@@ -3,8 +3,11 @@
 Collaborative project for Saturdays.AI Madrid Deep Learning course.
 
 ## Team
-- txema-puch
-- *(add teammates here)*
+- Monica Gomez
+- Pablo Rodriguez Campos
+- Roberto Molero
+- Txema Puch
+  
 
 ## Project
 *(describe the project goal here once decided)*
