@@ -6,6 +6,19 @@ This is the working architecture. It will evolve as we narrow down the use case 
 
 ---
 
+## Active Design Doc
+
+**[design-trajectory-anomaly-detection.md](./design-trajectory-anomaly-detection.md)** — *2026-04-11, APPROVED*
+
+Full design for the selected approach: ADS-B trajectory anomaly detection on OpenSky data
+around Madrid Barajas (LEMD). Covers architecture, preprocessing, model (Isolation Forest
++ LSTM Autoencoder), evaluation, team division, 10-week milestone plan, and the assignment
+for Week 1. Read this before the architecture overview below.
+
+---
+
+---
+
 ## System Overview
 
 ```
