@@ -43,9 +43,23 @@ cp .env.example .env
 # Edit .env and fill in your values
 ```
 
-## Notebooks
+## Tasks
 
-Run these in Google Colab (T4 GPU for Week 3). Data lives in a shared Google Drive folder — mount it when prompted.
+Week-by-week task boards live in [`docs/tasks/`](docs/tasks/). Each file lists what needs to happen that week in plain language — no code, just objectives, owners, and checkboxes. Start here each session to know what to do.
+
+| Week | Focus | File |
+|---|---|---|
+| 1 | Data recon + Streamlit skeleton | [`docs/tasks/week1.md`](docs/tasks/week1.md) |
+| 2 | Pipeline, features, identity gate, IF baseline | [`docs/tasks/week2.md`](docs/tasks/week2.md) |
+| 3 | LSTM Autoencoder training | [`docs/tasks/week3.md`](docs/tasks/week3.md) |
+| 4 | Evaluation, demo polish, offline check | [`docs/tasks/week4.md`](docs/tasks/week4.md) |
+| 5 | Writeup, rehearsal, repo cleanup, v1.0 tag | [`docs/tasks/week5.md`](docs/tasks/week5.md) |
+
+## Notebooks (cheat sheet)
+
+This table is a quick reference — not a tutorial. Each notebook is self-contained and has markdown cells that explain what it does and why. Open it, read the intro cell, then run it top to bottom.
+
+Run in Google Colab (T4 GPU for Week 3). Data lives in a shared Google Drive folder — mount it when prompted.
 
 | Notebook | Week | What it does |
 |---|---|---|
