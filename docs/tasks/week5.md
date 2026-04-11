@@ -1,7 +1,6 @@
 # Week 5 — Writeup + Presentation
 
 **Status:** Not started
-**Owner(s):** All four people
 **Must ship by end of week:** v1.0 tag on GitHub, demo rehearsed twice, each person has their writeup section done
 
 ---
@@ -26,50 +25,45 @@ The demo must be rehearsed at least twice — once midweek (Wednesday), once bef
 
 ---
 
-## Writeup — one section per person
+## Tasks
+
+### Writeup
 
 The writeup structure (adapt to course format):
 
-| Section | Owner | What it covers |
-|---------|-------|----------------|
-| Introduction & Problem | P4 | Why drone detection matters, the LEMD use case, what the system does in plain language |
-| Data | P1 | OpenSky, what we queried, how many tracks, distributions, filtering choices |
-| Model | P2 | Isolation Forest baseline, LSTM Autoencoder architecture, training setup, why these choices |
-| Evaluation & Results | P3 | Metrics table, PR curve, ablation, success criteria, honest limitations |
+| Section | What it covers |
+|---------|----------------|
+| Introduction & Problem | Why drone detection matters, the LEMD use case, what the system does in plain language |
+| Data | OpenSky, what we queried, how many tracks, distributions, filtering choices |
+| Model | Isolation Forest baseline, LSTM Autoencoder architecture, training setup, why these choices |
+| Evaluation & Results | Metrics table, PR curve, ablation, success criteria, honest limitations |
 
-### Shared review (Wednesday session)
-- [ ] Each person posts their draft section in Discord
+- [ ] Each person drafts their section and posts it in Discord by Wednesday
 - [ ] Every other person reads each section and leaves one comment
   - Is the logic clear? Is there a claim that needs a number or citation?
 - [ ] Integrate feedback before Friday
+- [ ] All four sections integrated into one document
 
-### What makes a good writeup section
+**What makes a good writeup section:**
 - State what you did, why you did it, and what you found
 - Include one concrete number per paragraph
 - Acknowledge what didn't work or what you'd do differently
 - No filler. No "this project was a great learning experience."
 
----
-
-## Demo rehearsal
-
-### Rehearsal 1 — Wednesday
+### Demo rehearsal 1 — Wednesday
 - [ ] Run the full demo from scratch (cold start: open Streamlit, mount Drive if on Colab)
 - [ ] Time it: does it run in under 3 minutes for the core flow?
   - Core flow: show normal trajectory → show anomalous trajectory → explain the score difference → show identity gate status
 - [ ] What breaks? Write it down. Fix before rehearsal 2.
 
-### Rehearsal 2 — Before presentation
+### Demo rehearsal 2 — Before presentation
 - [ ] Run again — everything from rehearsal 1 must be fixed
 - [ ] Designate one person to talk, one person to drive (mouse/keyboard)
   - The driver does not speak. The speaker does not touch the keyboard.
   - This prevents "let me just quickly show you..." tangents
 - [ ] Practice answering: "Why not just use a camera?" and "How would this work with real illegal drones?"
 
----
-
-## Repo cleanup (P4)
-
+### Repo cleanup
 - [ ] `README.md` at the repo root: write or update it so a new person understands the project in 2 minutes
   - What it does, how to run the demo, where the data lives, link to the writeup
 - [ ] Remove any debug print statements or commented-out code from notebooks
