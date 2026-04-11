@@ -55,6 +55,10 @@ Collected references — papers, tools, platforms, and resources. Not all valida
 | GQRX | SDR receiver software | https://gqrx.dk/ |
 | Shapely | Geofence / polygon operations in Python | https://shapely.readthedocs.io/ |
 | Roboflow | Dataset management + YOLO training | https://roboflow.com/ |
+| OpenDroneID receiver-android | Android app to receive Remote ID (BLE + WiFi NAN). Apache 2.0. Base for stretch goal Option C. | https://github.com/opendroneid/receiver-android |
+| OpenDroneID (spec + libraries) | ASTM F3411 Remote ID standard implementation, multi-platform | https://github.com/opendroneid/opendroneid-core-c |
+| KrakenSDR | 5-channel coherent SDR for TDOA direction finding, ~€400 | https://www.krakenrf.com/ |
+| RTL-SDR v4 | Cheap SDR dongle (~€30), good for ADS-B + drone RF detection | https://www.rtl-sdr.com/ |
 
 ---
 

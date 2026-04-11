@@ -235,6 +235,59 @@ Option B — Visual tracking (higher effort, ~2-3 weeks if calibrated dataset fo
   video dataset includes GPS metadata or known ground control points. Otherwise,
   apply the normality model in pixel-space as a proof-of-concept only.
   Do not attempt camera calibration from scratch — it is out of scope.
+
+Option C — Crowdsourced Remote ID via Android smartphones (~1 week, feeds Layer 1)
+  Scope: extend the identity gate with real-time Remote ID detections from Android phones.
+  Not a trajectory source — this is a Layer 1 enhancement, not a Layer 2 input.
+
+  How it works:
+    DJI drones from 2021+ broadcast Remote ID (ASTM F3411) via:
+      - Bluetooth 4 Legacy Advertising (BLE)
+      - Bluetooth 5 Long Range (BLE)
+      - WiFi NAN (Neighbor Awareness Networking)
+    All three are receivable by standard Android phones without root, using public APIs.
+    The drone's broadcast contains: serial number, GPS position, pilot GPS position,
+    altitude, velocity. No triangulation needed — the drone reports its own position.
+
+  iOS limitation: CoreBluetooth on iOS strips Remote ID BLE advertising packets
+    before they reach apps. WiFi NAN is not available on iOS. iPhone users can
+    view the dashboard but cannot act as receivers. Android-only for detection.
+
+  SDK base: OpenDroneID receiver-android (github.com/opendroneid/receiver-android)
+    Apache 2.0 license. Handles BLE + WiFi NAN packet parsing and ASTM F3411
+    decoding. Fork this, add a backend reporting endpoint.
+
+  Architecture:
+    Android phones running forked OpenDroneID app
+      → detect Remote ID broadcast
+      → POST {serial, lat, lon, alt, velocity, pilot_lat, pilot_lon, timestamp}
+         to backend API
+      ↓
+    Backend (FastAPI, ~100 lines)
+      → receive reports from multiple phones
+      → cross-check serial against AESA registry
+      → if registered: CLEARED, feed into identity gate
+      → if unregistered: flag for Layer 2 anomaly scoring
+      ↓
+    Streamlit demo map
+      → show phone-detected drones as distinct marker type
+      → show pilot location (unique capability not available from ADS-B)
+      → show CLEARED / UNREGISTERED status per drone
+
+  Development estimate (with Claude Code): ~5 days total
+    Day 1-2: Fork OpenDroneID, add REST reporting to backend
+    Day 3:   FastAPI backend (receive, store, registry cross-check)
+    Day 4:   Wire into identity gate pipeline
+    Day 5:   Add to Streamlit demo map
+
+  Constraint: only covers Remote ID compliant drones (DJI 2021+, EU-compliant).
+    Pre-2021 and non-compliant drones remain invisible to this approach.
+    SDR hardware (KrakenSDR or RTL-SDR) remains the only path for those.
+
+  AENA outreach: worth contacting AENA innovation team (innovacion@aena.es) to ask
+    whether LEMD already has a counter-drone system and whether academic collaboration
+    is possible. Subject: "Proyecto académico detección drones — Saturdays.AI / AENA".
+    If they respond, the project gains a real-world validation context.
 ```
 
 ## 10-Week Milestone Plan
