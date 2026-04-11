@@ -45,7 +45,7 @@ cp .env.example .env
 
 ## Tasks
 
-Week-by-week task boards live in [`docs/tasks/`](docs/tasks/). Each file lists what needs to happen that week in plain language — no code, just objectives, owners, and checkboxes. Start here each session to know what to do.
+Week-by-week task boards live in [`docs/tasks/`](docs/tasks/). Each file lists what needs to happen that week — objectives, deliverables, and checkboxes. No person assignments, no prescribed implementation. Start here each session, pick up what makes sense for you, and figure out the code together.
 
 | Week | Focus | File |
 |---|---|---|
@@ -55,18 +55,18 @@ Week-by-week task boards live in [`docs/tasks/`](docs/tasks/). Each file lists w
 | 4 | Evaluation, demo polish, offline check | [`docs/tasks/week4.md`](docs/tasks/week4.md) |
 | 5 | Writeup, rehearsal, repo cleanup, v1.0 tag | [`docs/tasks/week5.md`](docs/tasks/week5.md) |
 
-## Notebooks (cheat sheet)
+## Notebooks
 
-This table is a quick reference — not a tutorial. Each notebook is self-contained and has markdown cells that explain what it does and why. Open it, read the intro cell, then run it top to bottom.
+Reference notebooks are in `notebooks/` — one per week, covering the same scope as the task boards. They are one possible implementation, not the prescribed one. Use them as inspiration if you're stuck, or ignore them and build your own approach.
 
 Run in Google Colab (T4 GPU for Week 3). Data lives in a shared Google Drive folder — mount it when prompted.
 
-| Notebook | Week | What it does |
+| Notebook | Week | Scope |
 |---|---|---|
-| `notebooks/01_data_recon.ipynb` | 1 | Pull OpenSky ADS-B data for LEMD bounding box, EDA, answer feasibility questions |
-| `notebooks/02_pipeline.ipynb` | 2 | Segment trajectories, engineer features, run Isolation Forest baseline |
-| `notebooks/03_lstm.ipynb` | 3 | Train LSTM Autoencoder, set anomaly threshold, save model weights |
-| `notebooks/04_evaluation.ipynb` | 4 | Evaluate both models, PR curve, ablation, success criteria check |
+| `notebooks/01_data_recon.ipynb` | 1 | OpenSky ADS-B query for LEMD bounding box, EDA |
+| `notebooks/02_pipeline.ipynb` | 2 | Trajectory segmentation, feature engineering, Isolation Forest |
+| `notebooks/03_lstm.ipynb` | 3 | LSTM Autoencoder training, anomaly threshold |
+| `notebooks/04_evaluation.ipynb` | 4 | Full metrics, PR curve, ablation |
 
 ## Data
 
