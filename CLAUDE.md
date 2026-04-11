@@ -44,8 +44,16 @@ cd .claude/skills/gstack && ./setup
 
 When the team makes a decision (use case, modality, dataset), record it in `docs/decisions/README.md`.
 
-## Project status (as of 2026-03-23)
-Definition phase — no use case, modality, or dataset committed yet. Four open decisions in `docs/decisions/README.md`. Planning document (original) at `/Users/txemapuch/Downloads/Private & Shared 5/🛰️ Saturdays AI Proyecto Identificación y Predicci 32a7e26c8c7e803294fed9edfb36ba98.md`.
+## Project status (as of 2026-04-11)
+Design approved, heading into Week 1 execution. All four decisions closed.
+
+**What we're building:** Two-layer unauthorized drone detection anchored to Madrid-Barajas (LEMD).
+- Layer 1: Identity gate — ICAO24 registry lookup + U-Space flight plan match
+- Layer 2: LSTM Autoencoder anomaly scorer trained on OpenSky ADS-B data
+
+**Design doc:** `docs/architecture/design-trajectory-anomaly-detection.md`
+**All decisions:** `docs/decisions/README.md`
+**Week 1 task:** One person registers OpenSky research account and runs data recon notebook on LEMD bounding box. See design doc section "The Assignment".
 
 # gstack
 

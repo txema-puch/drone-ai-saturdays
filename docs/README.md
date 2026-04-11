@@ -21,10 +21,14 @@ Use this as your Notion — everything lives here, versioned alongside the code.
 
 ## Current Status
 
-**Phase:** Definition — we haven't committed to a use case, dataset, or modality yet.
+**Phase:** Design approved — heading into Week 1 execution (data recon).
 
-**Open decisions (discuss with team):**
-- [ ] Which use case is the focus? → [Use Cases](./problem/use-cases.md)
-- [ ] Which signal modality? (ADS-B / visual / RF) → [Decisions](./decisions/README.md)
-- [ ] Multi-modal or single focus? → [Decisions](./decisions/README.md)
-- [ ] Which dataset(s) to use? → [Datasets](./research/datasets.md)
+**All four key decisions made on 2026-04-11. See [Decisions](./decisions/README.md) for rationale.**
+
+**What we're building:** Two-layer unauthorized drone detection system anchored to Madrid-Barajas (LEMD).
+- Layer 1: Identity gate (ICAO24 registry + U-Space flight plan lookup)
+- Layer 2: LSTM Autoencoder trajectory anomaly scorer trained on OpenSky ADS-B data
+
+**Week 1 task (one person):** Register OpenSky research account, pull one month of LEMD bounding box data, run the data recon notebook. See [design doc](./architecture/design-trajectory-anomaly-detection.md#the-assignment) for exact steps.
+
+**Design doc:** [architecture/design-trajectory-anomaly-detection.md](./architecture/design-trajectory-anomaly-detection.md) — read this first.
