@@ -41,6 +41,7 @@ cd .claude/skills/gstack && ./setup
 - `docs/architecture/README.md` — proposed system design (not committed)
 - `docs/decisions/README.md` — log of key decisions (use case, modality, dataset)
 - `docs/weekly/README.md` — session notes
+- `docs/tasks/README.md` — week-by-week task boards with checkboxes (one file per week)
 
 When the team makes a decision (use case, modality, dataset), record it in `docs/decisions/README.md`.
 
