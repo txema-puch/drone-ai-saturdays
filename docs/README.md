@@ -16,6 +16,7 @@ Use this as your Notion — everything lives here, versioned alongside the code.
 | [Architecture](./architecture/README.md) | Proposed system design |
 | [Decisions](./decisions/README.md) | Key choices the team needs to make / has made |
 | [Weekly](./weekly/README.md) | Session notes and progress log |
+| [Tasks](./tasks/README.md) | Week-by-week task boards with checkboxes — use these during sessions |
 
 ---
 
