@@ -45,15 +45,25 @@ cd .claude/skills/gstack && ./setup
 When the team makes a decision (use case, modality, dataset), record it in `docs/decisions/README.md`.
 
 ## Project status (as of 2026-04-11)
-Design approved, heading into Week 1 execution. All four decisions closed.
+Design approved. 5-week plan locked. Heading into Week 1 execution.
 
 **What we're building:** Two-layer unauthorized drone detection anchored to Madrid-Barajas (LEMD).
 - Layer 1: Identity gate — ICAO24 registry lookup + U-Space flight plan match
 - Layer 2: LSTM Autoencoder anomaly scorer trained on OpenSky ADS-B data
 
+**Timeline:** 5 weeks, ~24h/person/week. Option B (visual) CUT. Option C (Android Remote ID) stretch only post Week 4.
+
+**Notebooks (Colab-ready):**
+- `notebooks/01_data_recon.ipynb` — Week 1: OpenSky EDA
+- `notebooks/02_pipeline.ipynb` — Week 2: segmentation, features, IF baseline
+- `notebooks/03_lstm.ipynb` — Week 3: LSTM autoencoder training
+- `notebooks/04_evaluation.ipynb` — Week 4: full metrics, ablation
+
+**Shared data:** Google Drive folder `drone-ai-saturdays/data/` — mount in Colab as `/content/drive/MyDrive/drone-ai-saturdays/data/`.
+
 **Design doc:** `docs/architecture/design-trajectory-anomaly-detection.md`
 **All decisions:** `docs/decisions/README.md`
-**Week 1 task:** One person registers OpenSky research account and runs data recon notebook on LEMD bounding box. See design doc section "The Assignment".
+**Week 1 task:** Register OpenSky research account (do today), run `01_data_recon.ipynb`, share summary in Discord.
 
 # gstack
 

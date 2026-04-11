@@ -44,10 +44,12 @@ ways that can be scored.
 
 ## Constraints
 
-- 4-person team, ~10 weeks of a Deep Learning course
-- Python-first stack (uv-managed per CLAUDE.md)
+- 4-person team, 5 weeks of a Deep Learning course
+- Time budget: ~2-3h midweek + full weekend per person per week (~24h/person/week,
+  ~480 person-hours total across the team)
+- Python-first stack (uv-managed per CLAUDE.md); Colab T4 GPU available as fallback
 - Data must be publicly accessible (no proprietary sensors)
-- No camera infrastructure available — visual extension relies on existing video datasets
+- No camera infrastructure available — visual extension is cut from core scope
 - Course deliverable: working model + demo + writeup
 
 ## Premises (Revised)
@@ -215,28 +217,27 @@ Demo
   Threshold slider: adjustable in real time so audience sees precision/recall tradeoff
 ```
 
-### Stretch Goal: Non-ADS-B Extension
-
-This is independent of the core deliverable. Only attempt if core milestones
-(IF baseline by Week 3, LSTM by Week 6, evaluation by Week 8) are complete.
+### Stretch Goals (attempt only if Week 4 demo is complete and working)
 
 ```
-Option A — Simulated non-ADS-B trajectories (lower effort, ~1 week)
+Option A — Simulated non-ADS-B trajectories (~1 day effort)
   Generate trajectories using OpenSky flight patterns as templates, but add
   non-compliant behaviors (no ADS-B broadcast simulated by removing icao24).
   Apply normality model. Demonstrates source-agnostic detection conceptually.
+  This is the first stretch to attempt — low risk, high demo value.
 
-Option B — Visual tracking (higher effort, ~2-3 weeks if calibrated dataset found)
-  Use a drone video dataset with known camera parameters (required for coordinate
-  mapping — do not attempt without a pre-calibrated dataset).
-  YOLO fine-tuned on Roboflow drone dataset → detect drone per frame.
-  ByteTrack or DeepSORT → extract pixel-space trajectory.
-  Camera calibration: map pixel coordinates to approximate lat/lon ONLY if the
-  video dataset includes GPS metadata or known ground control points. Otherwise,
-  apply the normality model in pixel-space as a proof-of-concept only.
-  Do not attempt camera calibration from scratch — it is out of scope.
+Option B — Visual tracking [CUT from 5-week plan]
+  REASON: Requires 2-3 weeks and a calibrated video dataset (GPS metadata or
+  known ground control points). Neither the time nor the dataset is available.
+  Do not attempt. Revisit only if the course is extended or a follow-on project
+  is planned.
 
-Option C — Crowdsourced Remote ID via Android smartphones (~1 week, feeds Layer 1)
+  If revisiting: YOLO fine-tuned on Roboflow drone dataset → detect per frame →
+  ByteTrack/DeepSORT → pixel-space trajectory. Only useful if dataset includes
+  GPS metadata or known ground control points for coordinate mapping. Do not
+  attempt camera calibration from scratch.
+
+Option C — Crowdsourced Remote ID via Android smartphones (~1 week, stretch only after Week 4)
   Scope: extend the identity gate with real-time Remote ID detections from Android phones.
   Not a trajectory source — this is a Layer 1 enhancement, not a Layer 2 input.
 
@@ -290,56 +291,62 @@ Option C — Crowdsourced Remote ID via Android smartphones (~1 week, feeds Laye
     If they respond, the project gains a real-world validation context.
 ```
 
-## 10-Week Milestone Plan
+## 5-Week Plan
 
-| Week | Milestone | Owner(s) | Deliverable |
-|------|-----------|----------|-------------|
-| 1 | Data recon | P1 | OpenSky query working, data inspected, track count known |
-| 2 | Data pipeline | P1 | Segmented, interpolated, normalized dataset ready |
-| 3 | IF baseline | P2 | Isolation Forest trained, AUROC on injected anomalies reported |
-| 4 | Anomaly injection | P3 | Synthetic anomaly set built, sanity check passed |
-| 5 | LSTM architecture | P2 | LSTM autoencoder training, loss curves stable |
-| 6 | LSTM evaluation | P2+P3 | AUROC, F1, FPR reported, comparison vs. IF baseline |
-| 7 | Demo MVP | P4 | Folium map animates one trajectory with anomaly score |
-| 8 | Full evaluation | P3 | Ablation study done, restricted zone polygon sourced (or dropped) |
-| 9 | Demo polish + writeup | All | Interactive demo, complete writeup draft |
-| 10 | Presentation | All | Final slides, demo rehearsed, repo clean |
+**Total budget:** ~24h/person/week × 4 people × 5 weeks = ~480 person-hours.
+Hard parallelism across people every week. No week ends without a working artifact.
 
-## Team Division
+| Week | Theme | Must ship | Hard stop |
+|------|-------|-----------|-----------|
+| 1 | Foundation | EDA notebook with histograms, Streamlit skeleton running, CI green | If OpenSky bulk access not ready: use live REST API fallback, do not block |
+| 2 | Pipeline + IF baseline | Processed Parquet file checked in (Google Drive), identity gate working, IF AUROC > 0 reported | IF AUROC < 0.65: fix feature engineering before Week 3 starts |
+| 3 | LSTM training | LSTM weights saved + training curve plotted, demo wired to real model scores | If LSTM loss not converging by Saturday: ship IF-only demo, do not wait |
+| 4 | Integration + demo polish | Full metrics (AUROC, F1, FPR), end-to-end pipeline, anomaly injection test set done | Demo must work end-to-end on a laptop with no external calls |
+| 5 | Writeup + presentation | Each person owns one writeup section, demo rehearsed, v1.0 tag pushed | No new features in Week 5. Polish and document only |
+
+### Team Assignments
 
 ```
-Person 1 — Data & Pipeline (Weeks 1-2, then support)
-  OpenSky research account registration → bulk data download
-  Trajectory segmentation (60s gap rule, 10-step minimum)
-  Feature engineering, normalization, train/val/test split
-  Writeup section: Data
+Person 1 — Data & Pipeline (leads Week 1-2, supports Week 3-4)
+  Register OpenSky research account (do this today)
+  Week 1: Pull LEMD data, EDA notebook (01_data_recon.ipynb), histograms
+  Week 2: Trajectory segmentation, feature engineering, Parquet export
+  Week 3+: Support model team with data questions, run preprocessing changes
+  Writeup: Data section
 
-Person 2 — Models (Weeks 3-6)
-  Isolation Forest on trajectory features (Milestone 1)
-  LSTM Autoencoder architecture + training (Milestone 2)
-  Threshold selection (95th percentile method)
-  Hyperparameter tuning
-  Writeup section: Model
+Person 2 — Models (leads Week 2-3)
+  Week 2: Isolation Forest on trajectory feature vectors, AUROC reported
+  Week 3: LSTM Autoencoder — architecture, training loop, loss curves
+  Week 3 hard stop Saturday: if loss not stable, flag immediately
+  Week 4: Threshold selection (95th pct), hyperparameter sweep if time
+  Writeup: Model section
 
-Person 3 — Evaluation & Anomaly Injection (Weeks 4-8)
-  Synthetic anomaly generation (4 types)
-  Sanity check: rule-based geofence baseline < 0.80 AUROC
-  Metrics: AUROC, F1, FPR, PR curve
-  Ablation study
-  Writeup section: Evaluation & Results
+Person 3 — Evaluation (leads Week 2-4)
+  Week 2: Identity gate — ICAO24 CSV lookup, unit tests
+  Week 3: Synthetic anomaly injection (4 types), labels ready for Week 4
+  Week 4: AUROC, F1, FPR, PR curve, ablation (with/without in_restricted_zone)
+  Verify geofence baseline scores < 0.80 AUROC (confirms ML adds value)
+  Writeup: Evaluation & Results section
 
-Person 4 — Demo & Integration (Weeks 7-10)
-  Folium/Streamlit animated map
-  End-to-end inference pipeline (load model → score trajectory → display)
-  Threshold slider in demo
-  Writeup section: Introduction & Conclusion
-  Coordinates final repo cleanup and presentation
-  Stretch: visual tracking extension (Option A first, Option B if time permits)
-  
-Shared (all 4 people, Week 9)
-  Writeup review and cross-section integration
-  Demo rehearsal and feedback
+Person 4 — DevOps + Demo (owns infra and integration throughout)
+  Week 1: CI setup (GitHub Actions), shared Google Drive data folder, .env template
+  Week 2: Streamlit skeleton with animated map, threshold slider (stub)
+  Week 3: Wire demo to real model (load weights, score live trajectory)
+  Week 4: End-to-end polish, anomaly overlay on map, identity gate status display
+  Week 5: Demo rehearsal coordinator, repo cleanup, v1.0 tag
+  Writeup: Introduction & Conclusion section
+
+Shared (all 4 people, Week 5)
+  Writeup cross-section review and integration
+  Demo rehearsal × 2 (once Wednesday, once before presentation)
 ```
+
+### Risks
+
+| Risk | Mitigation |
+|------|------------|
+| OpenSky research account delayed (>3 days) | Register today. Use live REST API fallback while waiting — it covers last 1h and is enough for EDA. |
+| LSTM convergence failure (loss plateaus) | Isolation Forest baseline is the fallback demo. Hard stop Saturday Week 3: ship IF demo if LSTM isn't working. Don't chase a broken training loop into Week 4. |
 
 ## Open Questions
 
