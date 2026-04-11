@@ -16,17 +16,31 @@ as a stretch goal, visually-tracked or simulated non-ADS-B trajectories.
 
 ## What Makes This Cool
 
-The key insight: you don't need labeled "hostile" data to build an anomaly detector.
-You only need labeled "normal" data — and ADS-B gives you that in abundance for free.
-The system learns the distribution of authorized flight patterns (altitude bands, speed
-profiles, approach/departure corridors, restricted zone avoidance) and flags anything
-that doesn't fit. No intent classification. No synthetic "hostile" label. Just
-"this trajectory is statistically unusual for this context."
+The system operates in two layers, and understanding why both are needed is the core
+of the design.
 
-The stretch goal (applying to non-ADS-B trajectories via visual tracking) bridges
-the fundamental gap in drone detection: most illegal drones don't broadcast. If the
-normality model is source-agnostic (it takes [lat, lon, alt, speed, heading] sequences),
-it can score any trajectory regardless of how it was obtained.
+**Layer 1 — Identity-based authorization (fast, cheap):** If an incoming track can be
+identified as a known authorized vehicle (via ICAO24 registry lookup or U-Space flight
+plan match), it is pre-cleared and exits the pipeline. No ML needed. This eliminates
+the vast majority of legitimate traffic from anomaly scoring.
+
+**Layer 2 — Behavior-based anomaly detection (ML):** For tracks that cannot be
+identified — unregistered drones, spoofed transponders, non-ADS-B vehicles — the system
+scores the trajectory against a learned normality model. You don't need labeled "hostile"
+data to build this detector. You only need labeled "normal" data, and ADS-B gives you
+that in abundance for free. The system learns the distribution of authorized flight
+patterns (altitude bands, speed profiles, approach/departure corridors, restricted zone
+avoidance) and flags anything that doesn't fit. No intent classification. No synthetic
+"hostile" label. Just "this trajectory is statistically unusual for this context."
+
+Layer 2 also runs as a sanity check on Layer 1 clearances: a registered drone deviating
+wildly from its filed flight plan is still anomalous even if its identity is valid.
+
+The normality model is source-agnostic: it takes [lat, lon, alt, speed, heading]
+sequences regardless of how those coordinates were obtained. RF triangulation, visual
+tracking, or ADS-B — all feed the same scorer. This bridges the fundamental detection
+gap: most illegal drones don't broadcast ADS-B, but they do move through space in
+ways that can be scored.
 
 ## Constraints
 
@@ -91,6 +105,38 @@ Data Layer
   a free research account at opensky-network.org — register before Week 1 data recon.
   If bulk access is delayed, use the /flights/aircraft endpoint with icao24 for
   individual plane histories as a fallback.
+
+Layer 1 — Identity Gate (inference only, not needed for training)
+  Purpose: pre-clear known authorized vehicles before anomaly scoring.
+  Eliminates the majority of legitimate traffic from ML inference.
+
+  Check 1 — ICAO24 registry lookup:
+    Query AESA registry (Spain's aviation authority) or OpenSky aircraft database.
+    If icao24 maps to a registered operator with valid authorization: CLEARED.
+    OpenSky provides a free aircraft database CSV (~500k entries) at
+    opensky-network.org/datasets#acas — download once, query locally in O(1).
+
+  Check 2 — U-Space flight plan match (stretch, if API available):
+    Spain is implementing U-Space (EU 2021/664). Authorized drone operators file
+    digital flight plans before flying. If a matching active plan exists for this
+    vehicle at this time: CLEARED.
+    ENAIRE developer API: developer.enaire.es (access may require registration).
+
+  Check 3 — DJI Remote ID (if RF receiver is present):
+    DJI drones from 2021+ broadcast serial number + GPS position via Remote ID.
+    Cross-check serial against AESA drone registry. If registered: CLEARED.
+
+  Result routing:
+    CLEARED → passive monitoring (log trajectory, no anomaly scoring)
+    UNIDENTIFIED or NO_MATCH → proceed to Layer 2
+    CLEARED but behavior deviates from filed plan → also proceed to Layer 2
+
+  Identity gate failure modes (why Layer 2 is still needed):
+    - Spoofed ICAO24: attacker rebroadcasts a valid code on a different vehicle
+    - Registry lag: newly registered drone not yet in local cache
+    - Pre-2021 consumer drones: no Remote ID, no ICAO24, unidentifiable by design
+    - Non-DJI drones without transponder: RF detection only, no identity available
+    These cases are exactly what Layer 2 is designed to catch.
 
 Normality Population Definition
   All state vectors that pass the geographic + altitude/speed filter are treated as
@@ -270,10 +316,13 @@ Shared (all 4 people, Week 9)
   (sanity check: rule-based geofence baseline must score < 0.80 on same test set,
   confirming the ML approach adds value beyond simple rules)
 - FPR ≤ 15% on normal trajectories at the 95th-percentile threshold
-- Demo animates a full trajectory with real-time anomaly score updating per step
+- Identity gate correctly clears known ICAO24s from the OpenSky aircraft database
+  (verified on a sample of 50+ registered aircraft in the test set)
+- Demo animates a full trajectory with real-time anomaly score updating per step,
+  showing identity gate status (CLEARED / UNIDENTIFIED) alongside anomaly score
 - Inference runs < 1s per trajectory segment on a laptop (no GPU required for demo)
-- Writeup explains in plain language why anomaly detection sidesteps the intent
-  labeling problem that makes "hostile" classification infeasible
+- Writeup explains in plain language why identity-based and behavior-based detection
+  are complementary, and why neither alone is sufficient
 
 ## Distribution Plan
 
