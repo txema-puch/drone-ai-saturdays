@@ -2,7 +2,7 @@
 
 Saturdays.AI Madrid Deep Learning course project (March 2026). 4-person team, collaborative.
 Repo: https://github.com/txema-puch/drone-ai-saturdays
-Local: `/Users/txemapuch/Claude/Claude Saturdays AI/drone-saturdays AI`
+Local: `/Users/txemapuch/Claude/drone-ai-saturdays`
 
 ## Teammate setup (run once after cloning)
 
@@ -35,10 +35,10 @@ cd .claude/skills/gstack && ./setup
 ## Project workspace
 `docs/` is the shared working space — treat it like Notion. Key files:
 - `docs/README.md` — navigation index
-- `docs/problem/use-cases.md` — 8 use case scenarios + team vote table
+- `docs/problem/use-cases.md` — use case decision log (D-001 closed: airports/LEMD selected)
 - `docs/research/datasets.md` — all datasets found, with status and notes
 - `docs/research/links.md` — papers, tools, APIs, categorized
-- `docs/architecture/README.md` — proposed system design (not committed)
+- `docs/architecture/design-trajectory-anomaly-detection.md` — full approved design doc (two-layer system, 5-week plan, feature spec, evaluation criteria)
 - `docs/decisions/README.md` — log of key decisions (use case, modality, dataset)
 - `docs/weekly/README.md` — session notes
 - `docs/tasks/README.md` — week-by-week task boards with checkboxes (one file per week)
