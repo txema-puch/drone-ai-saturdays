@@ -10,7 +10,18 @@ Collaborative project for Saturdays.AI Madrid Deep Learning course.
   
 
 ## Project
-*(describe the project goal here once decided)*
+
+Unauthorized drone detection system anchored to Madrid-Barajas Airport (LEMD), built for the Saturdays.AI Madrid Deep Learning course.
+
+**Two-layer approach:**
+1. **Identity gate** — checks ICAO24 transponder codes against the OpenSky aircraft registry and U-Space flight plans. Known aircraft pass instantly. Unknown transponders go to Layer 2.
+2. **LSTM Autoencoder anomaly scorer** — trained on months of normal ADS-B trajectories around LEMD. Flags trajectories whose reconstruction error exceeds the 95th percentile of the validation set. Anomaly score is per-trajectory MSE.
+
+The system takes live ADS-B data from OpenSky Network and outputs a risk score + identity gate status for each track. A Streamlit demo (`demo.py`) visualizes trajectories on a Folium map with green/yellow/red color coding.
+
+**What we're NOT doing:** visual/camera-based detection (cut for timeline) and Android Remote ID (stretch goal only after Week 4).
+
+Full design: [`docs/architecture/design-trajectory-anomaly-detection.md`](docs/architecture/design-trajectory-anomaly-detection.md)
 
 ## Setup
 
@@ -32,16 +43,44 @@ cp .env.example .env
 # Edit .env and fill in your values
 ```
 
+## Notebooks
+
+Run these in Google Colab (T4 GPU for Week 3). Data lives in a shared Google Drive folder — mount it when prompted.
+
+| Notebook | Week | What it does |
+|---|---|---|
+| `notebooks/01_data_recon.ipynb` | 1 | Pull OpenSky ADS-B data for LEMD bounding box, EDA, answer feasibility questions |
+| `notebooks/02_pipeline.ipynb` | 2 | Segment trajectories, engineer features, run Isolation Forest baseline |
+| `notebooks/03_lstm.ipynb` | 3 | Train LSTM Autoencoder, set anomaly threshold, save model weights |
+| `notebooks/04_evaluation.ipynb` | 4 | Evaluate both models, PR curve, ablation, success criteria check |
+
+## Data
+
+Large files are not committed. Everything lives in Google Drive: `drone-ai-saturdays/data/`.
+
+Mount in Colab:
+```python
+from google.colab import drive
+drive.mount('/content/drive')
+DATA_DIR = '/content/drive/MyDrive/drone-ai-saturdays/data'
+```
+
+Locally, put files under `data/` (gitignored). Trained model weights go in `models/` (also gitignored — share via Drive or Hugging Face Hub link in the release README).
+
 ## Structure
 
 ```
-data/           # Datasets (not committed — too large for git)
-  raw/          # Original, unprocessed data
-  processed/    # Train/test splits
-models/         # Trained model artifacts (not committed)
-notebooks/      # Jupyter notebooks for exploration
-src/            # Source code / modules
-tests/          # Tests
+notebooks/      # Colab-ready notebooks (01–04)
+src/            # Source modules (imported by notebooks)
+docs/
+  architecture/ # System design doc
+  tasks/        # Week-by-week task boards (plain language, no code)
+  decisions/    # Key decisions log
+  research/     # Dataset notes, links, papers
+  weekly/       # Session notes
+demo.py         # Streamlit animated map (Week 1 skeleton, wired in Week 2+)
+data/           # Not committed — too large for git
+models/         # Not committed — share via Drive
 ```
 
 ## Working with Claude Code + gstack
