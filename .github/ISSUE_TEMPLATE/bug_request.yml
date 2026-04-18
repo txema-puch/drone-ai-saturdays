@@ -1,0 +1,39 @@
+name: ⛔ Fix error Request
+description: Fix issue
+title: "[Fix]: "
+labels: ["fix"]
+assignees: []
+# projects: [Factoria-F5-madrid/47]
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please complete the following information to describe your proposal
+
+  # - type: input
+  #   id: fix_title
+  #   attributes:
+  #     label: Fix title
+  #     placeholder: Brief description of what needs to be fixed
+  #   validations:
+  #     required: true
+
+  - type: textarea
+    id: fix_description
+    attributes:
+      label: Detailed description
+      placeholder: What needs to be fixed?
+    validations:
+      required: true
+
+  # - type: dropdown
+  #   id: priority
+  #   attributes:
+  #     label: Priority
+  #     options:
+  #       - High
+  #       - Medium
+  #       - Low
+  #   validations:
+  #     required: true

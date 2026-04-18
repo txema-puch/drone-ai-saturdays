@@ -1,0 +1,39 @@
+name: 🗂️ Chore Request
+description: Add chore
+title: "[Chore]: "
+labels: ["chore"]
+assignees: []
+# projects: [Factoria-F5-madrid/34]
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please complete the following information to describe your proposal
+
+  # - type: input
+  #   id: test_title
+  #   attributes:
+  #     label: Chore title
+  #     placeholder: Brief description of the chore
+  #   validations:
+  #     required: true
+
+  - type: textarea
+    id: test_description
+    attributes:
+      label: Detailed description
+      placeholder: What needs to be done?
+    validations:
+      required: true
+
+  # - type: dropdown
+  #   id: priority
+  #   attributes:
+  #     label: Priority
+  #     options:
+  #       - High
+  #       - Medium
+  #       - Low
+  #   validations:
+  #     required: true

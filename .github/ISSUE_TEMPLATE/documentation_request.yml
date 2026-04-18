@@ -1,0 +1,39 @@
+name: 📚 Documentation Request
+description: Add/update documentation
+title: "[Documentation]: "
+labels: ["documentation"]
+assignees: []
+# projects: [Factoria-F5-madrid/34]
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please complete the following information to describe your proposal
+
+  # - type: input
+  #   id: doc_title
+  #   attributes:
+  #     label: Documentation title
+  #     placeholder: Brief description of the documentation task
+  #   validations:
+  #     required: true
+
+  - type: textarea
+    id: doc_description
+    attributes:
+      label: Detailed description
+      placeholder: What needs to be documented or updated?
+    validations:
+      required: true
+
+  # - type: dropdown
+  #   id: priority
+  #   attributes:
+  #     label: Priority
+  #     options:
+  #       - High
+  #       - Medium
+  #       - Low
+  #   validations:
+  #     required: true

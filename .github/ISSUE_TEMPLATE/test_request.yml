@@ -1,0 +1,39 @@
+name: 🚧 Test Request
+description: Add unit test
+title: "[Test]: "
+labels: ["unit test"]
+assignees: []
+# projects: [Factoria-F5-madrid/34]
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please complete the following information to describe your proposal
+
+  # - type: input
+  #   id: test_title
+  #   attributes:
+  #     label: Unit Test title
+  #     placeholder: Brief description of test or tests
+  #   validations:
+  #     required: true
+
+  - type: textarea
+    id: test_description
+    attributes:
+      label: Detailed description
+      placeholder: What needs to be tested?
+    validations:
+      required: true
+
+  # - type: dropdown
+  #   id: priority
+  #   attributes:
+  #     label: Priority
+  #     options:
+  #       - High
+  #       - Medium
+  #       - Low
+  #   validations:
+  #     required: true
