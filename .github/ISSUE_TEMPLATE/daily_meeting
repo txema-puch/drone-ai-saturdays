@@ -1,0 +1,19 @@
+name: 👥 Daily meeting
+description: Daily meeting summary
+title: "[Daily meeting]: "
+labels: ["daily"]
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please enter summary of the meeting:
+
+  - type: textarea
+    id: meeting_summary
+    attributes:
+      label: Meeting summary
+      placeholder: Meeting Summary
+    validations:
+      required: true

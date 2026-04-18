@@ -1,0 +1,39 @@
+name: 📝 Task Request
+description: Work on an assigned task (no code)
+title: "[Task]: "
+labels: ["task"]
+assignees: []
+# projects: [Factoria-F5-madrid/34]
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please complete the following information to describe your proposal
+
+  # - type: input
+  #   id: task_title
+  #   attributes:
+  #     label: Task title
+  #     placeholder: Brief description of the task
+  #   validations:
+  #     required: true
+
+  - type: textarea
+    id: task_description
+    attributes:
+      label: Detailed description
+      placeholder: What needs to be tested?
+    validations:
+      required: true
+
+  # - type: dropdown
+  #   id: priority
+  #   attributes:
+  #     label: Priority
+  #     options:
+  #       - High
+  #       - Medium
+  #       - Low
+  #   validations:
+  #     required: true
