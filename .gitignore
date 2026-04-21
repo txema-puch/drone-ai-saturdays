@@ -55,6 +55,8 @@ coverage.xml
 ########################################
 data/
 backend/models/
+backend/docs/
+backend/notebooks/
 
 ########################################
 # Node/Frontend                        #
