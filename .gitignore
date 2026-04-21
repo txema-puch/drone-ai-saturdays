@@ -37,6 +37,7 @@ __pycache__/
 htmlcov/
 nosetests.xml
 coverage.xml
+.docs/
 
 ########################################
 # IDE/editor config                    #
