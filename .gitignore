@@ -1,34 +1,78 @@
-# Secrets — never commit these
+########################################
+# Secrets y archivos de entorno        #
+########################################
 .env
+.env.*
+!.env.example
 
-# Python virtual environment — each person creates their own locally
+########################################
+# Python virtual environments          #
+########################################
 .venv/
+venv/
+env/
 
-# Python build artifacts
+########################################
+# Python build artifacts y cachés      #
+########################################
 __pycache__/
-*.py[cod]
+*.pyc
 *.pyo
-build/
-dist/
+*.pyd
 *.egg-info/
+.mypy_cache/
+.pytest_cache/
+.cache/
+.tox/
+*.so
+*.dll
+*.dylib
+*.exe
+*.bin
+*.bak
+*~
+*.swp
+*.swo
+.coverage
+htmlcov/
+nosetests.xml
+coverage.xml
 
-# Large files that don't belong in git (datasets, model weights)
-# Track the folder structure (.gitkeep) but ignore actual data files
-data/raw/*
-!data/raw/.gitkeep
-data/processed/train/*
-!data/processed/train/.gitkeep
-data/processed/test/*
-!data/processed/test/.gitkeep
-models/*.pt
-models/*.bin
-models/*.safetensors
+########################################
+# IDE/editor config                    #
+########################################
+.vscode/
+.idea/
 
-# Jupyter checkpoints
-.ipynb_checkpoints/
+########################################
+# Jupyter Notebooks                    #
+########################################
+*.ipynb_checkpoints
 
-# macOS
+########################################
+# Datos y modelos                      #
+########################################
+data/
+backend/models/
+
+########################################
+# Node/Frontend                        #
+########################################
+node_modules/
+dist/
+build/
+out/
+.next/
+coverage/
+*.tsbuildinfo
+
+########################################
+# Archivos del sistema                 #
+########################################
 .DS_Store
+Thumbs.db
 
-# uv lockfile is committed (reproducibility), but not the venv
-uv.lock
+########################################
+# Otros                                #
+########################################
+*.lock
