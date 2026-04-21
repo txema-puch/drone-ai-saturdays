@@ -6,17 +6,89 @@ Status key: `🔍 Not explored` | `⚠️ In progress` | `✅ Validated` | `❌ 
 
 ---
 
-## ADS-B / Trajectory
+## ADS-B / Trajectory — the in-scope modality (post 2026-04-11 design freeze)
 
-### OpenSky Network
+Organized by friction to access. Tier 1 = use today, no gate.
+
+### Tier 1 — Free, no application, usable today
+
+#### OpenSky REST API (authenticated free tier) ⭐ WEEK-1 ENTRY POINT
+- **Status:** 🔍 Not explored — scheduled for Week 1
+- **URL:** https://openskynetwork.github.io/opensky-api/rest.html
+- **What it is:** Live + 1h-historical ADS-B state vectors (lat/lon/alt, velocity, heading, callsign, ICAO24, squawk, on-ground flag).
+- **Quota:** 4,000 credits/day authenticated (OAuth2 client). `/states/all` with LEMD bbox costs 1–4 credits/call → ~1 call/min well within budget.
+- **LEMD bbox:** `lamin=40.3, lomin=-3.8, lamax=40.7, lomax=-3.3` (≈ 40 NM around ADLER/LEMD).
+- **Role:** Primary live-harvest source for our own 5-week LEMD state-vector dataset if Trino/ADRR don't arrive in time.
+- **Notes:** `/flights/arrival` and `/flights/departure` are historical (nightly batch) and free with auth — good for Layer-1 flight roster.
+
+#### OpenSky Scientific Datasets — Zenodo "Crowdsourced air traffic data 2019–2022"
 - **Status:** 🔍 Not explored
-- **URL:** https://opensky-network.org/
-- **What it is:** Global community network of ADS-B receivers. Covers drones and aircraft that broadcast a transponder signal. Free REST API + historical data.
-- **Signal:** Position (lat/lon/alt), speed, heading, callsign — updated every 10-30s
-- **Coverage (Spain):** ~15-20 active receivers around Madrid, ~50km combined radius
-- **Key limitation:** Only captures drones WITH a transponder. Illegal drones (~70-95%) won't appear. Their absence is itself a signal.
-- **Access:** Free account at https://opensky-network.org/ — API key not required for basic use
-- **Notes:** Best starting point. 11 years of historical data available.
+- **URL:** https://zenodo.org/records/7923702 — **DOI: 10.5281/zenodo.7923702**
+- **Paper:** [ESSD — Crowdsourced Air Traffic Data from the OpenSky Network 2019–2020](https://essd.copernicus.org/articles/13/357/2021/)
+- **What it is:** One gzipped CSV per month, ~42M flights. Fields: `callsign, icao24, registration, typecode, origin, destination, firstseen, lastseen, latitude_1/2, longitude_1/2, altitude_1/2`.
+- **⚠️ Critical limitation:** Flight-level summaries only — **not** time-series state vectors. One row per flight with first/last position. Useful for Layer-1 (identity/flight roster) and baseline traffic statistics, but **insufficient for training the LSTM autoencoder** on Layer-2.
+- **License:** Other (Non-Commercial). Saturdays.AI educational use is fine.
+- **Coverage:** Jan 2019 – Dec 2022. No longer updated.
+
+### Tier 2 — Free but requires application / Terms of Use
+
+#### EUROCONTROL R&D Data Archive (ADRR) ⭐ STRONG CANDIDATE
+- **Status:** 🔍 Not explored — apply early
+- **URL:** https://www.eurocontrol.int/dashboard/rnd-data-archive
+- **What it is:** 27M European commercial flights (2015–2024), avg 3M/year. Includes **detailed flight information + planned AND actual trajectories + airspace structure + route network**.
+- **Why it fits our architecture:** The "planned vs actual" pairing mirrors our two-layer design (flight-plan match + trajectory anomaly) in a single dataset. LEMD traffic is covered.
+- **Eligibility:** "Open for all R&D use" — no university affiliation required. Register OneSky Online → request access → sign Terms of Use → download.
+- **Format:** Downloadable after login; "Structure and Sample" user guide (April 2025) describes schema.
+
+#### OpenSky Trino (historical SQL database)
+- **Status:** 🔍 Not explored — application uncertain
+- **URL:** https://openskynetwork.github.io/opensky-api/trino.html
+- **What it is:** Full historical SQL interface — 12 tables, main one is `state_vectors_data4` (10s-sampled pos/vel/status). Also `flights_data4`, `identification_data4`, `acas_data4`, `adsc`, `allcall_replies_data4`, `flarm_raw`.
+- **Eligibility:** "University-affiliated researchers, governmental organisations, and aviation authorities." Saturdays.AI is educational, not a university — approval is **not guaranteed**. Pitch needs to lean on open-source + Medium article commitments.
+- **Limits:** 2 concurrent + 2 queued queries, 30 min/query max. State vectors retained indefinitely; other tables ~1 year.
+- **Access:** My OpenSky → Request Data Access.
+
+#### ADS-B Exchange historical
+- **Status:** 🔍 Not explored
+- **URL:** https://www.adsbexchange.com/products/historical-data/ — S3 access: https://www.adsbexchange.com/pull-data/
+- **What it is:** S3 buckets `adsbx-YYYY-readsb-hist`, `adsbx-YYYY-traces`, `adsbx-YYYY-hires-traces`. "Recent" buckets hold last 90 days live-updated.
+- **Free tier:** First-of-the-month data free for non-commercial researchers. Saturdays.AI qualifies.
+- **Why it's interesting:** Unfiltered feed — includes military/blocked aircraft OpenSky sometimes strips. Potentially useful for the "anomaly" story (aircraft that try to hide).
+- **License:** Non-commercial only. Commercial license required for paid use.
+
+### Tier 3 — Gated, skip
+
+#### EUROCONTROL DDR2
+- **Status:** ❌ Rejected — ANSPs and airline operators only. Use ADRR instead.
+- **URL:** https://www.eurocontrol.int/ddr
+
+### Spanish / LEMD-specific public sources
+
+#### ENAIRE UAS geographical zones (AIP Spain)
+- **Status:** 🔍 Not explored
+- **URL:** https://aip.enaire.es/aip/UAS-en.html
+- **What it is:** Public UAS no-fly / restricted zones around Spanish airports including LEMD. Sourced from AIP España.
+- **Role:** Layer-1 geofence input. A drone inside the LEMD CTR U-Space zone without prior authorization is by definition anomalous.
+- **No public API for individual flight plans** — ENAIRE Planea (flight-plan management) is operator-only. Plan to use **zone polygons**, not per-drone plans.
+
+#### AIXM / AIP Spain via Eurocontrol AIX Confluence
+- **Status:** 🔍 Not explored
+- **URL:** https://ext.eurocontrol.int/aixm_confluence/display/AIX/Spain
+- **What it is:** Airspace structure, runway thresholds, approach corridors in AIXM exchange format.
+
+### Python libraries (tooling, not data)
+
+- **pyopensky** — https://github.com/open-aviation/pyopensky — Python interface for both REST and Trino. PyPI: `pyopensky`.
+- **traffic** — https://traffic-viz.github.io/ — High-level trajectory handling library on top of pyopensky. Built-in airport filtering, trajectory segmentation, resampling.
+
+### Drone-specific anomaly datasets (evaluation / related work only)
+
+Neither is ADS-B — cited as related work in the Medium article, not used for training:
+
+- **UAV-SEAD** — https://arxiv.org/abs/2602.13900 — 1,396 real flight logs, 52h, labelled state-estimation anomaly classes. UAV-side IMU/GPS.
+- **ALFA (CMU)** — 47 UAV flights, 37 with labelled faults (engine/aileron/rudder/elevator) and failure timestamps.
+
+---
 
 ---
 
@@ -241,3 +313,24 @@ The team should pick ONE approach and commit, rather than attempting full RF+vis
 ## Exploration notes
 
 > Add notes here as you explore each dataset. What's the format? How many samples? Is it labeled? Any quality issues?
+
+---
+
+## Research Notes — ADS-B data access (2026-04-21)
+
+> Recorded after systematic review of OpenSky Trino docs, Zenodo, EUROCONTROL, ADS-B Exchange, and ENAIRE.
+
+**Saturdays.AI is educational, not university-affiliated** — Trino approval is therefore uncertain. The project needs a Plan A that doesn't depend on it.
+
+**Recommended priority order:**
+
+1. **EUROCONTROL ADRR** — apply first. Explicitly "open for all R&D use", 27M flights 2015–2024, includes planned *and* actual trajectories for European traffic. Lowest-friction path to a serious dataset that already pairs the two signals our architecture needs.
+2. **OpenSky REST (authenticated)** — start harvesting LEMD bbox immediately in parallel. 4k credits/day covers ~1 call/min with no gate; three weeks of collection = usable training set.
+3. **OpenSky Trino** — apply as a nice-to-have. Pitch strength lives in open-source + Medium commitments. If denied, project still ships.
+4. **Zenodo 2019–2022 flightlist** — useful only for Layer-1 (flight roster / Origin-Destination baselines). **Do not train Layer-2 on it** — it's not state-vector data.
+5. **ADS-B Exchange** — hedge. One free month for cross-validation against OpenSky coverage.
+
+**What changed from the original design doc assumption:**
+- Design doc assumes OpenSky Trino as primary source. Eligibility text ("university-affiliated") makes that a risk we didn't account for.
+- EUROCONTROL ADRR emerged as a serious alternative that was not on our radar and arguably fits the two-layer architecture better.
+- Zenodo dataset is flight-level only, not the hourly state-vector dumps we assumed existed. Schema verified from DOI 10.5281/zenodo.7923702.
