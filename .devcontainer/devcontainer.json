@@ -1,0 +1,39 @@
+
+// For format details, see https://aka.ms/devcontainer.json. For config options, see the
+// README at: https://github.com/devcontainers/templates/tree/main/src/python
+{
+	"name": "drone - rute",
+	// Or use a Dockerfile or Docker Compose file. More info: https://containers.dev/guide/dockerfile
+	"image": "mcr.microsoft.com/devcontainers/python:3-3.11-bookworm",
+	"remoteUser": "root",
+
+	"containerEnv": {
+        "UV_SYSTEM_PYTHON": "1"
+    },
+    "remoteEnv": {
+        "UV_SYSTEM_PYTHON": "1",
+        "UV_PROJECT_ENVIRONMENT": "/usr/local"
+    },
+
+    "postCreateCommand": "curl -LsSf https://astral.sh/uv/install.sh | sh && cd backend && uv pip install --system -e .",
+    
+    "mounts": [
+        "source=uv-cache-nvidia,target=/root/.cache/uv,type=volume"
+    ],
+    
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "ms-python.python",
+                "ms-toolsai.jupyter",
+                "charliermarsh.ruff"
+            ],
+            "settings": {
+                "python.defaultInterpreterPath": "/usr/bin/python3",
+                "python.analysis.extraPaths": ["./backend"],
+                "python.terminal.activateEnvironment": false
+            }
+        
+}
+	}
+}
