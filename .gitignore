@@ -32,3 +32,6 @@ models/*.safetensors
 
 # uv lockfile is committed (reproducibility), but not the venv
 uv.lock
+.claude/
+docs/
+data/
