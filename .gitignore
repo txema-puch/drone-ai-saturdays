@@ -79,3 +79,8 @@ Thumbs.db
 # Otros                                #
 ########################################
 *.lock
+.claude
+.docs
+.data
+.claude/
+docs/
