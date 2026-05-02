@@ -3,7 +3,7 @@ description: Add/update documentation
 title: "[Documentation]: "
 labels: ["documentation"]
 assignees: []
-# projects: [Factoria-F5-madrid/34]
+# projects: [drones]
 
 body:
   - type: markdown

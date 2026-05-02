@@ -3,7 +3,7 @@ description: Add chore
 title: "[Chore]: "
 labels: ["chore"]
 assignees: []
-# projects: [Factoria-F5-madrid/34]
+# projects: [drones]
 
 body:
   - type: markdown

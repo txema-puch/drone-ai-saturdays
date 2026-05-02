@@ -3,7 +3,7 @@ description: Work on an assigned task (no code)
 title: "[Task]: "
 labels: ["task"]
 assignees: []
-# projects: [Factoria-F5-madrid/34]
+# projects: [drones]
 
 body:
   - type: markdown

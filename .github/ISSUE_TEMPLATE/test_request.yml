@@ -3,7 +3,7 @@ description: Add unit test
 title: "[Test]: "
 labels: ["unit test"]
 assignees: []
-# projects: [Factoria-F5-madrid/34]
+# projects: [drones]
 
 body:
   - type: markdown
