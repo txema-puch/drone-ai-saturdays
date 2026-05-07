@@ -28,6 +28,10 @@ dependencies = [
     "traffic>=2.9",
     "psycopg2-binary>=2.9.12",
     "supabase>=2.29.0",
+    # 📊 EDA / notebooks
+    "matplotlib>=3.8.0",
+    "python-dotenv>=1.0.0",
+    "ipykernel>=6.29.0",
 ]
 
 [build-system]

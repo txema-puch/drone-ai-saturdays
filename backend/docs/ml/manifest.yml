@@ -1,0 +1,114 @@
+# ML lifecycle manifest — single source of truth for the project's ML phase state.
+# Lives at backend/docs/ml/manifest.yml (project convention; CLAUDE.md documents the path).
+# Read by /ml-lifecycle and /develop to know which phase we're in and which gates passed.
+
+project_name: "Drone Trajectory Anomaly Detection (LEMD)"
+problem_type: "anomaly_detection"
+model_track: "dl"   # tentative — LSTM Autoencoder primary, Isolation Forest baseline.
+                    # Confirmed in Phase 6 once we see whether the LSTM AE meaningfully
+                    # beats IF. If not, we flip to "ml" and ship IF.
+
+current_phase: "data"
+
+# Gate ledger — append, never rewrite.
+gates:
+  problem:
+    status: "passed"
+    passed_at: "2026-05-07"
+    artifact: "backend/docs/ml/01-problem.md"
+    summary: "Anomaly detection on LEMD ADS-B. LSTM AE primary, IF baseline. AUROC>0.85 primary, F2 operational, FPR<=15% guardrail. FN dominates operationally."
+  data:
+    status: "in_progress"
+    passed_at: null
+    artifact: null
+    dataset_hash: null
+    summary: "Monica's Supabase lemd_YYYY_MM_DD tables. Schema validation + EDA pending (Week 1)."
+  preprocess:
+    status: "pending"
+    passed_at: null
+    artifact: null
+    pipeline_definition: null
+    summary: null
+  eda:
+    status: "pending"
+    passed_at: null
+    artifact: null
+    insights_count: 0
+    summary: null
+  features:
+    status: "pending"
+    passed_at: null
+    artifact: null
+    feature_count: 0
+    summary: null
+  train:
+    status: "pending"
+    passed_at: null
+    artifact: null
+    track_confirmed: false       # flips to true in Phase 6 once LSTM-vs-IF result is in
+    baseline_score: null
+    best_model_id: null
+    fitted_pipeline_artifact: null
+    summary: null
+  eval:
+    status: "pending"
+    passed_at: null
+    artifact: null
+    holdout_score: null
+    holdout_ci: null
+    summary: null
+  deploy:
+    status: "pending"
+    passed_at: null
+    artifact: null
+    monitoring_dashboard: null
+    summary: null
+
+# THE TEST SET FIREWALL — sacred. Never peeked, never modified except in Phase 7.
+test_set:
+  defined_at: null               # set in Phase 6 entry gate
+  split_seed: null
+  split_strategy: null           # likely "group-based" by icao24 + time-based hold-out
+  holdout_path: null
+  count: null
+  burned: false                  # flips ONCE, in Phase 7
+  burned_at: null
+  burn_reason: null
+
+# LLM-track sets unused (model_track is dl).
+llm_sets:
+  dev_set: { path: null, count: null }
+  eval_set: { path: null, count: null, last_score: null, last_score_ci: null }
+
+# Decisions log. Append-only.
+decisions:
+  - id: D-001
+    phase: problem
+    decided_at: 2026-04-11
+    title: "Frame as anomaly detection, not three-class intent classification"
+    path: backend/docs/ml/decisions/D-001-anomaly-vs-classification.md
+  - id: D-002
+    phase: problem
+    decided_at: 2026-04-11
+    title: "ADS-B as training modality; source-agnostic model at inference"
+    path: backend/docs/decisions/README.md
+  - id: D-003
+    phase: problem
+    decided_at: 2026-04-11
+    title: "OpenSky Network as primary dataset"
+    path: backend/docs/decisions/README.md
+  - id: D-004
+    phase: problem
+    decided_at: 2026-04-11
+    title: "Anomaly scoring only; no trajectory prediction"
+    path: backend/docs/decisions/README.md
+  - id: D-005
+    phase: problem
+    decided_at: 2026-05-07
+    title: "Metric stack: AUROC primary, F2 operational, FPR<=15% guardrail, PR-AUC sanity, all vs IF baseline"
+    path: backend/docs/ml/decisions/D-005-metric-stack.md
+  - id: D-006
+    phase: problem
+    decided_at: 2026-05-07
+    title: "Architecture: LSTM Autoencoder primary, Isolation Forest baseline; alternatives considered and rejected"
+    path: backend/docs/ml/decisions/D-006-architecture-and-baseline.md

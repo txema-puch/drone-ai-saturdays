@@ -33,17 +33,22 @@ cd .claude/skills/gstack && ./setup
 - Work on feature branches, not directly on `main`. Open PRs so teammates can review.
 
 ## Project workspace
-`docs/` is the shared working space — treat it like Notion. Key files:
-- `docs/README.md` — navigation index
-- `docs/problem/use-cases.md` — use case decision log (D-001 closed: airports/LEMD selected)
-- `docs/research/datasets.md` — all datasets found, with status and notes
-- `docs/research/links.md` — papers, tools, APIs, categorized
-- `docs/architecture/design-trajectory-anomaly-detection.md` — full approved design doc (two-layer system, 5-week plan, feature spec, evaluation criteria)
-- `docs/decisions/README.md` — log of key decisions (use case, modality, dataset)
-- `docs/weekly/README.md` — session notes
-- `docs/tasks/README.md` — week-by-week task boards with checkboxes (one file per week)
+`backend/docs/` is the shared working space — treat it like Notion. Key files:
+- `backend/docs/README.md` — navigation index
+- `backend/docs/problem/use-cases.md` — use case decision log (D-001 closed: airports/LEMD selected)
+- `backend/docs/research/datasets.md` — all datasets found, with status and notes
+- `backend/docs/research/links.md` — papers, tools, APIs, categorized
+- `backend/docs/architecture/design-trajectory-anomaly-detection.md` — full approved design doc (two-layer system, 5-week plan, feature spec, evaluation criteria)
+- `backend/docs/decisions/README.md` — log of key decisions (use case, modality, dataset)
+- `backend/docs/weekly/README.md` — session notes
+- `backend/docs/tasks/README.md` — week-by-week task boards with checkboxes (one file per week)
 
-When the team makes a decision (use case, modality, dataset), record it in `docs/decisions/README.md`.
+### ML lifecycle artifacts (read by `/ml-lifecycle` and `/develop`)
+- `backend/docs/ml/manifest.yml` — single source of truth for which lifecycle phase we're in and which gates have passed. **The skill defaults to looking at `docs/ml/manifest.yml` at repo root — pass `backend/docs/ml/manifest.yml` explicitly when invoking `/ml-lifecycle` so it finds our manifest.**
+- `backend/docs/ml/01-problem.md` — Phase 1 problem definition (closed 2026-05-07)
+- `backend/docs/ml/decisions/` — ADR-style records for high-stakes ML decisions (D-001, D-005, D-006, …)
+
+When the team makes a decision (use case, modality, dataset), record it in `backend/docs/decisions/README.md`. ML-methodology decisions (metric choice, architecture, split strategy) get an ADR under `backend/docs/ml/decisions/` AND a pointer in `backend/docs/ml/manifest.yml > decisions[]`.
 
 ## Project status (as of 2026-04-11)
 Design approved. 5-week plan locked. Heading into Week 1 execution.
