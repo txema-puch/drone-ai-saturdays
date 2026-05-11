@@ -58,6 +58,47 @@ Drive. Together, the parquets accumulate the full training dataset.
                 │   transient working storage that gets recycled)
 ```
 
+### What the notebook touches (imports + outputs)
+
+The flow diagram above shows the notebook as a single box. Inside, it
+depends on two modules and writes two things outside the parquet record:
+
+- **Imports from `backend/crud/`:**
+  - `supabase_io.py` — `discover_lemd_tables`, `load_table_paginated`,
+    `save_snapshot_parquet`, `compute_file_hash` (operational helpers).
+  - `opensky.py` — `calculate_flight_phase`, `distance_to_closest_runway`
+    (used as **reference implementations** in the consistency check, see
+    next subsection).
+- **Outputs not shown in the flow:**
+  - Per-feature histograms to `backend/docs/ml/figures/02-data/`.
+  - Printed verdict and counts that **a human transcribes** into
+    `backend/docs/ml/02-data.md`'s snapshot log and the
+    `manifest.yml > gates.data.dataset_hash[]` entry. The notebook does
+    not write to either doc directly.
+
+### Why `opensky.py` is dual-use
+
+`backend/crud/opensky.py` is both Monica's production extraction code and
+the audit's reference implementation. Monica's `export_lemd_2025_sample.py`
+and the audit notebook import `calculate_flight_phase` and
+`distance_to_closest_runway` from the same module.
+
+Operationally:
+
+- Monica's extraction writes Supabase rows with values produced by today's
+  `opensky.py`.
+- The audit re-runs `opensky.py` against those rows and asserts the deltas
+  are below the consistency tolerances (`velocity_kmh < 1e-6`,
+  `dist_to_runway_m < 1m`, `time_utc < 1s`, `flight_phase` exact).
+
+Implication: any change to those functions silently changes the audit's
+tolerance for past cycles. If Monica updates the math and **rebackfills**,
+the audit passes — the new code produces the same values it just wrote. If
+Monica updates the math and **doesn't** rebackfill, the next cycle's audit
+will flag the deltas as inconsistencies. Both outcomes are correct; just be
+aware that the consistency check is "agreement with current code," not
+"agreement with code at the time of extraction."
+
 ### The hard timing rule
 
 **Monica must NOT truncate the Supabase table until Txema confirms the
