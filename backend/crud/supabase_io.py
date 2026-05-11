@@ -45,13 +45,16 @@ def discover_lemd_tables(client: Client, start: date, end: date) -> list[str]:
 def load_table_paginated(
     client: Client,
     table_name: str,
-    batch_size: int = 10_000,
+    batch_size: int = 1_000,
     verbose: bool = True,
 ) -> pd.DataFrame:
     """Page through a Supabase table and return all rows as a DataFrame.
 
-    PostgREST's default page is 1000 rows; this batches `batch_size` per
-    request. Stops when a page returns empty or partial.
+    PostgREST silently caps responses at its server-side `max-rows` (default
+    1000). Requesting larger pages does NOT lift the cap — the server just
+    returns 1000 and the loop's "partial page → end of table" heuristic
+    fires after the first request. Keep `batch_size` at the server cap so
+    a partial page actually means we reached the end.
     """
     rows: list[dict] = []
     start = 0
