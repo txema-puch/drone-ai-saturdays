@@ -29,15 +29,34 @@ gates:
       # Canonical artifact is the deduped parquet (raw had 37.5% script-rerun
       # duplicates; full audit lineage in 02-data.md).
       lemd_20250310_to_20250314__deduped_2026-05-10: "8256c65f95135597f3db07413941380fc2a0c6bbfc429b07b12b10478f7e2c10"
+      # Cycle 2: 2026-03-10 to 2026-03-14 (5 days, Tue-Sat). Snapshot 2026-05-11.
+      # Year-over-year repeat of cycle 1's calendar window. Snapshot is canonical
+      # (no dedup needed — Monica's UNIQUE constraint working; full audit lineage
+      # in 02-data.md "Cycle 2" section).
+      lemd_20260310_to_20260314__snapshot_2026-05-11: "16f1bd2cbdbd519ce7bde6fbbc8df5012b188b54c5598bffc310cef34b0c6899"
     summary: |
       Audit discipline operational (cyclic gate). Future cycles append to
       dataset_hash and to 02-data.md's snapshot log without re-passing the gate.
 
-      Cycle 1: 2025-03-10 to 2025-03-14 (5 days, Mon-Fri). 1,834,084 raw rows
-      → 1,146,231 deduped (37.5% removed; upstream script-rerun bug, fixed
-      for future cycles via unique constraint). 1,285 unique trajectories,
-      330 unique aircraft. Real=PASS, Usable=PASS, Enough=SOFT_DEV (1 cycle,
-      below 30-day floor). Parquets in Drive: lemd_20250310_to_20250314__{snapshot,deduped}_2026-05-10.
+      Cycle 1 (2026-05-10): 2025-03-10 to 2025-03-14 (5 days, Mon-Fri). 1,834,084
+      raw rows → 1,146,231 deduped (37.5% removed; upstream script-rerun bug,
+      fixed for future cycles via unique constraint). 1,285 unique trajectories,
+      330 unique aircraft. Real=PASS, Usable=PASS, Enough=SOFT_DEV.
+
+      Cycle 2 (2026-05-11): 2026-03-10 to 2026-03-14 (5 days, Tue-Sat).
+      1,774,859 rows, 1,426 trajectories, 350 unique aircraft. ZERO duplicates
+      — Monica's UNIQUE constraint fix from issue #13 confirmed effective in
+      production. 3 baroaltitude nulls (0.000169%, response D, below D-206's
+      0.1% tolerance). Pipeline consistency PASS. Cycle 2 surfaced one new
+      methodology gap: table arrived without indexes — added (time, icao24)
+      index during audit; response F (Monica's pipeline should provision
+      indexes upfront in future). Real=PASS, Usable=PASS (after D-206
+      tolerance), Enough=SOFT_DEV.
+
+      Cumulative: 2 cycles, 10 days (Mon-Sat coverage 6/7, Sunday still
+      missing), 2,711 trajectories. Still below 30-day / 5K-trajectory
+      thresholds for Enough=PASS. ~4 more cycles at current pace would
+      cross into CONDITIONAL territory.
   preprocess:
     status: "in_progress"
     gate_semantics: "one_shot"
