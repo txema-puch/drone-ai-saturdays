@@ -28,9 +28,11 @@ cd .claude/skills/gstack && ./setup
 
 ## Key conventions
 - Python managed with `uv` — use `uv add <pkg>` not `pip install`, `uv run python` not `python`
+- **The team uses a dev container for reproducibility (`.devcontainer/devcontainer.json`)** — `uv.lock` is intentionally not committed; the container's `python:3-3.11-bookworm` base image pins versions. Do NOT propose committing `uv.lock` without discussing with the team first.
 - `data/` and `models/` are not committed — too large for git. Add download scripts or reference external storage instead.
 - Secrets go in `.env` only — never committed. Share keys via password manager (1Password, Bitwarden).
 - Work on feature branches, not directly on `main`. Open PRs so teammates can review.
+- Commits use `<type>(scope): <description> (#issue)` format with explanatory bodies that capture the *why*, not just enumerated changes. See recent commits for the established pattern.
 
 ## Project workspace
 `backend/docs/` is the shared working space — treat it like Notion. Key files:
@@ -46,12 +48,39 @@ cd .claude/skills/gstack && ./setup
 ### ML lifecycle artifacts (read by `/ml-lifecycle` and `/develop`)
 - `backend/docs/ml/manifest.yml` — single source of truth for which lifecycle phase we're in and which gates have passed. **The skill defaults to looking at `docs/ml/manifest.yml` at repo root — pass `backend/docs/ml/manifest.yml` explicitly when invoking `/ml-lifecycle` so it finds our manifest.**
 - `backend/docs/ml/01-problem.md` — Phase 1 problem definition (closed 2026-05-07)
+- `backend/docs/ml/02-data.md` — Phase 2 data audit doc (closed 2026-05-11, cyclic gate)
+- `backend/docs/ml/07-eval-prep.md` — Phase 7 anomaly-injection research synthesis (prep notes, Phase 7 not started)
 - `backend/docs/ml/decisions/` — ADR-style records for high-stakes ML decisions (D-001, D-005, D-006, …)
+
+The data gate has `gate_semantics: "cyclic"` — passed means audit discipline operational, NOT data complete. Future cycles append to `manifest.yml > gates.data.dataset_hash` and to `02-data.md`'s snapshot log without re-passing the gate. See `references/lifecycle-map.md > Gate semantics` in the `/ml-lifecycle` skill.
+
+### Data pipeline workflow
+- `backend/docs/workflow/data-pipeline.md` — single source of truth for the data workflow: truncate-fill-snapshot cycle, role assignments (Monica = OpenSky → Supabase; Txema = validate + parquet + Drive), naming conventions, the six-category response playbook (A-F) for audit findings, the "audit cells safe to run blindly" principle. **Hard rule: Monica must NOT truncate Supabase until Txema confirms snapshot is in Drive with verified hash.**
+- Local parquets in `data/raw/lemd_<startYYYYMMDD>_to_<endYYYYMMDD>__{snapshot,deduped}_<YYYY-MM-DD>.parquet` are the canonical record. Supabase is transient storage (500MB free-tier cycles).
 
 When the team makes a decision (use case, modality, dataset), record it in `backend/docs/decisions/README.md`. ML-methodology decisions (metric choice, architecture, split strategy) get an ADR under `backend/docs/ml/decisions/` AND a pointer in `backend/docs/ml/manifest.yml > decisions[]`.
 
-## Project status (as of 2026-04-11)
-Design approved. 5-week plan locked. Heading into Week 1 execution.
+## Project status (as of 2026-05-11)
+
+**ML lifecycle position:** Phase 2 closed; `current_phase: preprocess`. Phase 3 design coaching not yet started.
+
+| Phase | Status | Artifact |
+|---|---|---|
+| 1. Problem | passed (2026-05-07) | `backend/docs/ml/01-problem.md` |
+| 2. Data | passed (2026-05-11, cyclic gate) — cycle 1 validated | `backend/docs/ml/02-data.md` |
+| 3. Preprocess | in_progress — not yet started | (none yet) |
+| 4. EDA | pending | |
+| 5. Features | pending | |
+| 6. Train | pending | |
+| 7. Eval | pending — prep notes exist | `backend/docs/ml/07-eval-prep.md` |
+| 8. Deploy | pending — course demo only, not production | |
+
+**Cycle 1 (2025-03-10 to 2025-03-14)** validated and snapshotted:
+- 1,146,231 deduped rows, 1,285 unique trajectories, 330 unique aircraft
+- Verdict: Real=PASS, Usable=PASS, Enough=SOFT_DEV (1 cycle, below 30-day floor)
+- Snapshot in Drive at `drone-ai-saturdays/data/raw/lemd_20250310_to_20250314__{snapshot,deduped}_2026-05-10.parquet`
+
+**Cycle 2** expected next session — Monica has data ready in a second Supabase account (2026 data range). Will be tracked as a new issue (~#15 stacked on #14).
 
 **What we're building:** Two-layer unauthorized drone detection anchored to Madrid-Barajas (LEMD).
 - Layer 1: Identity gate — ICAO24 registry lookup + U-Space flight plan match
@@ -59,19 +88,17 @@ Design approved. 5-week plan locked. Heading into Week 1 execution.
 
 **Timeline:** 5 weeks, ~24h/person/week. Option B (visual) CUT. Option C (Android Remote ID) stretch only post Week 4.
 
-**Notebooks (reference only — not the prescribed path):**
-- `notebooks/01_data_recon.ipynb` — Week 1: OpenSky EDA
-- `notebooks/02_pipeline.ipynb` — Week 2: segmentation, features, IF baseline
-- `notebooks/03_lstm.ipynb` — Week 3: LSTM autoencoder training
-- `notebooks/04_evaluation.ipynb` — Week 4: full metrics, ablation
+**Open PRs:** #11 (Phase 1) and #14 (Phase 2). #14 is stacked on #11; will rebase when #11 merges.
 
-The team writes their own code. Notebooks are one possible implementation — use as inspiration or ignore.
+**Notebooks (audit + reference):**
+- `notebooks/05_phase2_data_validation.ipynb` — Phase 2 audit notebook (canonical for every cycle)
+- `notebooks/01_data_recon.ipynb` through `04_evaluation.ipynb` — early reference notebooks, not the prescribed path
 
-**Shared data:** Google Drive folder `drone-ai-saturdays/data/` — mount in Colab as `/content/drive/MyDrive/drone-ai-saturdays/data/`.
+**Shared data:** Google Drive folder `drone-ai-saturdays/data/raw/` — canonical record; local parquets in `data/raw/` (gitignored) are working copies.
 
-**Design doc:** `docs/architecture/design-trajectory-anomaly-detection.md`
-**All decisions:** `docs/decisions/README.md`
-**Week 1 task:** See `docs/tasks/week1.md` — register OpenSky account, set up Drive, query LEMD data, share recon summary in Discord, set up CI and Streamlit skeleton.
+**Design doc (initial scoping):** `backend/docs/architecture/design-trajectory-anomaly-detection.md`
+**All decisions:** `backend/docs/decisions/README.md`
+**Writeup material** (Medium piece + presentation drafts): `backend/docs/writeup/*.md`
 
 # gstack
 
