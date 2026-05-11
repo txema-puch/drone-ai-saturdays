@@ -10,9 +10,11 @@ Design context: `backend/docs/designs/12-task-phase2-data-validation.md`.
 from __future__ import annotations
 
 import hashlib
+import time
 from datetime import date, timedelta
 from pathlib import Path
 
+import httpx
 import pandas as pd
 from supabase import Client
 
@@ -47,6 +49,7 @@ def load_table_paginated(
     table_name: str,
     batch_size: int = 1_000,
     verbose: bool = True,
+    max_retries: int = 5,
 ) -> pd.DataFrame:
     """Page through a Supabase table and return all rows as a DataFrame.
 
@@ -55,16 +58,48 @@ def load_table_paginated(
     returns 1000 and the loop's "partial page → end of table" heuristic
     fires after the first request. Keep `batch_size` at the server cap so
     a partial page actually means we reached the end.
+
+    Resilience: a single page fetch is retried up to `max_retries` times
+    with exponential backoff (1s, 2s, 4s, 8s, 16s) on `httpx.RequestError`
+    (covers `ReadTimeout`, `ConnectTimeout`, `ConnectError`,
+    `RemoteProtocolError`). Previously fetched rows are preserved across
+    retries — only the failing page is re-requested. Cycle 2 surfaced this
+    need: at ~1.15M rows, one transient timeout out of >1100 paginated
+    requests was discarding the entire accumulated load.
     """
     rows: list[dict] = []
     start = 0
     while True:
-        result = (
-            client.table(table_name)
-            .select("*")
-            .range(start, start + batch_size - 1)
-            .execute()
-        )
+        last_exc: Exception | None = None
+        for attempt in range(max_retries):
+            try:
+                result = (
+                    client.table(table_name)
+                    .select("*")
+                    .range(start, start + batch_size - 1)
+                    .execute()
+                )
+                break
+            except httpx.RequestError as exc:
+                last_exc = exc
+                if attempt == max_retries - 1:
+                    raise RuntimeError(
+                        f"{table_name}: page starting at row {start:,} "
+                        f"failed after {max_retries} attempts "
+                        f"({type(exc).__name__}). {len(rows):,} rows already "
+                        f"fetched are discarded."
+                    ) from exc
+                wait_s = 2 ** attempt  # 1, 2, 4, 8, 16
+                if verbose:
+                    print(
+                        f"  ⚠️  {table_name}: page row {start:,} hit "
+                        f"{type(exc).__name__} (attempt {attempt + 1}/{max_retries}), "
+                        f"retrying in {wait_s}s..."
+                    )
+                time.sleep(wait_s)
+        else:
+            raise RuntimeError(f"unreachable: retry loop exited without break (last: {last_exc!r})")
+
         chunk = result.data
         if not chunk:
             break
