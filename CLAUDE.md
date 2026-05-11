@@ -67,7 +67,7 @@ When the team makes a decision (use case, modality, dataset), record it in `back
 | Phase | Status | Artifact |
 |---|---|---|
 | 1. Problem | passed (2026-05-07) | `backend/docs/ml/01-problem.md` |
-| 2. Data | passed (2026-05-11, cyclic gate) — cycle 1 validated | `backend/docs/ml/02-data.md` |
+| 2. Data | passed (2026-05-11, cyclic gate) — cycles 1 + 2 validated | `backend/docs/ml/02-data.md` |
 | 3. Preprocess | in_progress — not yet started | (none yet) |
 | 4. EDA | pending | |
 | 5. Features | pending | |
@@ -75,12 +75,27 @@ When the team makes a decision (use case, modality, dataset), record it in `back
 | 7. Eval | pending — prep notes exist | `backend/docs/ml/07-eval-prep.md` |
 | 8. Deploy | pending — course demo only, not production | |
 
-**Cycle 1 (2025-03-10 to 2025-03-14)** validated and snapshotted:
-- 1,146,231 deduped rows, 1,285 unique trajectories, 330 unique aircraft
-- Verdict: Real=PASS, Usable=PASS, Enough=SOFT_DEV (1 cycle, below 30-day floor)
-- Snapshot in Drive at `drone-ai-saturdays/data/raw/lemd_20250310_to_20250314__{snapshot,deduped}_2026-05-10.parquet`
+**Cycle 1 (2025-03-10 to 2025-03-14)** — Mon-Fri, validated and snapshotted:
+- 1,146,231 deduped rows (1,834,084 raw, 37.5% dups removed), 1,285 unique trajectories, 330 unique aircraft.
+- Verdict: Real=PASS, Usable=PASS, Enough=SOFT_DEV.
+- Snapshot in Drive at `drone-ai-saturdays/data/raw/lemd_20250310_to_20250314__{snapshot,deduped}_2026-05-10.parquet`.
 
-**Cycle 2** expected next session — Monica has data ready in a second Supabase account (2026 data range). Will be tracked as a new issue (~#15 stacked on #14).
+**Cycle 2 (2026-03-10 to 2026-03-14)** — Tue-Sat, validated and snapshotted (year-over-year repeat of cycle 1's window):
+- 1,774,859 rows, **0 duplicates** (Monica's UNIQUE-constraint fix from #13 verified working in production), 1,426 trajectories, 350 aircraft.
+- Snapshot is canonical (no dedup needed). Verdict: Real=PASS, Usable=PASS, Enough=SOFT_DEV.
+- Snapshot in Drive at `drone-ai-saturdays/data/raw/lemd_20260310_to_20260314__snapshot_2026-05-11.parquet`.
+
+**Cumulative:** 10 days, 2,711 trajectories, 2.92M canonical rows, 6/7 day-of-week coverage (Sunday still missing). ~4 more cycles at current pace would cross into Enough=CONDITIONAL.
+
+**Cycle 2 framework improvements (live as of PR #16):**
+- **Multi-account `.env` scheme**: `SUPABASE_URL_<SLUG>` / `SUPABASE_KEY_<SLUG>` with `ACCOUNT_SLUG` constant in notebook cell 1. No more manual `.env` overwrites per cycle.
+- **`TABLE_NAME` constant** for the workflow-doc table-naming convention (`lemd_<suffix>`, not legacy `lemd_YYYY_MM_DD`).
+- **Day-by-day OFFSET pagination** in `load_table_paginated` (after OFFSET-only and keyset both hit Postgres `statement_timeout` at depth). Robust to absent indexes; even faster with them.
+- **Cross-references** at four canonical entry points (opensky.py docstring, notebook intro, workflow doc, project README) so future agents discover the validation graph within one hop.
+
+**Open cycle-3+ asks (response F findings, awaiting follow-up):**
+- Monica's pipeline should provision indexes upfront on each cycle's table: `(time, icao24)` and `(flight_id)`. Currently added manually mid-audit. See `02-data.md > Known issues > #11`.
+- Cell 7c / cell 12 should apply D-206's 0.1% noise tolerance to the Usable verdict automatically instead of requiring manual interpretation. See `02-data.md > Known issues > #12`.
 
 **What we're building:** Two-layer unauthorized drone detection anchored to Madrid-Barajas (LEMD).
 - Layer 1: Identity gate — ICAO24 registry lookup + U-Space flight plan match
@@ -88,7 +103,7 @@ When the team makes a decision (use case, modality, dataset), record it in `back
 
 **Timeline:** 5 weeks, ~24h/person/week. Option B (visual) CUT. Option C (Android Remote ID) stretch only post Week 4.
 
-**Open PRs:** #11 (Phase 1) and #14 (Phase 2). #14 is stacked on #11; will rebase when #11 merges.
+**Open PRs (stacked chain):** **#11** (Phase 1) → **#14** (Phase 2 framework + cycle 1) → **#16** (cycle 2). Each PR's base is the previous PR's branch; they rebase down the chain as each merges to develop.
 
 **Notebooks (audit + reference):**
 - `notebooks/05_phase2_data_validation.ipynb` — Phase 2 audit notebook (canonical for every cycle)
