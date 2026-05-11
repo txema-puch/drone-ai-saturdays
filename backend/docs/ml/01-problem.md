@@ -110,6 +110,82 @@ The honest contrast: if the LSTM Autoencoder doesn't meaningfully beat IF, time 
 
 See [D-006](decisions/D-006-architecture-and-baseline.md) for the full alternatives table.
 
+### Alternatives considered for the model family
+
+D-006 enumerates the alternatives we considered *within* the sequence-reconstruction family (Transformer, GRU, VAE, GAN, normalizing flow, etc.). A separate question — and the one a reviewer is most likely to ask — is why we chose a sequence-reconstruction approach **at all** when simpler model families exist. The short answer is below; the longer answer is that each alternative is the right tool under a different set of constraints, and none of those constraint sets matches ours.
+
+| Alternative family | Representative methods | Why it doesn't fit our setup | When it WOULD be the right answer |
+|---|---|---|---|
+| **Single-variable rules** | `flag IF altitude < 200m AND dist_to_LEMD < 5km` | Closed-set: catches anomalies we *imagine*, misses novel patterns. Brittle thresholds (why 200m and not 250m?). Loses the open-set property that motivated anomaly detection over classification. | Threat model is well-defined and small (e.g., "only worry about runway incursion below altitude X"). |
+| **Supervised gradient boosting** | XGBoost, CatBoost, LightGBM | Need labeled `(trajectory, is_anomaly)` pairs we don't have. With synthetic anomalies for labels, we hit the imagination-leakage problem (model learns our synthetic anomaly distribution, fails on real anomalies). | We obtain real labeled drone-incident data — then this becomes the right tool on aggregate features. |
+| **Clustering / density-based outlier detection** | DBSCAN, HDBSCAN, GMM, k-means + distance-to-centroid | Same aggregate-feature limitation as Isolation Forest. No clear advantage over IF for this data shape. Curse of dimensionality on `(T, D)` tensors hurts distance metrics. | Mixed-density data with clearly separated clusters in feature space — not our case. |
+| **Statistical / Markov sequence models** | HMM, Kalman filter, conditional `p(state_t+1 \| state_t)` | Captures *some* sequence structure with less machinery than an LSTM. HMMs need state discretization (fiddly bucketing of altitude/lat/lon). Markov assumption misses long-range dependencies (e.g., 10-minute circling pattern). | Linear dynamics with short-range temporal dependencies. Partially fits but LSTM AE strictly subsumes. |
+| **One-class SVM** | `OneClassSVM(kernel='rbf')` | Doesn't scale beyond ~10k samples on commodity hardware. Doesn't naturally handle variable-length sequences. | Small datasets with well-defined kernel structure. |
+| **Sequence-aware reconstruction (our choice)** | LSTM Autoencoder | Sequence structure preserved, no labels needed, interpretable per-feature/per-timestep, fits Colab T4 budget. Complexity must still be earned via Phase 6 baseline comparison. | When trajectory order carries the signal — which is the hypothesis we're testing. |
+
+The frame: **none of the simpler families is "wrong" in absolute terms** — they are right under different constraints. Ours are: no labels + open-set threat + sequence structure may matter + 5-week timeline + interpretability requirement. The LSTM AE matches all four. Whether the LSTM AE *meaningfully outperforms* the simpler IF baseline is the Phase 6 question — see [Decision rule for Phase 6](#decision-rule-for-phase-6-when-do-we-ship-lstm-ae-vs-isolation-forest) below.
+
+#### Why "just one variable" isn't enough
+
+The strongest version of the simplicity challenge: *can a single-variable threshold do the job?* Honest answer:
+
+- **For some anomaly types: yes.** A drone hovering at 100m near LEMD is detectable from altitude alone.
+- **For others: no.** A drone flying at airliner altitudes that mimics a normal approach has no single-feature signature. The anomaly is in the *combination* of features (lat/lon trajectory shape doesn't match an approach corridor, even if altitude is fine) and in their *temporal evolution* (the sequence makes no sense as a cohesive flight).
+
+A single-variable approach catches the easy anomalies and misses the rest. It also can't catch what we don't think to threshold against. That's the open-set property again — and the AE preserves it precisely because it learns "what normal looks like" rather than "what bad looks like."
+
+#### Why we did not pick supervised methods even though they're often best on tabular data
+
+XGBoost / CatBoost / LightGBM are state-of-the-art on labeled tabular tasks. The reason they don't apply here is straightforward but worth being explicit about: **they are supervised methods.** They learn `f(X) → y` from labeled `(X, y)` pairs. Our project has zero labeled anomalies and no realistic path to obtaining them in 5 weeks. Without `y`, supervised methods have nothing to learn against.
+
+The tempting workaround is to *generate* labels via synthetic anomaly injection, then train a supervised classifier. We discussed this trap explicitly: train and eval would both sample from the *same* synthetic anomaly distribution, so high AUROC measures fit-to-our-imagination rather than generalization to real anomalies. The unsupervised AE side-steps this because it never sees any anomaly during training — synthetic anomalies in eval are out-of-distribution to the model by construction.
+
+If real labeled drone-incident data ever arrives (e.g., AENA / EASA / AESA share historical incursion records), reframing as a supervised problem with XGBoost on aggregate features is the natural next step. **Without labels, it's not a viable path.**
+
+---
+
+## Decision rule for Phase 6 (when do we ship LSTM AE vs Isolation Forest?)
+
+The LSTM Autoencoder is *tentatively* primary in Phase 1. The complexity is conditional on it earning a measurable win over the Isolation Forest baseline. To prevent the model choice from being decided by belief or sunk cost, we publish the decision rule here — *before* the Phase 6 results land — so the criteria can't be retconned.
+
+### The rule
+
+After Phase 6 training and validation, with both models evaluated on the same val set:
+
+| LSTM AE val AUROC | IF val AUROC | Margin (AE − IF) | What we ship | Headline finding for the writeup |
+|---|---|---|---|---|
+| Any | Any | **≥ +0.03** | **LSTM AE** | "Sequence structure adds measurable value at LEMD." |
+| Any | Any | **< +0.03** | **Isolation Forest** | "Sequence structure does not add measurable value over aggregate features for trajectory anomaly detection at LEMD." |
+| < 0.70 | < 0.70 | n/a | Neither — project pivots or fails honestly | "Neither approach generalizes; the framing or features need to change." |
+
+The **0.03 margin** is the threshold for "meaningful" — small enough to flip on a clear signal, large enough that noise alone (across the bootstrap CI of a single val set) shouldn't trigger it. We commit to this margin in Phase 1 to prevent Phase 6 us from saying *"well it's only 0.01 worse, but we already built the LSTM, so let's ship that anyway."*
+
+### What this protects against
+
+1. **Sunk-cost bias.** If we've spent two weeks building the LSTM, we'll be tempted to ship it on a marginal win. Pre-committing the decision rule removes that pressure.
+2. **Post-hoc justification.** Without a published rule, we'd write the writeup around whichever model we ended up with and reverse-engineer the reasoning. With a rule, the writeup explains *why the rule was set this way*, which is much more defensible.
+3. **Reviewer challenge.** "Why did you pick the LSTM?" has a clean answer: "the IF baseline scored X AUROC, the LSTM scored X+M, M ≥ 0.03 — and we pre-committed in Phase 1 to ship the LSTM if the margin exceeded 0.03." That's reproducible reasoning, not asserted preference.
+
+### Both directions are valid results
+
+Either outcome produces a publishable result for the writeup:
+
+- **AE wins** (margin ≥ 0.03): "Sequence structure provides a meaningful uplift over aggregate-feature baselines for trajectory anomaly detection at LEMD." Adds to the case for sequence models in this domain.
+- **IF wins** (margin < 0.03): "Aggregate-feature methods are sufficient; sequence structure does not add measurable value for trajectory anomaly detection at LEMD." Goes against the field's bias toward complex sequence models — arguably the *more interesting* result for a course writeup, because it's a negative result that disciplines the field.
+
+The LSTM AE is the *hypothesis*, IF is the *null*, and Phase 6 runs the experiment. We ship whichever wins.
+
+### Tracked in the manifest
+
+The decision is logged in `manifest.yml > gates.train.track_confirmed`, which flips from `false` to `true` once Phase 6 evaluation produces both AUROC numbers and the rule above is applied. Until that flip, `model_track: dl` is provisional. If the rule selects IF, `model_track` flips to `ml` at the same time `track_confirmed` flips to `true`.
+
+### Caveats
+
+- The rule uses **val** AUROC for the model-selection decision, not test. The test set stays burned for Phase 7 final evaluation only — never used for model selection (Guardrail #1, test-set firewall).
+- Both models are trained on the same train split and evaluated on the same val split. Different hyperparameters per model are fine; different data is not.
+- The 0.03 margin is on AUROC because AUROC is our primary metric (D-005). If a future revision changes the primary metric, the margin needs to be re-derived for the new metric.
+- F2 and FPR are also reported for both models in Phase 6, but they don't drive the AE-vs-IF choice — they inform threshold selection within whichever model wins. (F2 ties broken in favor of the simpler model.)
+
 ---
 
 ## Success metric
