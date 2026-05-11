@@ -290,7 +290,7 @@ Tracking per cycle. Each entry: what was caught, response category applied (per 
   3. Keeping them would weight some flights 7× more in training, distorting the model's normality estimates.
 - **Action upstream:** Monica's extraction script updated with `UNIQUE (icao24, time, lat, lon)` constraint plus `INSERT … ON CONFLICT DO NOTHING`. Future cycles arrive without this issue.
 - **Action local:** Deduped parquet produced (`lemd_20250310_to_20250314__deduped_2026-05-10.parquet`). Raw kept as audit evidence. Manifest references the deduped version as canonical.
-- **GitHub issue:** *(open a `[Bug]` issue tagging the team referencing this entry; paste link here when opened)*
+- **GitHub issue:** [#13](https://github.com/txema-puch/drone-ai-saturdays/issues/13) — opened 2026-05-11, closed same day as completed (resolution already in place; opened for audit trail per workflow doc's Response B protocol).
 
 ### #4 — Cycle 1: Sparse `geoaltitude` nulls
 
