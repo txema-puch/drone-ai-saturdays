@@ -9,6 +9,7 @@
 - Manifest pointer: `backend/docs/ml/manifest.yml > gates.eval.summary`
 - Phase 1 problem framing: `backend/docs/ml/01-problem.md`
 - Architecture decision the original perturbations live in: `backend/docs/ml/decisions/D-006-architecture-and-baseline.md`
+- Multi-layer output validation decision (added 2026-05-23): `backend/docs/ml/decisions/D-008-output-validation-layers.md`. This doc is the Layer 2 source (discriminative validation via synthetic injection). Layer 4 (external validation via Dataset #6 real-emergency flights) and Layer 5 (qualitative top-K review) are codified below in "Validating beyond synthetic discrimination."
 
 ---
 
@@ -34,9 +35,10 @@ When Phase 7 starts (after Phase 6 model training is done, before any test-set s
 1. **Read this doc end-to-end** before writing the `inject_anomalies(...)` code.
 2. **Revise the four perturbations** per the *Calibration recommendations* section below. Apply what's actionable in the timeline; document any deviations explicitly.
 3. **Add the two new types** (final-approach intercept, multi-drone) if Phase 6 didn't run long. Defer if time-pressed.
-4. **Cite this document** as the source for every perturbation parameter chosen in the final code, in the writeup's Methodology section.
-5. **Cite the public sources directly** in the writeup's Limitations section, so the calibration is auditable.
-6. **Update `manifest.yml > gates.eval.summary`** with the final perturbation list and link back to this doc + any ADR (likely D-010) capturing the deviation from the design doc's defaults.
+4. **Run the Layer 4 + Layer 5 protocols** from "Validating beyond synthetic discrimination" (below). These are independent of injection calibration and produce the writeup's external-validation finding.
+5. **Cite this document** as the source for every perturbation parameter chosen in the final code, in the writeup's Methodology section.
+6. **Cite the public sources directly** in the writeup's Limitations section, so the calibration is auditable.
+7. **Update `manifest.yml > gates.eval.summary`** with the final perturbation list, the Layer 4 finding, and link back to this doc + any ADR (likely D-010) capturing the deviation from the design doc's defaults.
 
 ## TL;DR — the five highest-value changes
 
@@ -49,6 +51,80 @@ For fast scan when revisiting this doc later:
 5. **Two missing types worth adding:** final-approach corridor intercept (drone crosses an active arrival corridor at low altitude near the runway threshold), and multi-drone swarm (2–4 simultaneous trajectories within a 1 km radius).
 
 The single most important meta-observation: **for the 5 documented LEMD events, the public record describes only "drone in vicinity" — no trajectory detail.** AENA/AESA do not release event-level data. So all calibration of LEMD-specific perturbations remains anchored to U.S. data; this is a confidence ceiling, not a fixable gap.
+
+## Validating beyond synthetic discrimination
+
+This section is the eval-time companion to **D-008** (multi-layer output validation). It addresses a question the synthetic-injection calibration above (Layer 2) does not answer on its own:
+
+> The AE outputs a reconstruction error per trajectory. That number has no semantic meaning until external evidence grounds it. Synthetic AUROC tells us the model can discriminate the perturbations *we hand-designed* from normal — it does not tell us whether the model behaves meaningfully on anomalies it has never seen. The Phase 1 doc acknowledges this as the "imagination leakage" risk (lines 138-141).
+
+Two protocols below close that gap. Each contributes one layer of validation; together with Layer 1 (sanity), Layer 2 (synthetic AUROC per D-005), and Layer 3 (realism via geofence + safety-net rules baseline), they form the five-layer validation stack from D-008.
+
+### Layer 4 — external validation via real emergencies (Dataset #6)
+
+**Source.** OpenSky scientific Dataset #6: *Reference Datasets for In-Flight Emergency Situations*, curated by Xavier Olive (ONERA). Derived from full OpenSky ADS-B between 1 January 2018 and 29 January 2020. Flights that triggered the **7700 transponder squawk** (pilot-set general emergency code). Cite: Olive et al., *OpenSky Report 2020*, IEEE/AIAA DASC 2020.
+
+Why these flights: the 7700 squawk is set by a pilot in a real emergency. ATC, dispatch, and emergency services treat them as significant. They are the closest publicly available proxy for "ground truth anomalies" in commercial-aviation airspace. **The model is never trained on them, never injected with them, never told they exist until this protocol runs in Phase 7.**
+
+**Protocol.**
+
+1. *Phase 4 EDA prerequisite* (do this when EDA runs, not during Phase 7): pull Dataset #6, filter to LEMD-area trajectories using the same 200 km bbox + Filter B as cycle 3. Inspect: N flights, types of emergencies, altitude / approach profiles. Document under Phase 4 EDA artifact.
+2. *Phase 6 prerequisite (sealed firewall):* do **not** use Dataset #6 in any training, validation, threshold-tuning, or AE-vs-IF selection step. Same firewall posture as the test set. Per D-006 and D-008 open question #1.
+3. *Phase 7 execution (after model selection per D-006):*
+   - Score every LEMD-area Dataset #6 trajectory with the trained AE.
+   - Plot reconstruction-error distribution against the normal validation distribution.
+   - Report the **percentile** of the emergency-flight error distribution within the normal-flight distribution.
+   - Run **Mann-Whitney U** (non-parametric, robust to small N): is the emergency-flight error distribution stochastically larger than the normal-flight distribution? Report p-value with N.
+4. *Finding template, pre-committed* (prevents post-hoc reframing — this is the literal sentence we publish, with N, percentile, and p filled in by the experiment):
+
+   > "Real-emergency reconstruction errors fell at the **Nth percentile** of the normal-flight distribution (Mann-Whitney U p = **X**), based on **K** LEMD-area 7700-squawk trajectories from OpenSky Dataset #6 (Olive et al., 2020) that the model had never seen during training or injection."
+
+**Expected N.** 7700 squawks are rare — global rate is a few hundred per year over 2 years. The LEMD-area subset will be small (realistic estimate: 5-30 flights). This is enough for a small-N qualitative + non-parametric signal, **not** a headline AUROC. Report it honestly with confidence intervals; do not try to spin small N as definitive.
+
+**Fallback if N=0.** Possible given how rare 7700 squawks are. Fallback: expand to "within 1000 km of LEMD" or use the full Western-European subset, *with the explicit caveat in the writeup* that this conflates LEMD-specific signal with the broader manned-aviation distribution. Decide only if it happens.
+
+**Both outcomes are publishable.** Pre-commit to this before running the analysis:
+
+- *Real emergencies score systematically high (e.g., >90th percentile of normal):* the model is detecting something real. The architectural-critique Medium piece is strengthened by external evidence.
+- *Real emergencies score at random (~50th) or low:* the synthetic AUROC was overstating capability. The imagination-leakage risk from Phase 1 has materialized. This is arguably the *more interesting* result for the writeup — a negative result that disciplines the field.
+
+The protocol prevents either outcome from being downplayed.
+
+### Layer 5 — qualitative top-K review of normal-validation flagged flights
+
+**Purpose.** A human-in-the-loop credibility check. ~2 hours total, high signal for the practitioner-audience writeup.
+
+**Protocol.**
+
+1. After Phase 6 model selection per D-006: score the full normal validation set with the trained AE.
+2. Take the **top 20 highest reconstruction-error scores** — trajectories the model considers anomalous *within data we labeled "normal."*
+3. For each, produce:
+   - 2D map of the trajectory (lat / lon)
+   - Altitude profile vs time
+   - Velocity profile vs time
+   - Reconstruction overlay (input vs AE output)
+4. One reviewer (the writeup owner) inspects each one for ~5 minutes. Classify:
+   - **Obvious anomaly** that should have been excluded from "normal" (e.g., aborted approach, mode confusion, holding pattern, unusual rerouting)
+   - **Subtle anomaly** worth flagging (e.g., slight off-corridor approach, atypical descent profile)
+   - **Actually normal** (model false positive — looks fine to a reviewer)
+
+**What it tells the writeup.** A 1-paragraph addition to the Medium piece's experimental contribution:
+
+> *"We hand-reviewed the top-20 reconstruction-error flights from the normal validation set. **X of 20** exhibited mode confusion, holding patterns, or aborted approaches that the 'normal' label had glossed over. **Y of 20** appeared normal under qualitative review — these represent the model's false-positive rate against human judgment at this threshold."*
+
+**Why this matters.** If most top-20 look like genuine anomalies, the model is generalizing beyond synthetic injection shapes — strong evidence that Layer 4's expected-positive result (if it lands) is earned, not spurious. If most top-20 look normal, the model is overfitting to noise or to the specific injection patterns, and Layer 4 should be interpreted accordingly.
+
+### Layer 4 + Layer 5 together: what they make claimable
+
+Without these layers, the strongest writeup claim is: "AUROC 0.X on our hand-designed synthetic anomalies, against simpler baselines."
+
+With them, the claim becomes:
+
+> *"AUROC 0.X on synthetic anomalies. AUROC 0.Y for the rules-baseline equivalents of the deployed STCA/APW/MSAW/APM safety nets, per-anomaly-type breakdown showing the AE earns its complexity specifically on hovering and speed-spike anomalies. Real emergency flights (Olive et al., 2020) scored at the Nth percentile of the normal-flight distribution (p=X, K trajectories). Hand-review of the top-20 model-flagged 'normal' flights found Z of 20 to be operationally interesting cases."*
+
+That is the sentence-density a Medium piece aimed at practitioners needs.
+
+---
 
 ## Sources and how to reproduce
 

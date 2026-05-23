@@ -34,6 +34,13 @@ gates:
       # (no dedup needed — Monica's UNIQUE constraint working; full audit lineage
       # in 02-data.md "Cycle 2" section).
       lemd_20260310_to_20260314__snapshot_2026-05-11: "16f1bd2cbdbd519ce7bde6fbbc8df5012b188b54c5598bffc310cef34b0c6899"
+      # Cycle 3: OpenSky scientific dataset (entry #1, Weekly 24h State Vectors
+      # 2017-2022). 20 Mondays sampled 2017-06 → 2020-03, COVID excluded. Per-Monday
+      # parquets in data/raw/opensky_states/. Combined hash is a sorted Merkle
+      # of per-file sha256 values (18 of 20 planned Mondays landed; 2018-04-02
+      # and 2019-12-02 failed a residual lat/lon coercion bug — documented as
+      # a known limitation, ship 18). Pivot rationale: D-007.
+      lemd_opensky_states_2017to2020__cycle3_2026-05-23: "98e38ba5802816a97f17b2086df18570c6f81311d80faeed0492ad87abd662e4"
     summary: |
       Audit discipline operational (cyclic gate). Future cycles append to
       dataset_hash and to 02-data.md's snapshot log without re-passing the gate.
@@ -53,10 +60,27 @@ gates:
       indexes upfront in future). Real=PASS, Usable=PASS (after D-206
       tolerance), Enough=SOFT_DEV.
 
-      Cumulative: 2 cycles, 10 days (Mon-Sat coverage 6/7, Sunday still
+      Cumulative through cycle 2: 10 days (Mon-Sat coverage 6/7, Sunday still
       missing), 2,711 trajectories. Still below 30-day / 5K-trajectory
-      thresholds for Enough=PASS. ~4 more cycles at current pace would
-      cross into CONDITIONAL territory.
+      thresholds for Enough=PASS at that point.
+
+      Cycle 3 (closed 2026-05-23): pivot to OpenSky scientific dataset
+      (entry #1) per D-007 — Trino + Supabase ingestion was the dominant
+      bottleneck. 18 of 20 planned Mondays landed (2 residual failures on
+      2018-04-02 and 2019-12-02 from an object-dtype-after-concat bug in
+      `apply_derivations`, documented and deferred). 10s resolution (vs
+      Trino path's 5s), Filter B applied (min_dist<10km AND min_alt<3km
+      per trajectory) to exclude cruise overflights since the scientific
+      dataset lacks the `flights_data4` origin/destination metadata the
+      Trino path used. Final yield: 19,057 trajectories / 3.43M rows /
+      ~123 MB on disk. Dataset is cite-able via OpenSky publication,
+      which becomes a writeup asset.
+
+      Cumulative through cycle 3: 28 days (Mon-Sat coverage 6/7, Sunday
+      still missing, Monday heavily over-represented), 21,768 trajectories,
+      ~6.35M rows. Crosses both the 30-day calendar threshold (with the
+      caveat that cycle 3's 18 days span 2017-2020 rather than being
+      contiguous) and the 5K-trajectory threshold → Enough=CONDITIONAL.
   preprocess:
     status: "in_progress"
     gate_semantics: "one_shot"
@@ -96,13 +120,26 @@ gates:
     holdout_score: null
     holdout_ci: null
     summary: |
-      Phase 7 entry decision pending: revise design doc's anomaly injection
-      per backend/docs/ml/07-eval-prep.md (research synthesis from FAA UAS
-      Sightings + Bard + Spanish news, ~2,200 incidents, 2026-05-10).
-      Headline changes: asymmetric upward altitude shift (not symmetric
-      ±300m), sustained-loiter variant (60-300s alongside 30s), demoted
-      speed spike (1.5-2x, ≤10% of mix), 40% zone-violation share, add
-      final-approach-intercept and multi-drone types.
+      Phase 7 entry decision pending. Two artifacts feed this gate:
+
+      1. backend/docs/ml/07-eval-prep.md — synthetic anomaly injection
+         calibration (Layer 2 of D-008 validation stack). Research synthesis
+         from FAA UAS Sightings + Bard + Spanish news, ~2,200 incidents,
+         2026-05-10. Headline changes: asymmetric upward altitude shift
+         (not symmetric ±300m), sustained-loiter variant (60-300s alongside
+         30s), demoted speed spike (1.5-2x, ≤10% of mix), 40%
+         zone-violation share, add final-approach-intercept and multi-drone
+         types.
+
+      2. D-008 — multi-layer output validation (added 2026-05-23). The
+         reconstruction-error number has no semantic meaning until external
+         evidence grounds it. Validation stack: (1) sanity, (2) discriminative
+         AUROC on synthetic injections per D-005, (3) realism via geofence +
+         safety-net rules baseline, (4) **external** via OpenSky Dataset #6
+         (Olive et al., 2020) — real 7700-squawk emergency flights the
+         model never trained on or saw injected, (5) qualitative top-K
+         review of model-flagged "normal" flights. Layers 4 and 5 protocols
+         live in 07-eval-prep.md > "Validating beyond synthetic discrimination."
   deploy:
     status: "pending"
     gate_semantics: "one_shot"   # course-project demo, not a production deploy.
@@ -160,3 +197,13 @@ decisions:
     decided_at: 2026-05-07
     title: "Architecture: LSTM Autoencoder primary, Isolation Forest baseline; alternatives considered and rejected"
     path: backend/docs/ml/decisions/D-006-architecture-and-baseline.md
+  - id: D-007
+    phase: data
+    decided_at: 2026-05-23
+    title: "OpenSky scientific dataset as primary cycle-3+ data source; Filter B for LEMD-flight gate"
+    path: backend/docs/ml/decisions/D-007-opensky-scientific-data-source-pivot.md
+  - id: D-008
+    phase: eval
+    decided_at: 2026-05-23
+    title: "Multi-layer output validation including OpenSky Dataset #6 (7700-squawk real emergencies) as external set"
+    path: backend/docs/ml/decisions/D-008-output-validation-layers.md
