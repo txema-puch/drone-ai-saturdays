@@ -113,7 +113,7 @@ When the team makes a decision (use case, modality, dataset), record it in `back
 
 **Timeline:** 5 weeks, ~24h/person/week. Option B (visual) CUT. Option C (Android Remote ID) stretch only post Week 4.
 
-**Open PRs (stacked chain):** **#11** (Phase 1) → **#14** (Phase 2 framework + cycle 1) → **#16** (cycle 2) → **#17** (cycle 3, branch `17-task-phase2-cycle3-opensky-scientific`). Each PR's base is the previous PR's branch; they rebase down the chain as each merges to develop.
+**Open PRs (stacked chain):** **#11** (Phase 1) → **#14** (Phase 2 framework + cycle 1) → **#16** (cycle 2) → **#18** (cycle 3, branch `17-task-phase2-cycle3-opensky-scientific`, issue #17). Each PR's base is the previous PR's branch; they rebase down the chain as each merges to develop.
 
 **Notebooks (audit + reference):**
 - `notebooks/05_phase2_data_validation.ipynb` — Phase 2 audit notebook (canonical for every cycle)
