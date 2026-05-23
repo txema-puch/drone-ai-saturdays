@@ -8,6 +8,7 @@ class Settings(BaseSettings):
     SUPABASE_KEY: str  
     class Config:
         env_file = ".env"
+        extra = "ignore"  # tolerate cycle-N supabase vars and other ad-hoc env additions
 
 
 settings = Settings()

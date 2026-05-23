@@ -4,10 +4,19 @@ How raw ADS-B data gets from OpenSky to a validated parquet snapshot the
 team can use. Documents who does what, what artifacts get produced, and
 how naming + tracking work across multiple extractions.
 
-> Last updated: 2026-05-10. Owners: data pipeline (Monica), validation
-> (Txema), pipeline coordination (whole team). Updates require a PR
-> against this file with at least one reviewer from outside the change
-> author.
+> Last updated: 2026-05-23. Owners: data pipeline (Monica, Trino+Supabase
+> path) and Txema (OpenSky scientific path), validation (Txema), pipeline
+> coordination (whole team). Updates require a PR against this file with
+> at least one reviewer from outside the change author.
+
+> **Two ingestion paths in service as of cycle 3:**
+> - **Trino + Supabase path** (original, cycles 1-2): described in
+>   sections below. Monica owns. Lower latency (5s) but human-side
+>   bottleneck for cycle scheduling.
+> - **OpenSky scientific dataset path** (new, cycle 3+, see D-007):
+>   `backend/scripts/download_opensky_states.py` pulls public S3 data
+>   directly with no credentials. Higher latency (10s) but no
+>   coordination cost. See "Alternative path" section below.
 
 ---
 
@@ -479,6 +488,84 @@ to be snapshotted (~400-500 MB used):
 - [ ] On confirmation: `TRUNCATE` the Supabase table
 - [ ] Confirm to Txema: "table truncated, ready to fill"
 - [ ] Resume extraction script for the next time range
+
+---
+
+## Alternative path — OpenSky scientific dataset (cycle 3+)
+
+Background: D-007. Pivot rationale: the Trino + Supabase path was the
+dominant human-side bottleneck for cycle scheduling. The OpenSky public
+scientific dataset gives schema-compatible data with no credentials and
+no inter-teammate coordination.
+
+### Script
+`backend/scripts/download_opensky_states.py` — ~370 lines, runs
+overnight, atomic per-Monday writes, resumable.
+
+### Source
+[OpenSky scientific datasets, entry #1](https://opensky-network.org/data/scientific) — "Weekly 24 Hours of State Vector Data 2017-2022."
+One full 24-hour snapshot per Monday, 2017-06-05 through 2022-05-23.
+Hosted on S3 at `https://s3.opensky-network.org/data-samples/states/.<YYYY-MM-DD>/<HH>/states_<YYYY-MM-DD>-<HH>.csv.tar`.
+Schema identical to the Trino `state_vectors_data4` table.
+
+### Resolution and metadata trade-offs
+
+- 10s sampling (vs Trino 5s). Phase 3 needs to harmonize if mixing data
+  sources.
+- **No `flights_data4` table available.** The Trino path filters flights
+  by `estarrivalairport='LEMD' OR estdepartureairport='LEMD'`. The
+  scientific path has only state vectors — no origin/destination
+  metadata. Substituted by **Filter B** (see below).
+- 138 non-COVID Mondays available in the 259-Monday bucket.
+
+### Filter B — LEMD-flight gate without metadata
+
+After bbox + 200 km haversine cut, segment state vectors into flights
+by `icao24 + 30-minute gap`. Then keep a flight iff:
+
+```
+min(dist_to_runway_m) < 10_000  AND  min(baroaltitude) < 3_000
+```
+
+Empirically (validated on 2019-10-07): removes ~47% of bbox flights
+that are cruise overflights at FL350-FL410 transiting central Spain.
+Median kept flight has min_dist 0.8 km and min_alt 533 m — clean LEMD
+arrivals/departures.
+
+Filter B substitutes for the Trino path's origin/destination metadata.
+Not equivalent — a cruise flight that descends below 3 km within 10 km
+of LEMD (e.g., low-altitude diversion) would be kept by Filter B; the
+metadata would correctly exclude it. Spot-check rate expected low.
+
+### Output naming
+
+Per-Monday parquets in `data/raw/opensky_states/`:
+
+```
+lemd_<MondayYYYYMMDD>__opensky_states_<fetchYYYY-MM-DD>.parquet
+```
+
+E.g., `lemd_20170605__opensky_states_2026-05-23.parquet`. The naming
+shape stays compatible with the cycle 1+2 Trino-path convention.
+
+### Schema parity
+
+The script imports `distance_to_closest_runway` and
+`calculate_flight_phase` from `backend/crud/opensky.py` — same
+derivations the Trino path uses. Output column set is identical to the
+Trino-path snapshots (21 columns, verified by smoke test on 2017-06-05).
+The `operation` column is set to `"unknown"` (no flights metadata
+available); downstream preprocessing can derive heuristically.
+
+### Cycle-3 audit posture
+
+Per D-211 (in `02-data.md`), the cycle-3 audit reuses the same
+derivation functions as the Trino path, so the audit-consistency check
+(D-205) produces zero deltas by construction. Meaningful validation in
+cycle 3 has to be at the row-quality and Filter-B-effectiveness layer,
+not the derivation-parity layer. Open question: do we adapt
+`notebooks/05_phase2_data_validation.ipynb` for cycle 3, or treat the
+script's coercions + Filter B as sufficient?
 
 ---
 
