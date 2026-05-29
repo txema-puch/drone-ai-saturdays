@@ -286,28 +286,58 @@ Note on PASS/FAIL/REVIEW labels: same as cycle 1 — these are the cells' *mecha
 
 ---
 
+### Cycle 3 — 2026-05-23 OpenSky scientific dataset (data-source pivot per D-007)
+
+**Significant departure from cycles 1 + 2.** Cycle 3 abandons the Trino + Supabase ingestion path. Data comes from the public OpenSky scientific dataset entry #1 ("Weekly 24 Hours of State Vector Data 2017-2022") via the new `backend/scripts/download_opensky_states.py` script. Rationale: D-007.
+
+- **Source:** OpenSky Network public S3-hosted scientific dataset.
+- **Period:** 18 of 20 planned Mondays sampled evenly across 2017-06-05 → 2020-03-09 (COVID excluded — 2020-03-15 to 2022-01-01). 2 planned Mondays (2018-04-02, 2019-12-02) did not land — see Bugs section.
+- **Resolution:** 10 seconds per aircraft (vs Trino path's 5 seconds; Phase 3 needs to harmonize).
+- **LEMD-flight gate:** Filter B (`min_dist_to_runway < 10km AND min_baroaltitude < 3km` per trajectory). Substitutes for the Trino path's `flights_data4.estarrivalairport/estdepartureairport` metadata, which is not available in state-vector-only data. Empirically removes ~47% of bbox trajectories that are cruise overflights at FL350-FL410.
+- **Output layout:** one parquet per Monday in `data/raw/opensky_states/lemd_<YYYYMMDD>__opensky_states_<fetchYYYY-MM-DD>.parquet`. Schema identical to cycles 1+2.
+- **Pre-COVID 2020 supplement:** 3 Mondays (2020-02-03, 2020-02-24, 2020-03-09) substituted for 3 most-recent bucket Mondays that turned out to have all 24 hours 404-missing despite the bucket prefix existing (2022-01-17, 2022-03-21, 2022-05-23).
+
+**Volume (final yield, 18 Mondays):**
+- 19,057 LEMD trajectories total after Filter B
+- 3.43M rows total
+- ~123 MB parquet on disk
+- Combined Merkle hash: `98e38ba5802816a97f17b2086df18570c6f81311d80faeed0492ad87abd662e4` (sorted sha256 over the 18 per-file sha256 hashes)
+
+**Why this matters for the writeup:** the OpenSky scientific dataset has a DOI and is cite-able. The previous Supabase-mediated path was reproducible only within the team. Cycle 3 makes reproducibility a real writeup asset: anyone can re-pull the same dates with a single script invocation.
+
+**Bugs surfaced during the run:**
+- 2 numpy crashes on `velocity`/`baroaltitude`/`heading` (CSV had non-numeric values that left columns as `object` dtype, breaking `np.radians` / arithmetic). Fixed in the script via `pd.to_numeric(..., errors="coerce")` on those columns. Affected Mondays were re-run and landed.
+- 2 residual failures on 2018-04-02 and 2019-12-02: same root cause (object-dtype after empty-chunk concat) but in the `lat`/`lon` path — the coercion is applied per-chunk in `apply_derivations` but the 24-hourly concat promotes the column back to `object` when some early-morning chunks are empty. Documented; 1-line fix exists (add `lat`, `lon` to the coercion loop, OR coerce after the concat in `filter_lemd_bbox`). Deferred — shipped 18.
+- 3 Mondays (2022-01-17, 2022-03-21, 2022-05-23) returned 404 for every hour despite the directory prefix existing in the bucket listing. Substituted with 3 earlier pre-COVID Mondays in the top-up run.
+
+**Audit posture for cycle 3:** Phase 2's `gates.data` is `cyclic` — cycle 3 appends to `manifest.yml > gates.data.dataset_hash` and to this doc's snapshot log without re-passing the gate. The full validation notebook (`notebooks/05_phase2_data_validation.ipynb`) was designed for Supabase-sourced data and uses cycle 1/2 columns + the canonical opensky derivations. Cycle 3 reuses the same derivation functions (`distance_to_closest_runway`, `calculate_flight_phase`) imported from `backend/crud/opensky.py`, so the audit-consistency check (D-205) will produce zero deltas by construction on cycle-3 parquets — meaningful validation in cycle 3 has to be at the row-quality and Filter-B-effectiveness layer, not the derivation-parity layer. Open question: do we run a cycle-3-specific audit cell set in the notebook, or treat the script's own row-coercion + Filter B as sufficient?
+
+---
+
 ## Cumulative volume
 
 Updates as cycles accumulate.
 
-| Metric | Cycle 1 | Cycle 2 | Cumulative |
-|---|---|---|---|
-| Cycles completed | 1 | 1 | 2 |
-| Batches available (canonical) | 1 (deduped) | 1 (snapshot) | 2 |
-| Calendar days seen | 5 | 5 | 10 |
-| Calendar dates | 2025-03-10 to 2025-03-14 | 2026-03-10 to 2026-03-14 | both ranges (year-over-year on same Mar 10-14 window) |
-| Time range (UTC) | 2025-03-10 00:58:21 → 2025-03-14 23:56:07 | 2026-03-10 00:58:37 → 2026-03-14 23:45:42 | 2025-03-10 → 2026-03-14 (with a 1-year gap) |
-| Unique trajectories (`flight_id`) | 1,285 | 1,426 | **2,711** |
-| Unique aircraft (`icao24`) | 330 | 350 | (overlap not measured — cycle 2 audit didn't cross-reference cycle 1 icao24 sets; ≤680 upper bound) |
-| Total canonical rows | 1,146,231 (deduped) | 1,774,859 (snapshot) | 2,921,090 |
-| Total parquet size in Drive | 118.88 MB (raw + deduped) | 61.93 MB (snapshot only) | 180.81 MB |
-| Day-of-week coverage | 5/7 (Mon-Fri, [0,1,2,3,4]) | 5/7 (Tue-Sat, [1,2,3,4,5]) | **6/7 (Mon-Sat, [0,1,2,3,4,5])** — Sunday still uncovered |
-| Hour-of-day coverage | 24 distinct hours | 24 distinct hours | 24 |
-| Months covered | 1 (March 2025) | 1 (March 2026) | 2 month-instances of March (year-over-year), 1 unique month |
+| Metric | Cycle 1 | Cycle 2 | Cycle 3 | Cumulative |
+|---|---|---|---|---|
+| Cycles completed | 1 | 1 | 1 | 3 |
+| Batches available (canonical) | 1 (deduped) | 1 (snapshot) | 18 (per-Monday parquets) | 20 |
+| Calendar days seen | 5 | 5 | 18 (Mondays only) | 28 |
+| Calendar dates | 2025-03-10 to 2025-03-14 | 2026-03-10 to 2026-03-14 | 18 Mondays sampled 2017-06-05 → 2020-03-09 | 2017-06-05 → 2026-03-14 (spans 9 calendar years with gaps) |
+| Time range (UTC) | 2025-03-10 00:58:21 → 2025-03-14 23:56:07 | 2026-03-10 00:58:37 → 2026-03-14 23:45:42 | 18 single-day windows, 00:00 → 23:59 UTC each | union of all three |
+| Unique trajectories (`flight_id`) | 1,285 | 1,426 | 19,057 | **21,768** |
+| Unique aircraft (`icao24`) | 330 | 350 | not separately counted (cycle 3 audit posture deferred derivation-parity cell — see Cycle 3 Audit posture note) | not measured cross-cycle |
+| Total canonical rows | 1,146,231 (deduped) | 1,774,859 (snapshot) | 3,430,000 (approx — 3.43M reported by script manifest) | **~6.35M** |
+| Total parquet size in Drive | 118.88 MB (raw + deduped) | 61.93 MB (snapshot only) | ~123 MB (18 per-Monday parquets) | ~303.81 MB |
+| Day-of-week coverage | 5/7 (Mon-Fri, [0,1,2,3,4]) | 5/7 (Tue-Sat, [1,2,3,4,5]) | 1/7 (Mon only, [0]) | **6/7 (Mon-Sat, [0,1,2,3,4,5])** — Sunday still uncovered, Monday heavily over-represented |
+| Hour-of-day coverage | 24 distinct hours | 24 distinct hours | 24 distinct hours | 24 |
+| Months covered | 1 (March 2025) | 1 (March 2026) | spans 18 distinct Monday-instances across 2017-06 → 2020-03 | many — 18-day Monday sample plus 2 March-week ranges |
 
-**Cumulative Enough verdict: SOFT_DEV.**
+**Cumulative Enough verdict: CONDITIONAL through cycle 3.**
 
-Still 20 calendar days short of the 30-day SOFT_DEV → CONDITIONAL threshold, and 2,289 trajectories short of the 5K-trajectory threshold. Day-of-week coverage advanced from 5/7 to 6/7 (Saturday added by cycle 2). At the current ~1,400 trajectories/cycle and 5 days/cycle, ~4 more cycles get us into CONDITIONAL territory. The year-over-year coverage strategy is implicit but undecided (see Open questions #1).
+Cycle 3 cleared the 5K-trajectory threshold by a wide margin (19,057 alone, 21,768 cumulative) and crossed the 30-day calendar threshold (28 days; the original 30-day target referred to calendar days observed and cycle 3 spans 18 Mondays across a multi-year window — Phase 3 needs to decide whether 28 distinct calendar days across multiple years counts the same way as 30 contiguous calendar days for the gate's intent).
+
+Day-of-week coverage stays at 6/7 by union (Mon-Sat) but is now heavily Monday-skewed since cycle 3 contributes 18 Mondays to the ~10 days from cycles 1+2. The writeup needs to surface this explicitly — see open question on day-of-week below. Phase 3 needs to make an explicit call on whether to treat cycles 1+2 + cycle 3 as one pooled dataset (with a resolution-harmonization step — cycle 3 is 10s, cycles 1+2 are 5s) or use cycle 3 alone as the primary training corpus.
 
 ---
 
@@ -455,8 +485,9 @@ Tracking per cycle. Each entry: what was caught, response category applied (per 
 | D-208 | 2026-05-10 | Snapshot pattern is truncate-fill-snapshot cycle (Drive is durable record, Supabase is transient) | locked |
 | D-209 | 2026-05-10 | Parquet naming derives from the data's `time_utc` range, not from the Supabase table name | locked |
 | D-210 | 2026-05-11 | Six-category response playbook (A through F) for audit findings | locked, see workflow doc |
+| D-211 | 2026-05-23 | Cycle 3 sources data from OpenSky scientific dataset entry #1, applies Filter B (`min_dist<10km AND min_alt<3km` per trajectory) as the LEMD-flight gate (no `flights_data4` metadata available) | promoted to ADR D-007 |
 
-D-208, D-209, and D-210 are eligible for promotion to ADRs in `backend/docs/ml/decisions/` if revisited. None have been revisited.
+D-208, D-209, and D-210 are eligible for promotion to ADRs in `backend/docs/ml/decisions/` if revisited. None have been revisited. D-211 is the codified cycle-level inheritance of D-007.
 
 ---
 

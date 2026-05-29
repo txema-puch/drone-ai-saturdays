@@ -60,14 +60,14 @@ The data gate has `gate_semantics: "cyclic"` — passed means audit discipline o
 
 When the team makes a decision (use case, modality, dataset), record it in `backend/docs/decisions/README.md`. ML-methodology decisions (metric choice, architecture, split strategy) get an ADR under `backend/docs/ml/decisions/` AND a pointer in `backend/docs/ml/manifest.yml > decisions[]`.
 
-## Project status (as of 2026-05-11)
+## Project status (as of 2026-05-23)
 
-**ML lifecycle position:** Phase 2 closed; `current_phase: preprocess`. Phase 3 design coaching not yet started.
+**ML lifecycle position:** Phase 2 still `passed` (cyclic gate); cycle 3 closed via a new data-source path (D-007). `current_phase: preprocess`. Phase 3 design coaching not yet started.
 
 | Phase | Status | Artifact |
 |---|---|---|
 | 1. Problem | passed (2026-05-07) | `backend/docs/ml/01-problem.md` |
-| 2. Data | passed (2026-05-11, cyclic gate) — cycles 1 + 2 validated | `backend/docs/ml/02-data.md` |
+| 2. Data | passed (2026-05-11, cyclic gate) — cycles 1+2+3 landed (cycle 3 via D-007, 18 of 20 planned Mondays) | `backend/docs/ml/02-data.md` |
 | 3. Preprocess | in_progress — not yet started | (none yet) |
 | 4. EDA | pending | |
 | 5. Features | pending | |
@@ -85,7 +85,17 @@ When the team makes a decision (use case, modality, dataset), record it in `back
 - Snapshot is canonical (no dedup needed). Verdict: Real=PASS, Usable=PASS, Enough=SOFT_DEV.
 - Snapshot in Drive at `drone-ai-saturdays/data/raw/lemd_20260310_to_20260314__snapshot_2026-05-11.parquet`.
 
-**Cumulative:** 10 days, 2,711 trajectories, 2.92M canonical rows, 6/7 day-of-week coverage (Sunday still missing). ~4 more cycles at current pace would cross into Enough=CONDITIONAL.
+**Cycle 3 (2017-06 → 2020-03, OpenSky scientific dataset)** — data-source pivot per **D-007**. Closed 2026-05-23 with 18 of 20 planned Mondays landed:
+- New script `backend/scripts/download_opensky_states.py` pulls Mondays from OpenSky's public S3 scientific dataset entry #1, no credentials needed. Bypasses the Trino + Supabase coordination bottleneck.
+- 10s resolution (Trino path was 5s — Phase 3 needs to harmonize if mixing sources).
+- `flights_data4` metadata not available — replaced with **Filter B** (per-trajectory: `min_dist<10km AND min_alt<3km`) as the LEMD-flight gate. Empirically removes ~47% bbox cruise overflights.
+- Per-Monday parquets in `data/raw/opensky_states/`. Final yield: **18 Mondays, 19,057 trajectories, 3.43M rows, ~123 MB on disk.**
+- 2 Mondays (2018-04-02, 2019-12-02) failed on a residual lat/lon coercion bug in `apply_derivations` (object-dtype after empty-chunk concat). 1-line fix exists; decision was to ship 18 and document the gap as a Limitations entry in the writeup.
+- Sampling notes: first-pass run hit 15/20; 2 numpy bug crashes (fixed mid-run via `pd.to_numeric` coercion on `velocity`/`baroaltitude`/`heading`); 3 missing 2022 Mondays replaced with pre-COVID 2020 substitutes in a top-up run; 2 residual failures remain (see above).
+- Pre-existing settings-loader bug fixed in `backend/core/config.py` (`extra = "ignore"`) so cycle-N env vars don't crash settings.
+- Combined Merkle hash: `98e38ba5802816a97f17b2086df18570c6f81311d80faeed0492ad87abd662e4` (sorted sha256 of per-file sha256).
+
+**Cumulative (through cycle 3):** 28 days, **21,768 trajectories, 6.35M canonical rows.** Crosses the 5K-trajectory threshold → **Enough=CONDITIONAL.** Day-of-week coverage stays at 6/7 by union (Sunday still missing) but is now heavily Monday-skewed (18 Mondays + 1 Mon + 1 Tue/Wed/Thu/Fri/Sat) — call out in writeup as a restricted-regime claim.
 
 **Cycle 2 framework improvements (live as of PR #16):**
 - **Multi-account `.env` scheme**: `SUPABASE_URL_<SLUG>` / `SUPABASE_KEY_<SLUG>` with `ACCOUNT_SLUG` constant in notebook cell 1. No more manual `.env` overwrites per cycle.
@@ -103,7 +113,7 @@ When the team makes a decision (use case, modality, dataset), record it in `back
 
 **Timeline:** 5 weeks, ~24h/person/week. Option B (visual) CUT. Option C (Android Remote ID) stretch only post Week 4.
 
-**Open PRs (stacked chain):** **#11** (Phase 1) → **#14** (Phase 2 framework + cycle 1) → **#16** (cycle 2). Each PR's base is the previous PR's branch; they rebase down the chain as each merges to develop.
+**Open PRs (stacked chain):** **#11** (Phase 1) → **#14** (Phase 2 framework + cycle 1) → **#16** (cycle 2) → **#18** (cycle 3, branch `17-task-phase2-cycle3-opensky-scientific`, issue #17). Each PR's base is the previous PR's branch; they rebase down the chain as each merges to develop.
 
 **Notebooks (audit + reference):**
 - `notebooks/05_phase2_data_validation.ipynb` — Phase 2 audit notebook (canonical for every cycle)
