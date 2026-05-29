@@ -227,9 +227,62 @@ Note on PASS/FAIL/REVIEW labels: these are the audit cells' *mechanical* signals
 - Usable: **PASS** (after dedup; raw failed Usable)
 - Enough: **SOFT_DEV** — 1 cycle, 5 weekdays of March 2025, 1,285 trajectories, 330 unique aircraft. Above the 500-trajectory project-viability floor; below the 30-day SOFT_DEV ceiling. Project development can proceed; full training requires more cycles before Phase 6.
 
-### Cycle 2 — *(not yet run)*
+### Cycle 2 — 2026-05-11 snapshot of 2026-03-10 to 2026-03-14
 
-Pending Monica's next extraction batch.
+**Supabase source table:** `lemd_2026` (new convention per workflow doc — single working-table name with year suffix; see Known issues #2's resolution path).
+
+**Coverage:**
+- Date range: 2026-03-10 (Tuesday) through 2026-03-14 (Saturday) inclusive, 5 days
+- Day-of-week coverage: Tue-Sat (5/7), [1,2,3,4,5]
+- Hour-of-day coverage: 24 distinct hours
+- **Same calendar window as cycle 1, one year later.** Year-over-year repeat on the same Mar 10-14 dates. Cycle 2 also adds Saturday coverage (cycle 1 was Mon-Fri).
+
+**Volume:**
+- Raw rows: 1,774,859
+- Deduped rows: same — no dups detected, no dedup applied (see Known issues #3 status update)
+- Duplicates removed: 0 (0.00%)
+- Unique trajectories (`flight_id`): **1,426**
+- Unique aircraft (`icao24`): 350
+- Operation split (rows): arrival 1,093,846 vs departure 681,013 (~62/38, same arrival-bias as cycle 1)
+- Operation split (unique flights): arrival 725 vs departure 701 (~51/49, balanced — like cycle 1)
+- Flight-phase distribution (rows): descent 811,007 / climb 421,982 / cruise 340,411 / approach 125,335 / takeoff 76,122 / on_ground 2
+
+**Arrival/departure asymmetry** continues from cycle 1: ~1,508 rows/arrival vs ~971 rows/departure (~55% more for arrivals). Same physical cause — longer descent profile across the 200km radius — and the same Phase 6 implication.
+
+**Artifacts:**
+
+| File | Size | sha256 |
+|---|---|---|
+| `data/raw/lemd_20260310_to_20260314__snapshot_2026-05-11.parquet` | 61.93 MB | `16f1bd2cbdbd519ce7bde6fbbc8df5012b188b54c5598bffc310cef34b0c6899` |
+
+Only one parquet this cycle (snapshot is canonical — no dedup needed). Mirrored to Google Drive at `drone-ai-saturdays/data/raw/` with `.sha256` sidecar. Raw-parquet round-trip integrity through Drive verified on 2026-05-11.
+
+**Manifest reference:** `dataset_hash[lemd_20260310_to_20260314__snapshot_2026-05-11]` (snapshot is canonical; no deduped variant exists for this cycle because no dups were found).
+
+**Validation outcomes:**
+
+Note on PASS/FAIL/REVIEW labels: same as cycle 1 — these are the cells' *mechanical* signals; the playbook decides the *response*.
+
+| Cell | Check | Mechanical result | Playbook response |
+|---|---|---|---|
+| 7a | Schema match | PASS — 21 columns, no missing, no extra | — |
+| 7b | Type sanity | PASS — all numeric/bool columns OK | — (same `time_utc` string caveat as cycle 1, Known issues #8) |
+| 7c | Critical nulls | FAIL — 3 nulls in `baroaltitude` (0.000169%) | **Response D** — well below D-206's 0.1% noise tolerance; see Known issues #9 |
+| 7d | Duplicate detection | **PASS — 0 dups at any granularity** | — Monica's upstream constraint working, fix from #13 confirmed effective; see Known issues #3 status update |
+| 7e | Range bounds | PASS — all numeric columns within physical bounds | — (cycle 1's transient glitches did not recur) |
+| 7e | LEMD bbox | PASS — 0 rows outside bbox (0.0000%) | — (cycle 1 had 0.0433% outside; cycle 2 data is cleaner) |
+| 8 | Pipeline consistency | PASS — all 4 tolerances met; `flight_phase` agreement = 100.0000% | — (Monica's deployed code still matches repo) |
+
+**Verdict:**
+- Real: **PASS**
+- Usable: **PASS** — mechanical cell 7c FAIL overridden per D-206: 0.000169% noise is below the 0.1% tolerance for the Usable verdict. Response D applied.
+- Enough: **SOFT_DEV** — 10 cumulative days across 2 cycles, 2,711 trajectories. Above viability floor; below 30-day / 5K-trajectory floor for DL training.
+
+**Cycle 2 highlights (vs cycle 1):**
+- **No duplicates.** Monica's `UNIQUE (icao24, time, lat, lon)` constraint with `INSERT ... ON CONFLICT DO NOTHING` (added after #13) is working in production. The script-rerun issue is fixed at the source — future cycles arrive without it.
+- **Cleaner range data.** Zero range-bound violations vs cycle 1's 3 transient glitches.
+- **Cleaner bbox.** 0 rows outside vs cycle 1's 0.0433%.
+- **Smaller baroaltitude null share** (0.000169% vs 0.0044%, 26× less). Same underlying ADS-B-property cause; just less of it this cycle.
 
 ---
 
@@ -237,24 +290,24 @@ Pending Monica's next extraction batch.
 
 Updates as cycles accumulate.
 
-| Metric | Cycle 1 | Cumulative |
-|---|---|---|
-| Cycles completed | 1 | 1 |
-| Batches available (canonical = deduped when applicable) | 1 | 1 |
-| Calendar days seen | 5 | 5 |
-| Calendar dates | 2025-03-10 to 2025-03-14 | 2025-03-10 to 2025-03-14 |
-| Time range (UTC) | 2025-03-10 00:58:21 → 2025-03-14 23:56:07 | same |
-| Unique trajectories (`flight_id`) | **1,285** | **1,285** |
-| Unique aircraft (`icao24`) | 330 | 330 |
-| Total canonical rows (deduped where applicable) | 1,146,231 | 1,146,231 |
-| Total parquet size in Drive (raw + deduped) | 118.88 MB | 118.88 MB |
-| Day-of-week coverage | 5/7 (Mon-Fri, [0,1,2,3,4]) | 5/7 |
-| Hour-of-day coverage | 24 distinct hours | 24 |
-| Months covered | 1 (March 2025) | 1 |
+| Metric | Cycle 1 | Cycle 2 | Cumulative |
+|---|---|---|---|
+| Cycles completed | 1 | 1 | 2 |
+| Batches available (canonical) | 1 (deduped) | 1 (snapshot) | 2 |
+| Calendar days seen | 5 | 5 | 10 |
+| Calendar dates | 2025-03-10 to 2025-03-14 | 2026-03-10 to 2026-03-14 | both ranges (year-over-year on same Mar 10-14 window) |
+| Time range (UTC) | 2025-03-10 00:58:21 → 2025-03-14 23:56:07 | 2026-03-10 00:58:37 → 2026-03-14 23:45:42 | 2025-03-10 → 2026-03-14 (with a 1-year gap) |
+| Unique trajectories (`flight_id`) | 1,285 | 1,426 | **2,711** |
+| Unique aircraft (`icao24`) | 330 | 350 | (overlap not measured — cycle 2 audit didn't cross-reference cycle 1 icao24 sets; ≤680 upper bound) |
+| Total canonical rows | 1,146,231 (deduped) | 1,774,859 (snapshot) | 2,921,090 |
+| Total parquet size in Drive | 118.88 MB (raw + deduped) | 61.93 MB (snapshot only) | 180.81 MB |
+| Day-of-week coverage | 5/7 (Mon-Fri, [0,1,2,3,4]) | 5/7 (Tue-Sat, [1,2,3,4,5]) | **6/7 (Mon-Sat, [0,1,2,3,4,5])** — Sunday still uncovered |
+| Hour-of-day coverage | 24 distinct hours | 24 distinct hours | 24 |
+| Months covered | 1 (March 2025) | 1 (March 2026) | 2 month-instances of March (year-over-year), 1 unique month |
 
 **Cumulative Enough verdict: SOFT_DEV.**
 
-The project needs at least 4-5 more cycles of similar volume to reach SOFT_DEV → CONDITIONAL transition (≥30 days), and 18+ cycles to reach CONDITIONAL → PASS (≥90 days). Coverage strategy decision (year-over-year vs consecutive vs scattered) is open — see Open questions.
+Still 20 calendar days short of the 30-day SOFT_DEV → CONDITIONAL threshold, and 2,289 trajectories short of the 5K-trajectory threshold. Day-of-week coverage advanced from 5/7 to 6/7 (Saturday added by cycle 2). At the current ~1,400 trajectories/cycle and 5 days/cycle, ~4 more cycles get us into CONDITIONAL territory. The year-over-year coverage strategy is implicit but undecided (see Open questions #1).
 
 ---
 
@@ -337,6 +390,54 @@ Tracking per cycle. Each entry: what was caught, response category applied (per 
 - **Response category:** D (document + proceed) + small F (update cell 7b to include datetime-expected columns next cycle)
 - **Rationale:** Downstream cells already handle this correctly via `pd.to_datetime(... errors="coerce")` (see cell 8 consistency check and cell 11 volume metrics). Not blocking. But the audit should explicitly note it rather than implying `time_utc` is a typed datetime.
 - **Action:** Phase 3 will explicitly convert to `datetime[ns, UTC]`. Notebook cell 7b can be extended in a future iteration to flag string columns that should be datetime — not blocking for Phase 2 close.
+
+### #3 status update — Cycle 2: Monica's upstream fix confirmed effective
+
+- **Cycle 2 result:** 0 duplicates at any granularity (rows: 1,774,859 / dup pairs: 0 / dup tuples: 0 / full-row dups: 0)
+- **Interpretation:** the `UNIQUE (icao24, time, lat, lon)` constraint + `INSERT ... ON CONFLICT DO NOTHING` added to Monica's pipeline after issue #13 is working in production
+- **Outcome:** cycle 2's canonical artifact is the snapshot parquet itself; no deduped variant needed
+- This is a *positive* confirmation rather than a new issue — kept here as a closing note on #3's lifecycle
+
+### #9 — Cycle 2: Sparse `baroaltitude` nulls (recurrence, cleaner)
+
+- **Detected by:** cell 7c, critical-null check
+- **Count:** 3 null `baroaltitude` rows out of 1,774,859 (0.000169%) — **26× cleaner than cycle 1** (which had 0.0044%)
+- **Response category:** D (document + proceed, no upstream fix)
+- **Rationale:** Same ADS-B-property cause as cycle 1 (#1). 0.000169% is well below D-206's 0.1% noise tolerance for the Usable verdict.
+- **Audit nuance:** cell 7c marked this FAIL mechanically (any null in a critical column flips it), and cell 12 propagated to `Usable: FAIL` in raw output. Per D-206 the verdict applies a ≤0.1% noise tolerance, so the *interpreted* Usable verdict is PASS. The mechanical/interpreted gap is documented in #12.
+- **Action:** None upstream.
+
+### #10 — Cycle 2: Sparse nulls in velocity/heading/vertrate (14 rows each)
+
+- **Detected by:** cell 6 (schema audit)
+- **Count:** 14 nulls each in `velocity`, `heading`, `vertrate`, `velocity_kmh` (0.000789%). Likely the same 14 rows in all four columns since `velocity_kmh` is derived from `velocity`.
+- **Response category:** D (document + proceed)
+- **Rationale:** Tiny fraction, well below noise tolerance. Some ADS-B state vectors arrive without velocity components (rare). Phase 3 will need to decide drop/impute for trajectory reconstruction. Not blocking.
+- **Action:** None. Documented for Phase 3 awareness.
+
+### #11 — Cycle 2: Table arrived without an index on `(time, icao24)`
+
+- **Detected by:** notebook cell 4 timing out during the data fetch (`statement_timeout`, APIError code 57014)
+- **Issue:** `public.lemd_2026` had no index on `time`, so any ORDER BY or pagination query required a full table sort. At 1.77M rows this exceeded Supabase's 120s service-role `statement_timeout`. The audit had to apply `CREATE INDEX idx_lemd_2026_time_icao24 ON public.lemd_2026 (time, icao24)` mid-run to proceed.
+- **Response category:** F (update methodology — the upstream pipeline should provision this)
+- **Rationale:** Monica's pipeline creates the table via `INSERT … ON CONFLICT DO NOTHING` (per #3 fix) but does not add an index. For datasets at our scale (≥1M rows per cycle), an index on the natural query columns is required for any analytic query to complete. The audit happens to need it for keyset pagination; Phase 3+ will also need it for time-bounded reads.
+- **Action upstream:** Monica's pipeline should create the index when provisioning each cycle's table. Suggest also indexing `flight_id` for trajectory queries.
+- **Action local:** Index added during cycle 2 audit. Documented here so cycle 3+ can verify the index is present BEFORE running the audit (a one-line `pg_indexes` check could be added to cell 3 in a future notebook iteration).
+
+### #12 — Cycle 2: Audit ergonomics — verdict logic doesn't apply D-206 tolerance
+
+- **Detected by:** cycle 2 verdict cell (12) output: "Usable: FAIL" despite the only finding being 3 nulls at 0.000169%
+- **Issue:** Cell 7c marks critical-column nulls as binary FAIL (any nulls → FAIL), and cell 12's `usable_pass` boolean uses that directly. Methodology D-206 specifies a ≤0.1% noise tolerance for Real/Usable verdicts. The verdict computation doesn't apply this tolerance — leaving the human to do it manually each cycle (which we did for both cycle 1 and cycle 2).
+- **Response category:** F (update methodology — the audit itself is the issue)
+- **Rationale:** Mechanical FAIL is useful as a signal but should not bind the verdict at sub-tolerance noise levels. Otherwise every cycle with any null in a critical column produces a misleading raw verdict that needs human override.
+- **Action:** Update cell 7c to compute `critical_failed = any(null_pct > 0.1 for col in critical_cols)` and cell 12 to use that signal. Not blocking for cycle 2 close. Follow-up issue worth filing post-PR.
+
+### #13 — Cycle 2: Audit notebook variable mismatch (cell 12 NameError)
+
+- **Detected by:** running cell 12 of the validation notebook against cycle 2's snapshot
+- **Issue:** cell 11 computes `n_calendar_days` for the cumulative-days metric, but cell 12 referenced `n_days` (the old name). The verdict cell raised `NameError: name 'n_days' is not defined`. Cycle 1's run did not surface this because — based on PR #14's narrative — the cells may have been edited after cycle 1's manual verdict was already computed.
+- **Response category:** F (update methodology — the audit itself is the issue)
+- **Action:** Renamed three occurrences of `n_days` → `n_calendar_days` in cell 12. Applied in this PR's notebook diff.
 
 ---
 
