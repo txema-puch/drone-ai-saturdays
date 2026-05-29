@@ -32,6 +32,9 @@ Keep the tone conversational. We'll polish before publication.
 | 03 | [Architecture and baseline](03-architecture-and-baseline.md) | Why an LSTM Autoencoder, and why also an Isolation Forest baseline? |
 | 04 | [Conditional normality](04-conditional-normality.md) | What if "normal flight" depends on weather, time of day, or runway configuration? |
 | 05 | [Inference modes (eval vs demo)](05-inference-modes.md) | Does the model run on full trajectories or as they unfold? |
+| 06 | [Validating the data before doing anything else](06-validating-the-data.md) | What did we actually do before training a single model, and why was that worth doing? |
+| 07 | [Working with someone else's pipeline](07-working-with-someones-pipeline.md) | When a teammate produces the data we model on, how do we trust it without re-implementing everything? |
+| 08 | [Data engineering rabbit holes](08-data-engineering-rabbit-holes.md) | Why parquet + pyarrow, why hash file bytes, and the speculative-deps trap. |
 
 ### Process / tooling notes (separate audience)
 

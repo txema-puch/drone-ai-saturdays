@@ -32,6 +32,7 @@ dependencies = [
     "matplotlib>=3.8.0",
     "python-dotenv>=1.0.0",
     "ipykernel>=6.29.0",
+    "pyarrow>=15.0.0",
 ]
 
 [build-system]
@@ -40,3 +41,13 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["."]
+
+# TEMPORARY (May 2026): macOS Intel (x86_64) compatibility.
+# `traffic` (in deps above) pulls in `onnxruntime`, whose latest versions don't
+# ship macOS Intel wheels. This block forces uv to resolve to onnxruntime
+# versions that DO have macOS Intel wheels. Harmless for Apple Silicon, Linux,
+# and Windows installs. Remove once no team member is on macOS Intel anymore.
+[tool.uv]
+required-environments = [
+    "sys_platform == 'darwin' and platform_machine == 'x86_64'",
+]

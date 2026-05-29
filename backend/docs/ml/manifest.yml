@@ -8,41 +8,60 @@ model_track: "dl"   # tentative — LSTM Autoencoder primary, Isolation Forest b
                     # Confirmed in Phase 6 once we see whether the LSTM AE meaningfully
                     # beats IF. If not, we flip to "ml" and ship IF.
 
-current_phase: "data"
+current_phase: "preprocess"
 
 # Gate ledger — append, never rewrite.
 gates:
   problem:
     status: "passed"
+    gate_semantics: "one_shot"
     passed_at: "2026-05-07"
     artifact: "backend/docs/ml/01-problem.md"
     summary: "Anomaly detection on LEMD ADS-B. LSTM AE primary, IF baseline. AUROC>0.85 primary, F2 operational, FPR<=15% guardrail. FN dominates operationally."
   data:
-    status: "in_progress"
-    passed_at: null
-    artifact: null
-    dataset_hash: null
-    summary: "Monica's Supabase lemd_YYYY_MM_DD tables. Schema validation + EDA pending (Week 1)."
+    status: "passed"
+    gate_semantics: "cyclic"   # data accumulates per Supabase 500MB-cycle (see workflow doc).
+                               # `passed` means audit discipline operational; future cycles append.
+    passed_at: "2026-05-11"
+    artifact: "backend/docs/ml/02-data.md"
+    dataset_hash:
+      # Cycle 1: 2025-03-10 to 2025-03-14 (5 days, Mon-Fri). Snapshot 2026-05-10.
+      # Canonical artifact is the deduped parquet (raw had 37.5% script-rerun
+      # duplicates; full audit lineage in 02-data.md).
+      lemd_20250310_to_20250314__deduped_2026-05-10: "8256c65f95135597f3db07413941380fc2a0c6bbfc429b07b12b10478f7e2c10"
+    summary: |
+      Audit discipline operational (cyclic gate). Future cycles append to
+      dataset_hash and to 02-data.md's snapshot log without re-passing the gate.
+
+      Cycle 1: 2025-03-10 to 2025-03-14 (5 days, Mon-Fri). 1,834,084 raw rows
+      → 1,146,231 deduped (37.5% removed; upstream script-rerun bug, fixed
+      for future cycles via unique constraint). 1,285 unique trajectories,
+      330 unique aircraft. Real=PASS, Usable=PASS, Enough=SOFT_DEV (1 cycle,
+      below 30-day floor). Parquets in Drive: lemd_20250310_to_20250314__{snapshot,deduped}_2026-05-10.
   preprocess:
-    status: "pending"
+    status: "in_progress"
+    gate_semantics: "one_shot"
     passed_at: null
     artifact: null
     pipeline_definition: null
-    summary: null
+    summary: "Phase 2 closed 2026-05-11. Phase 3 entry pending: define trajectory segmentation, resampling, scaling pipeline per the design doc."
   eda:
     status: "pending"
+    gate_semantics: "one_shot"
     passed_at: null
     artifact: null
     insights_count: 0
     summary: null
   features:
     status: "pending"
+    gate_semantics: "one_shot"
     passed_at: null
     artifact: null
     feature_count: 0
     summary: null
   train:
     status: "pending"
+    gate_semantics: "one_shot"
     passed_at: null
     artifact: null
     track_confirmed: false       # flips to true in Phase 6 once LSTM-vs-IF result is in
@@ -52,13 +71,23 @@ gates:
     summary: null
   eval:
     status: "pending"
+    gate_semantics: "one_shot"
     passed_at: null
     artifact: null
     holdout_score: null
     holdout_ci: null
-    summary: null
+    summary: |
+      Phase 7 entry decision pending: revise design doc's anomaly injection
+      per backend/docs/ml/07-eval-prep.md (research synthesis from FAA UAS
+      Sightings + Bard + Spanish news, ~2,200 incidents, 2026-05-10).
+      Headline changes: asymmetric upward altitude shift (not symmetric
+      ±300m), sustained-loiter variant (60-300s alongside 30s), demoted
+      speed spike (1.5-2x, ≤10% of mix), 40% zone-violation share, add
+      final-approach-intercept and multi-drone types.
   deploy:
     status: "pending"
+    gate_semantics: "one_shot"   # course-project demo, not a production deploy.
+                                 # Would be "ongoing" for a real-time production system.
     passed_at: null
     artifact: null
     monitoring_dashboard: null
