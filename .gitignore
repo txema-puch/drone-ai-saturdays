@@ -55,7 +55,6 @@ coverage.xml
 ########################################
 data/
 backend/models/
-backend/docs/
 backend/notebooks/
 
 ########################################
@@ -83,4 +82,4 @@ Thumbs.db
 .docs
 .data
 .claude/
-docs/
+/docs/
