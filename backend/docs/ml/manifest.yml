@@ -89,12 +89,32 @@ gates:
     pipeline_definition: null
     summary: "Phase 2 closed 2026-05-11. Phase 3 entry pending: define trajectory segmentation, resampling, scaling pipeline per the design doc."
   eda:
-    status: "pending"
+    status: "in_progress"
     gate_semantics: "one_shot"
     passed_at: null
-    artifact: null
-    insights_count: 0
-    summary: null
+    artifact: "backend/docs/ml/04-eda.md"
+    insights_count: 7
+    summary: |
+      Cycle-3 structural EDA across two rounds.
+
+      Round 1 (2026-05-29): original 6 insights under the drone-detection
+      framing. Filter C2 (landings-only) proposed as LEMD-operation gate.
+
+      Round 2 (2026-05-30): post-Phase-1 architectural reframe triggered
+      re-derivation. Filter D (three-criterion engagement gate) replaces C2
+      under the behavioral-anomaly framing. Phase 0 phase-derivation
+      validation added. Insight 7 (motion-feature normality audit) added,
+      including 7d/7e/7f sub-investigations. Multi-detector preprocessing
+      pipeline designed (physical-bounds rule + imputation + LSTM AE as
+      separate detection channels). Sanity-cohort definition for D-008
+      Layer 1 made concrete. All locked in D-010.
+
+      Phase 4 stays in_progress (one_shot semantics) until D-008 Layer 4
+      prep (OpenSky Dataset #6 LEMD-area inspection) lands. D-009 probe is
+      a separate Phase 7 notebook. **Phase 3 close-out does NOT block on
+      remaining Phase 4 deliverables** — the decisions surfaced here (Filter
+      D, multi-detector pipeline, sanity cohort) are sufficient for Phase 3
+      entry and are codified in D-010.
   features:
     status: "pending"
     gate_semantics: "one_shot"
@@ -207,3 +227,13 @@ decisions:
     decided_at: 2026-05-23
     title: "Multi-layer output validation including OpenSky Dataset #6 (7700-squawk real emergencies) as external set"
     path: backend/docs/ml/decisions/D-008-output-validation-layers.md
+  - id: D-009
+    phase: preprocess
+    decided_at: 2026-05-23
+    title: "Training on cycle 3 alone (option B); cycles 1+2 retained as day-of-week covariate-shift diagnostic probe"
+    path: backend/docs/ml/decisions/D-009-day-of-week-covariate-shift-probe.md
+  - id: D-010
+    phase: preprocess
+    decided_at: 2026-05-30
+    title: "Filter D as LEMD-operation gate; multi-detector preprocessing pipeline (Stage 1 physical-bounds rule + Stage 2 imputation + Stage 3 LSTM AE)"
+    path: backend/docs/ml/decisions/D-010-filter-d-and-multi-detector-preprocessing.md

@@ -54,13 +54,52 @@ question:
 
 | # | Layer | Question | Method | Sufficient alone? |
 |---|---|---|---|---|
-| 1 | Sanity | Does the AE converge and reconstruct normal flights well? | Training loss curves; input-vs-reconstruction overlay plots for a sample of normal trajectories | No |
+| 1 | Sanity | Does the multi-detector preprocessing+AE system handle previously-known-anomalous trajectories correctly? | Two-channel test on the `n_imputed > 0` sanity-validation cohort (see "Layer 1 — sanity cohort, in detail" below). Also: training loss curves and input-vs-reconstruction overlay plots for a sample of normal trajectories. | No |
 | 2 | Discriminative | Do injected synthetic anomalies score higher than normal? | AUROC, F2, PR-AUC (per D-005) on the four injection types and any added types (cf. 07-eval-prep.md) | No |
 | 3 | Realism | Is a dumb rule too good at this? | Geofence baseline AUROC < 0.80 on the injected set; STCA/APW/MSAW/APM safety-net analogs (added 2026-05-23 session) per-type AUROC vs AE per-type AUROC | No |
 | 4 | External | Does the model flag REAL anomalies it never trained on or saw injected? | OpenSky scientific Dataset #6 (Olive et al., 2020): flights that triggered the 7700 transponder squawk (real emergencies). LEMD-area subset, score with trained AE, report reconstruction-error percentile vs normal validation distribution + Mann-Whitney U | **NO, but the single highest-credibility layer for the writeup** |
 | 5 | Qualitative | Do the top-K flagged "normal" flights look weird to a human? | Top 20 reconstruction-error scores from the normal validation set, plotted on a map + altitude profile, reviewed by hand | No |
 
 **No single layer is sufficient. Together they validate the output is meaningful.**
+
+## Layer 1 — sanity cohort, in detail
+
+Layer 1 was previously underspecified ("training loss curves and reconstruction overlays"). Phase 4's motion-feature normality audit (`backend/docs/ml/04-eda.md > Insight 7`) produced a concrete cohort and a two-channel sanity test, locked here.
+
+### The cohort
+
+**Definition:** trajectories from the post-Filter-D corpus where the Phase 3 Stage-1 physical-bounds rule fired on at least one observation — i.e., trajectories with `n_imputed > 0`.
+
+The Stage 1 rule (per Phase 3 / D-010) flags observations violating:
+
+- `velocity > 400 m/s` (sensor-glitch spikes per Insight 7a)
+- `|vertrate| > 50 m/s` (sensor-glitch spikes per Insight 7a)
+- `baroaltitude > 16,000 m` (sensor-glitch spikes per Insight 7a / 7f)
+- `baroaltitude < -100 m` (sub-sea-level placeholder)
+- `velocity = 0 m/s AND baroaltitude > 1000 m` (missing-data placeholder per Insight 7b)
+
+Phase 3 then imputes the flagged observations via linear interpolation from valid neighbors, preserving trajectory length and uniform 10s grid (Guardrail #9 offline/online parity).
+
+**Estimated cohort size:** 500–800 trajectories (rough union of velocity-affected ~69, vertrate-affected ~164, and altitude-affected 453 trajectories from cycle 3). Refine when the Phase 3 pipeline runs and `n_imputed` is computed on the full corpus.
+
+### Two-channel test
+
+| Channel | Test | Pass criterion |
+|---|---|---|
+| 1 — Stage 1 (rule-based) | Apply the physical-bounds rule to the raw (pre-imputation) cohort trajectories | Yes, by construction (defines cohort). Sanity-check that the rule code matches the spec; this channel cannot fail unless the implementation diverges from the specification. |
+| 2 — Stage 3 (AE-based) | Apply preprocessing (Stages 1 + 2) + AE to the cohort. Score the imputed versions. | The AE produces *normal-range* reconstruction error (within or below the validation set's RE percentile distribution). If the AE produces *high* RE on imputed cohort trajectories, the imputation is leaving residual artifacts and the Stage 2 imputation rule needs refinement. |
+
+**Both channels passing = the multi-detector preprocessing+AE system works as designed.** Channel 1 passing in isolation is trivial; Channel 2 passing matters because it verifies the imputation pipeline doesn't introduce noise that the AE then flags.
+
+### Methodological note
+
+This Layer 1 is **not** a test of the AE's ability to catch behavioral anomalies — that's Layer 4 (real 7700-squawk emergencies). Layer 1 verifies *the preprocessing layer's correctness* and *the AE's robustness to imputation*. The architectural distinction matters: kinematic impossibility is caught by Stage 1 (cheaper, deterministic, interpretable); behavioral anomaly is caught by Stage 3 (the AE's actual domain). Layer 1 tests that both channels work, not that the AE alone catches everything.
+
+This connects to the post-Phase-1 reframe in `09-the-architectural-critique.md`: "Architectural patterns are domain-specific. The questions that justify a Layer 2 in cyber/fraud don't justify the same Layer 2 in aviation." Different anomaly classes deserve different detectors.
+
+### Sloppy ADS-B spoof as a side effect
+
+The Stage 1 alert channel (per-trajectory `n_imputed` count) is independently useful for detecting **sloppy ADS-B spoofing** — an attacker emitting impossible kinematics. The rule fires; the trajectory's `n_imputed` is non-zero; an operator dashboard surfaces the alert. Sophisticated spoofing (kinematically plausible) is out of scope and requires multi-sensor crosscheck. Documented as an explicit limitation in `01-problem.md > Out of scope` and the Medium piece.
 
 ## Layer 4 — the missing piece, in detail
 
@@ -244,8 +283,10 @@ are non-trivial. It does not prove the AE is detecting real-world anomaly
 - [D-005 — Metric stack (synthetic AUROC primary)](D-005-metric-stack.md)
 - [D-006 — LSTM AE vs IF decision rule](D-006-architecture-and-baseline.md)
 - [D-007 — OpenSky scientific dataset as primary cycle-3+ data source](D-007-opensky-scientific-data-source-pivot.md) — provides infrastructure for Dataset #6 use
+- [D-010 — Phase 3 preprocessing pipeline (Filter D, multi-detector design)](D-010-filter-d-and-multi-detector-preprocessing.md) — defines Stage 1 rule and `n_imputed` flag that feeds Layer 1 sanity cohort
 - Design doc's geofence-baseline realism check (`backend/docs/architecture/design-trajectory-anomaly-detection.md`)
 - 07-eval-prep.md's synthetic-injection calibration (Layer 2 source)
+- `backend/docs/ml/04-eda.md > Sanity-validation cohort proposal` — Phase 4 derivation of the cohort
 
 ## Open questions
 

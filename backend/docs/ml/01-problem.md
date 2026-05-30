@@ -40,6 +40,17 @@ In a course-deliverable context, the user is the audience of the demo and the re
 
 The decision the model affects: *given an unidentified track entering LEMD airspace, should an operator investigate it?* A positive prediction (anomaly) triggers investigation. A negative prediction lets the track pass without alert.
 
+### Scope evolution (post-Phase 1)
+
+The original Phase 1 framing of "unauthorized drone activity" was scoped down mid-project once two structural facts became unavoidable:
+
+1. **Consumer drones do not broadcast ADS-B.** The training corpus is manned cooperating aircraft only; the model has structurally never seen a drone and cannot detect what it cannot see.
+2. **Aviation's "Layer 1" is far cleaner than the cyber/fraud two-layer playbook assumes.** The regulatory ecosystem — ICAO24 registry, filed flight plans, ATC controllers actively watching the radarscope, plus Eurocontrol's deployed safety-net stack (STCA, APW, MSAW, APM) — leaves "Layer 2" with a much narrower niche than the original framing implied.
+
+The operational restatement is: **a behavioral anomaly detector for cooperating aircraft at LEMD, designed to catch sequence-shaped behavioral deviations (hovering, speed spikes, late-trajectory deviation) that the deployed rule-based safety nets do not.** Per-anomaly-type expectation: AE loses to safety-net analogs on zone violation (APW) and altitude violation (MSAW); AE wins on hovering, speed spike, and late-trajectory deviation.
+
+This reframe is the thesis of the Medium piece — see `backend/docs/writeup/09-the-architectural-critique.md`. It does not invalidate the metric stack, baseline, or architecture choices below; those remain operational. It does narrow what the model can honestly claim to detect, which the writeup carries explicitly. D-006 carries a parallel interpretation note.
+
 ## ML framing
 
 **Task type:** `anomaly_detection`

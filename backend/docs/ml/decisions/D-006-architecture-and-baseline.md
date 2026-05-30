@@ -115,8 +115,26 @@ The interesting comparison: **the IF baseline deliberately throws away time orde
 - **Memory / compute constraint** (e.g., longer sequences than expected) → swap LSTM → GRU or reduce hidden size.
 - **Phase 7 reveals that the AE reconstructs anomalies just as well as normals** (i.e., the bottleneck isn't tight enough) → reduce hidden size or add a regularizer; this is a Phase 6 loop, not a Phase 1 revisit.
 
+## Scope reframe (post-Phase 1) — interpretation note
+
+The architecture choice in this ADR (LSTM AE primary, IF baseline) remains operational, but **the claim scope was narrowed mid-project**. The original framing of "counter-drone detector via two-layer architecture" was retired once it became clear that:
+
+1. Consumer drones do not broadcast ADS-B — the training corpus is cooperating manned aircraft only.
+2. Aviation's regulatory ecosystem (registry + flight plans + ATC + Eurocontrol safety nets STCA/APW/MSAW/APM) makes "Layer 1" dramatically cleaner than the cyber/fraud playbook assumes.
+
+The operational restatement is **a behavioral anomaly detector for cooperating aircraft**, designed to complement (not replace) the deployed safety-net stack at every European ATC center.
+
+What this means for evaluating this ADR's choice in Phase 6+:
+
+- The pre-committed AE-vs-IF decision rule (margin ≥ 0.03 on val AUROC) is **unchanged**. It remains the model-selection criterion.
+- Phase 7 eval will be **stratified by anomaly type**. Pre-commit: AE expected to lose to safety-net analogs on zone violation (APW) and altitude violation (MSAW); AE expected to win on hovering, speed spike, and late-trajectory deviation. The architectural claim is *not* "AE beats safety nets across the board"; it is "AE earns its complexity specifically on sequence-shaped anomalies the deployed rules don't cover."
+- The IF baseline's role is unchanged — it answers "does time order add value?" *within* the AE's domain (sequence-shaped behavioral anomalies on cooperating aircraft), not "does ML beat safety nets?"
+
+See `backend/docs/writeup/09-the-architectural-critique.md` for the full reframe rationale. `01-problem.md > Scope evolution (post-Phase 1)` carries the parallel narrative note.
+
 ## References
 
 - Design doc: `backend/docs/architecture/design-trajectory-anomaly-detection.md` (Model section)
 - Guardrail #10 (baseline required) and Guardrail #11 (pretrained > custom; n/a here, no pretrained for this domain) — `/ml-lifecycle/references/guardrails.md`
 - Phase 6 reference: `/ml-lifecycle/references/phase-6-train.md` (DL track)
+- Medium-piece thesis (post-Phase 1 reframe): `backend/docs/writeup/09-the-architectural-critique.md`
