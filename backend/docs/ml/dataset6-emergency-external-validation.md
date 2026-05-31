@@ -120,6 +120,8 @@ Report the pooled percentile + Mann-Whitney U (per 07-eval-prep) **and** the per
 
 ## 8. Open questions to resolve before Phase 7
 
+> **Update 2026-06-01 — trajectory schema verified.** Read the `squawk7700_trajectories` parquet (Zenodo 3937483): 4,344,359 rows, 11 cols — `timestamp` (ms, UTC), `altitude`, `callsign`, `flight_id`, `groundspeed`, `icao24`, `latitude`, `longitude`, **`squawk` (string, per-timestamp)**, `track`, `vertical_rate`. `AFR11DN_20190816` transitions `1000`→`7700`, confirming the emergency **onset is recoverable per-timestamp**. This unblocks the onset-anchored maneuver-transplant idea (the ~826 non-LEMD flights as real injection sources) — see **D-011**. Note for our pipeline: a single `altitude` column (no baro/geo split), 1 s resolution (resample to 10 s).
+
 1. **Runway-relative projection for diversions:** our projection is anchored to a LEMD runway ref. Flights diverted *to* LEMD on a non-nominal heading are still valid; flights that merely overflew the bbox may need a different anchor or exclusion. Decide the inclusion rule when N is known.
 2. **typecode filtering:** the training corpus is dominated by commercial jets. If a 7700 flight is a type absent from training (e.g. GA, military), a high score may reflect type-novelty, not emergency behavior. Consider reporting with/without type-matched subset.
 3. **Partial trajectories:** OpenSky coverage gaps are larger for some emergency flights. Apply the same `max_gap` / `min_points` cleaning as training; record how many emergency flights are dropped by it (and whether that biases the sample).

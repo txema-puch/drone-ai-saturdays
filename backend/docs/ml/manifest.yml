@@ -251,3 +251,8 @@ decisions:
     decided_at: 2026-05-30
     title: "Filter D as LEMD-operation gate; multi-detector preprocessing pipeline (Stage 1 physical-bounds rule + Stage 2 imputation + Stage 3 LSTM AE)"
     path: backend/docs/ml/decisions/D-010-filter-d-and-multi-detector-preprocessing.md
+  - id: D-011
+    phase: eval
+    decided_at: 2026-06-01
+    title: "Real-derived synthetic anomalies from Dataset #6 non-LEMD emergencies (onset-anchored maneuver transplant); firewall split non-LEMD→Layer2, LEMD-area→Layer4. Phase-7 stretch; feasibility gate verified (per-timestamp squawk)."
+    path: backend/docs/ml/decisions/D-011-real-derived-synthetic-anomalies.md
