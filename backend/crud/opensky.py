@@ -36,52 +36,18 @@ from tqdm import tqdm
 
 from ..core.config import settings
 
-
-# ── Umbrales de pista LEMD ────────────────────────────────────────────────────
-LEMD_RUNWAYS = {
-    "14L": (40.5205, -3.5959),
-    "14R": (40.5157, -3.5791),
-    "32L": (40.4651, -3.5450),
-    "32R": (40.4700, -3.5615),
-    "18L": (40.5072, -3.5339),
-    "18R": (40.5072, -3.5191),
-    "36L": (40.4450, -3.5191),
-    "36R": (40.4450, -3.5339),
-}
-
-# Solo puntos dentro de este radio son relevantes para Barajas
-MAX_RADIUS_M = 200_000  
-
-
-def haversine_dist(lat1, lon1, lat2, lon2):
-    """Distancia en metros entre dos puntos GPS."""
-    R = 6_371_000
-    phi1, phi2 = np.radians(lat1), np.radians(lat2)
-    dphi = np.radians(lat2 - lat1)
-    dlambda = np.radians(lon2 - lon1)
-    a = np.sin(dphi / 2) ** 2 + np.cos(phi1) * np.cos(phi2) * np.sin(dlambda / 2) ** 2
-    return R * 2 * np.arctan2(np.sqrt(a), np.sqrt(1 - a))
-
-
-def distance_to_closest_runway(lat: pd.Series, lon: pd.Series) -> pd.Series:
-    distances = pd.DataFrame({
-        runway: haversine_dist(lat, lon, rlat, rlon)
-        for runway, (rlat, rlon) in LEMD_RUNWAYS.items()
-    })
-    return distances.min(axis=1)
-
-
-def calculate_flight_phase(track: pd.DataFrame) -> pd.Series:
-    conditions = [
-        track["onground"].fillna(False).astype(bool),
-        track["baroaltitude"].notna() & (track["baroaltitude"] < 50),
-        track["vertrate"].notna() & (track["vertrate"] > 3) & track["baroaltitude"].notna() & (track["baroaltitude"] < 3000),
-        track["vertrate"].notna() & (track["vertrate"] > 1),
-        track["vertrate"].notna() & (track["vertrate"] <= -1) & track["baroaltitude"].notna() & (track["baroaltitude"] < 3000) & track["dist_to_runway_m"].notna() & (track["dist_to_runway_m"] < 20000),
-        track["vertrate"].notna() & (track["vertrate"] < -1),
-    ]
-    values = ["on_ground", "on_ground", "takeoff", "climb", "approach", "descent"]
-    return np.select(conditions, values, default="cruise")
+# Geo + derivation helpers were extracted to leaf modules (refactor A1,
+# 2026-06-01) so `backend/core/preprocessing.py` and the test-suite can import
+# them without triggering `Settings()` (which this module does at import time).
+# Re-exported here so notebook 05 and `download_opensky_states.py` keep working
+# unchanged: `from backend.crud.opensky import calculate_flight_phase, ...`.
+from ..core.geo import (  # noqa: F401  (re-export)
+    LEMD_RUNWAYS,
+    MAX_RADIUS_M,
+    distance_to_closest_runway,
+    haversine_dist,
+)
+from ..core.derivations import calculate_flight_phase  # noqa: F401  (re-export)
 
 
 class OpenSkyService:
