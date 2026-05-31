@@ -40,8 +40,8 @@ Graft the relative delta sequence onto the matching phase of a LEMD-normal traje
 
 ### Part 5 — Firewall split (load-bearing)
 - **Non-LEMD** emergencies → *spent* into the synthetic bench (Layer 2).
-- **LEMD-area** emergencies — the N=6 by airport code **plus any bbox-recovered TMA-transit flights** — → **sealed** as the Layer-4 external holdout.
-- The two sets **must never cross.** Deriving any injection template from a LEMD-area flight would collapse the independent Layer-4 check into Layer-2 (circular). The geographic partition enforces this for free.
+- **LEMD-area** emergencies → **sealed** as the Layer-4 external holdout. **The split line is the trajectory radius, not airport code** (see `dataset6-emergency-external-validation.md §9`, trajectory pass 2026-06-01): LEMD-area = flights with trajectory points **within 200 km of LEMD** (the 7 flights found). The airport-code-LEMD set is *not* the right boundary — 5 of those 6 flights have zero points in range and are unscoreable.
+- The two sets **must never cross.** Deriving any injection template from a LEMD-area (within-200 km) flight would collapse the independent Layer-4 check into Layer-2 (circular). The geographic partition on *actual trajectory points* enforces this.
 
 ### Part 6 — Scope & sequencing
 **Phase-7 stretch, not critical path.** The hand-coded `§6` bench ships regardless; this *enhances*, not replaces it. Sequenced after model selection (D-006) and the core synthetic eval. If Phase 6 runs long, ship without it and document as future work.
