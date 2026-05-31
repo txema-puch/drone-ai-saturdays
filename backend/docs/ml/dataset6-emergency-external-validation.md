@@ -98,10 +98,12 @@ Report the pooled percentile + Mann-Whitney U (per 07-eval-prep) **and** the per
 
 ## 6. Expected N and fallbacks
 
+> **Resolved 2026-06-01 (see §9 + D-008 Amendment 2).** The estimate below was the pre-inspection guess. Reality: the scoreable in-range set is **~7 flights (≈4 in the TMA, 1 close-in)**, and the **Western-Europe fallback is rejected** (it re-imports the cross-airport confound). Layer 4 is therefore a **case study (BCS63A)**, and the quantitative external-grounding role moves to D-011's real-derived injections + Layer 5. The paragraph below is kept for the record.
+
 832 flights globally; the LEMD-associated subset will be small. Europe is well-covered by OpenSky, and LEMD is Europe's 4th-busiest hub, so expect the upper end of the 07-eval-prep estimate — realistically **~10–40** flights, fewer once split by category. This supports a **small-N non-parametric** signal (percentile + Mann-Whitney U with reported N), **not** a headline AUROC. Report CIs; do not spin small N as definitive.
 
 - **If LEMD-direct N is too small to stratify:** report pooled + note categories qualitatively.
-- **Fallback if N ≈ 0:** widen to "within 1000 km of LEMD" or the Western-European subset, *with the explicit writeup caveat* that this conflates LEMD-specific signal with the broader manned-aviation distribution. Decide only if it happens.
+- ~~**Fallback if N ≈ 0:** widen to the Western-European subset~~ — **rejected**, see above.
 
 ## 7. Concrete next actions
 
@@ -156,6 +158,6 @@ So airport-code association selects flights *intended* for LEMD, **not** flights
 **Consequences (this supersedes the N=6 headline in §6 and notebook 08 for Layer-4 purposes):**
 
 - **N is even smaller once you require a scoreable trajectory: ~7 (within 200 km), ~4 TMA, 1 close-in.** Layer 4 is a handful of **per-flight case studies + Mann-Whitney**, not AUROC. **BCS63A is the qualitative centerpiece** (a real LEMD turn-back the model never saw).
-- **The Western-Europe fallback (07-eval-prep Layer-4 "Fallback") is now the likely path** for any statistical power — widen to all 7700 flights within 200 km of *any* major Western-European hub, with the documented caveat that this conflates LEMD-specific signal with the broader manned-aviation distribution.
+- **The Western-Europe fallback is REJECTED (decided 2026-06-01, D-008 Amendment 2).** Widening to other EU hubs re-imports the cross-airport confound (a LEMD-only model flags any non-LEMD flight for *being non-LEMD*, not for the emergency) — the same expansion D-008 Alternative #2 already rejected. So Layer 4 stays **small-N by design**: a case study, not a statistical test.
 - **The §8 q1 projection concern is now concrete:** only BCS63A is close enough for the runway-relative projection to be meaningful; the 50–200 km transit flights sit at the edge of the model's spatial domain — interpret their scores accordingly (likely trivially high for "wrong place", not for "emergency").
 - **Firewall split (D-011) is refined:** the sealed LEMD-area set = **trajectory radius < 200 km (these 7)**, NOT the airport-code 6. Everything else (825) is injection-source fuel. The radius criterion, not airport code, draws the firewall line.

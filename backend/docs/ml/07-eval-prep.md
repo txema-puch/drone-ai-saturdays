@@ -72,6 +72,8 @@ Two protocols below close that gap. Each contributes one layer of validation; to
 
 ### Layer 4 — external validation via real emergencies (Dataset #6)
 
+> **Scope decided 2026-06-01 (D-008 Amendment 2; `dataset6-emergency-external-validation.md §9`).** The Phase-4 inspection found only ~7 scoreable LEMD-area flights (6 of them edge-of-domain transit; only **BCS63A** is a genuine close-in LEMD operation). So **Layer 4 is a case study, not the Mann-Whitney statistical test the protocol below describes**, and the **Western-Europe fallback is rejected** (re-imports the cross-airport confound). The protocol below stands for the *in-range set* (report it as small-N/illustrative, lead with BCS63A), but the **quantitative external-grounding role moves to D-011** — the ~825 non-LEMD emergencies become real-derived injections on LEMD-normal trajectories (no confound, full N). Read the rest of this section with that reframing.
+
 **Source.** OpenSky scientific Dataset #6: *Reference Datasets for In-Flight Emergency Situations*, curated by Xavier Olive (ONERA). Derived from full OpenSky ADS-B between 1 January 2018 and 29 January 2020. Flights that triggered the **7700 transponder squawk** (pilot-set general emergency code). Cite: Olive et al., *OpenSky Report 2020*, IEEE/AIAA DASC 2020.
 
 Why these flights: the 7700 squawk is set by a pilot in a real emergency. ATC, dispatch, and emergency services treat them as significant. They are the closest publicly available proxy for "ground truth anomalies" in commercial-aviation airspace. **The model is never trained on them, never injected with them, never told they exist until this protocol runs in Phase 7.**
