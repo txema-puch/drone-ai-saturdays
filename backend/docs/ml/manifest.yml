@@ -170,10 +170,24 @@ gates:
     summary: null
 
 # THE TEST SET FIREWALL — sacred. Never peeked, never modified except in Phase 7.
+#
+# Split-discipline note (2026-05-31): a teammate's parallel project SADAR
+# (huggingface.co/spaces/devrup404/sadar), on the SAME OpenSky-LEMD data, ships
+# exactly the dual-criterion leak-free split we planned: jointly by flight_id
+# AND by date — no flight appears in two splits (group leakage), and test is
+# strictly later in time than train (temporal leakage). They use 2017-2019 for
+# train/val and reserve 2020 for test, which doubles as a free distribution-shift
+# stress test (start of COVID). This independently validates the strategy below.
+# Caveat for us: our cycle-3 data is 18 *Mondays* spanning 2017-2020 (not
+# contiguous, Monday-skewed per D-009), so a pure year-based temporal cut leaves
+# a thin/uneven test fold. Decide in Phase 6 whether to mirror their year cut or
+# use a group-only (flight_id/icao24) split with a held-out block of Mondays;
+# either way, keep BOTH criteria (group + temporal) — that is the part to copy.
 test_set:
   defined_at: null               # set in Phase 6 entry gate
   split_seed: null
-  split_strategy: null           # likely "group-based" by icao24 + time-based hold-out
+  split_strategy: null           # group-based (icao24/flight_id) + time-based hold-out;
+                                 # see split-discipline note above (SADAR-confirmed)
   holdout_path: null
   count: null
   burned: false                  # flips ONCE, in Phase 7
