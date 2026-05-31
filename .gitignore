@@ -83,4 +83,12 @@ Thumbs.db
 .data
 .claude/
 /docs/
+
+########################################
+# Agent-session artifacts              #
+########################################
+# Codex/agent scratch — local session state + a broken /Codex/-path copy of
+# CLAUDE.md. CLAUDE.md is the canonical agent-instructions file for the team.
+.context/
+AGENTS.md
 .gstack/
