@@ -26,23 +26,32 @@
 #
 # FEATURE-CONTRACT RECONCILIATION (2026-06, post-#22 merge — Phase 3 closed):
 # This file uses SADAR's feature names. OUR shipped contract differs
-# (backend/core/preprocessing.py):
-#   AE_FEATURES     = [lat, lon, baroaltitude, velocity, vertrate,
-#                      hdg_sin, hdg_cos, onground]      # 8 features
-#   SCALER_FEATURES = [lat, lon, baroaltitude, velocity, vertrate]  # only these scaled
+# (backend/core/preprocessing.py) — POST-#25 (Phase 5 closed):
+#   AE_FEATURES     = [lat, lon, baroaltitude, velocity, vertrate, dist_to_runway_m,
+#                      hdg_sin, hdg_cos, onground]      # 9 features
+#   SCALER_FEATURES = [lat, lon, baroaltitude, velocity, vertrate, dist_to_runway_m]  # 6 scaled
+# Derived (recompute, NEVER perturb): dist_to_runway_m (=distance_to_closest_runway
+#   (lat,lon)), hdg_sin/hdg_cos (=sin/cos(heading)).
+# Measured primitives (safe to perturb): lat, lon, baroaltitude, velocity, vertrate,
+#   onground, + heading (the handle behind hdg_sin/cos).
 # When adapting into our inject_anomalies(...):
-#   - There is NO x_rel/y_rel. Position is RAW lat/lon (degrees). A metres-based
-#     lateral shift must convert m->deg (Δlat≈m/111320, Δlon≈m/(111320·cos lat)),
-#     OR bind to a Phase-5 runway-relative/zone feature (share geometry with the
-#     APW/geofence Layer-3 baseline, D-008).
-#   - Heading channels are hdg_sin/hdg_cos (not sin_hdg/cos_hdg).
+#   - PREFERRED structure: perturb the MEASURED columns on the per-segment frame, then
+#     call backend.core.features.apply_segment_derivations(seg) (replays hdg_sin/cos +
+#     dist_to_runway_m), THEN window+scale. Makes recompute-not-perturb structural — no
+#     hand-maintained list. (If you instead perturb the windowed tensor SADAR-style, the
+#     explicit recompute list is mandatory.)
+#   - Position is RAW lat/lon (degrees), no x_rel/y_rel. A route/zone shift moves lat/lon;
+#     dist_to_runway_m then follows via the replay (the SHARED zone geometry the
+#     APW/geofence Layer-3 baseline also binds to: backend.core.geo.distance_to_closest_runway).
 #   - 'onground' is new (SADAR lacks it): keep it consistent (airborne hover -> 0).
-#   - unscale->perturb->rescale applies to the 5 SCALER_FEATURES only;
-#     hdg_sin/hdg_cos/onground are perturbed in raw space.
+#   - Injected timesteps set their *_missing masks to 0 (synthetic-but-present).
+#   - unscale->perturb->rescale applies to the 6 SCALER_FEATURES; hdg_sin/hdg_cos/onground
+#     are perturbed in raw space.
 #   - Bind indices via feature_indices(AE_FEATURES, names) (below) — never hard-code;
-#     survives Phase 5 adding/reordering features.
+#     survives the +1 feature transparently.
 #   - T and the fitted scaler are Phase-6 artifacts (to_sequences(df, T, scaler));
 #     run injections AFTER the train-only split, never with make_scaler() (unfitted).
+#   - Go-around held-aside cohort: meta['is_go_around'] (Phase 5). See 05-features.md.
 # ============================================================================
 
 from __future__ import annotations
