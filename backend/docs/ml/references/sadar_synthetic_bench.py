@@ -23,6 +23,26 @@
 # two types SADAR lacks (final-approach intercept, multi-drone). SADAR's
 # symmetric altitude / aggressive speed are exactly the "too easy / wrong
 # shape" failure mode 07-eval-prep.md was written to prevent.
+#
+# FEATURE-CONTRACT RECONCILIATION (2026-06, post-#22 merge — Phase 3 closed):
+# This file uses SADAR's feature names. OUR shipped contract differs
+# (backend/core/preprocessing.py):
+#   AE_FEATURES     = [lat, lon, baroaltitude, velocity, vertrate,
+#                      hdg_sin, hdg_cos, onground]      # 8 features
+#   SCALER_FEATURES = [lat, lon, baroaltitude, velocity, vertrate]  # only these scaled
+# When adapting into our inject_anomalies(...):
+#   - There is NO x_rel/y_rel. Position is RAW lat/lon (degrees). A metres-based
+#     lateral shift must convert m->deg (Δlat≈m/111320, Δlon≈m/(111320·cos lat)),
+#     OR bind to a Phase-5 runway-relative/zone feature (share geometry with the
+#     APW/geofence Layer-3 baseline, D-008).
+#   - Heading channels are hdg_sin/hdg_cos (not sin_hdg/cos_hdg).
+#   - 'onground' is new (SADAR lacks it): keep it consistent (airborne hover -> 0).
+#   - unscale->perturb->rescale applies to the 5 SCALER_FEATURES only;
+#     hdg_sin/hdg_cos/onground are perturbed in raw space.
+#   - Bind indices via feature_indices(AE_FEATURES, names) (below) — never hard-code;
+#     survives Phase 5 adding/reordering features.
+#   - T and the fitted scaler are Phase-6 artifacts (to_sequences(df, T, scaler));
+#     run injections AFTER the train-only split, never with make_scaler() (unfitted).
 # ============================================================================
 
 from __future__ import annotations
