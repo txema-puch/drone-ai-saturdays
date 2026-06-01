@@ -57,12 +57,20 @@ FILTER_D_ONGROUND_DIST_M = 5_000
 FILTER_D_TAKEOFF_DIST_M = 5_000
 FILTER_D_TAKEOFF_ALT_M = 2_000
 
-# Feature contracts.
-CONTINUOUS_FEATURES = ["lat", "lon", "baroaltitude", "velocity", "vertrate"]  # linear-interp + scaled
+# Feature contracts. THIS is the single source of truth the synthetic-injection
+# bench + the per-feature RE attribution + the Layer-3 baseline all bind to
+# dynamically (by name). Add/reorder here only, never scatter feature lists across
+# notebooks — a silent change breaks all three (eval-prep reconciliation note).
+CONTINUOUS_FEATURES = ["lat", "lon", "baroaltitude", "velocity", "vertrate"]  # linear-interp (measured primitives)
 MASKED_FEATURES = ["lat", "lon", "baroaltitude", "velocity", "vertrate", "heading"]  # get *_missing flags
-SCALER_FEATURES = ["lat", "lon", "baroaltitude", "velocity", "vertrate"]      # StandardScaler input
-AE_FEATURES = ["lat", "lon", "baroaltitude", "velocity", "vertrate",
-               "hdg_sin", "hdg_cos", "onground"]                              # the AE input vector
+# `dist_to_runway_m` promoted to a scaled AE feature in Phase 5 (issue #25): the
+# nonlinear min-over-8-runways zone signal. It is DERIVED (= distance_to_closest_runway
+# (lat, lon)), so it is recompute-not-perturb for injections (see core/features.py
+# apply_segment_derivations) and is not interpolated/masked (its missingness rides on
+# lat/lon's masks).
+SCALER_FEATURES = ["lat", "lon", "baroaltitude", "velocity", "vertrate", "dist_to_runway_m"]  # StandardScaler input (6)
+AE_FEATURES = ["lat", "lon", "baroaltitude", "velocity", "vertrate", "dist_to_runway_m",
+               "hdg_sin", "hdg_cos", "onground"]                              # the AE input vector (9)
 META_COLUMNS = ["icao24", "time", "flight_id", "segment_id", "squawk",
                 "is_emergency", "n_imputed_impossible", "n_imputed_missing"]
 
@@ -428,11 +436,14 @@ def preprocess(raw_df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
     meta = df[META_COLUMNS].copy()
     clean_cols = (
         ["segment_id", "flight_id", "time"]
-        + AE_FEATURES
+        + AE_FEATURES                                   # dist_to_runway_m now lives here
         + [f + "_missing" for f in MASKED_FEATURES]
-        + ["heading", "flight_phase", "dist_to_runway_m"]
+        + ["heading", "flight_phase"]                   # dist promoted into AE_FEATURES (Phase 5)
     )
-    clean_df = df[[c for c in clean_cols if c in df.columns]].copy()
+    # dedupe preserving order — guards against a feature appearing in both AE_FEATURES
+    # and the trailing reference columns (e.g. dist_to_runway_m after the P5 promotion).
+    clean_cols = list(dict.fromkeys(c for c in clean_cols if c in df.columns))
+    clean_df = df[clean_cols].copy()
 
     _assert_clean(clean_df)
     return clean_df, meta
@@ -451,9 +462,10 @@ def _assert_clean(clean_df: pd.DataFrame) -> None:
 
 
 def _empty_clean() -> pd.DataFrame:
-    cols = (["segment_id", "flight_id", "time"] + AE_FEATURES
-            + [f + "_missing" for f in MASKED_FEATURES]
-            + ["heading", "flight_phase", "dist_to_runway_m"])
+    cols = list(dict.fromkeys(
+        ["segment_id", "flight_id", "time"] + AE_FEATURES
+        + [f + "_missing" for f in MASKED_FEATURES]
+        + ["heading", "flight_phase"]))
     return pd.DataFrame(columns=cols)
 
 
