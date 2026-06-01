@@ -8,7 +8,7 @@ model_track: "dl"   # tentative — LSTM Autoencoder primary, Isolation Forest b
                     # Confirmed in Phase 6 once we see whether the LSTM AE meaningfully
                     # beats IF. If not, we flip to "ml" and ship IF.
 
-current_phase: "features"
+current_phase: "train"
 
 # Gate ledger — append, never rewrite.
 gates:
@@ -140,12 +140,38 @@ gates:
       D, multi-detector pipeline, sanity cohort) are sufficient for Phase 3
       entry and are codified in D-010.
   features:
-    status: "pending"
+    status: "passed"
     gate_semantics: "one_shot"
-    passed_at: null
-    artifact: null
-    feature_count: 0
-    summary: null
+    passed_at: "2026-06-01"
+    artifact: "backend/docs/ml/05-features.md"
+    feature_count: 9
+    summary: |
+      Phase 5 closed 2026-06-01 (issue #25). Feature work on the Phase-3 clean
+      per-segment frames; firewall intact (no split, no scaler fit, no T — Phase 6
+      on TRAIN only). Every feature leak-free (per-segment, fixed runway reference).
+
+      - dist_to_runway_m PROMOTED to a scaled AE feature (AE_FEATURES 8->9,
+        SCALER_FEATURES 5->6) — the nonlinear min-over-8-runways zone signal; the
+        shared geometry (backend/core/geo.distance_to_closest_runway) the APW/geofence
+        Layer-3 baseline + the zone/route synthetic injection both bind to. Rejected
+        ENU x/y + bearing (redundant with lat/lon) and n_imputed-as-input (per-segment
+        constant). The "dist helps the AE" claim is reasoned, tested empirically in the
+        Phase-6 ablation.
+      - apply_segment_derivations (backend/core/features.py): the shared derivation
+        replay (hdg_sin/cos + dist from the measured primitives) — makes the injection
+        bench's "perturb measured -> replay -> window+scale" structural. Footgun
+        documented + test-locked: perturbing a derived channel directly is silently
+        reverted.
+      - Go-around held-aside cohort meta['is_go_around'] = 191/19,849 segments (0.96%),
+        single-airborne-run descend-then-climb rule (eng-review caught + fixed a
+        touch-and-go misclassification in the first global-argmin version). Routed OUT
+        of TRAIN at the Phase-6 split (D-009 amendment); a high-precision real-anomaly
+        validation cohort alongside Olive-7700 (D-008 Layer-4 companion).
+      - Loss stays equal-weighted (carry to P6); per-feature RE is a diagnostic only.
+
+      Code: backend/core/features.py (+ contract in preprocessing.py). Tests: 43 total
+      (27 preprocessing + 16 features). Reconciliation docs (07-eval-prep, D-011, sadar
+      bench header) updated for the AE 9 / SCALER 6 contract bump.
   train:
     status: "pending"
     gate_semantics: "one_shot"

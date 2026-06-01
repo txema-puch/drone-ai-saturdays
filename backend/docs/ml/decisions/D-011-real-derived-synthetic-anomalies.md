@@ -102,6 +102,8 @@ Source→target mapping for the transplant (Dataset #6 columns → our AE featur
 - **Bind indices dynamically** via `feature_indices(AE_FEATURES, …)`, so the code survives Phase 5 adding runway-relative/zone features.
 - Run **after the Phase-6 split**, against the fitted scaler — never `make_scaler()` (unfitted). The lat/lon→lat/lon transplant means Generator B (real-derived) is *less* affected by the contract change than the hand-coded Generator A (which assumed `x_rel/y_rel` metres).
 
+**Update — post-#25 (Phase 5 closed):** the contract grew to `AE_FEATURES`=9 / `SCALER_FEATURES`=6 — **`dist_to_runway_m`** promoted into both (the shared zone signal). It is **derived** (`distance_to_closest_runway(lat, lon)`) → recompute-not-perturb. Since Generator B's transplant moves `lat/lon` directly, `dist_to_runway_m` follows for free via **`backend.core.features.apply_segment_derivations(seg)`** (perturb measured → replay derived → window+scale). "Scale only the 5 SCALER_FEATURES" above is now **6**. Go-around held-aside cohort: `meta['is_go_around']`. See `backend/docs/ml/05-features.md`.
+
 ## References
 - `backend/docs/ml/decisions/D-008-output-validation-layers.md` — the 5-layer stack this slots into.
 - `backend/docs/ml/07-eval-prep.md` — §6 hand-coded bench + "Reference implementation — SADAR synthetic bench" + "Post-reframe reconciliation".
