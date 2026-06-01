@@ -299,3 +299,22 @@ A teammate shipped a parallel course project, **SADAR** (`huggingface.co/spaces/
 | Missing: **final-approach intercept**, **multi-drone** | ➕ add | §5 — neither exists in SADAR. |
 
 **Net:** SADAR saves us the boilerplate (ramps, masks, scaler round-trip, the holding-pattern integration) and contributes the **detection-latency metric** idea. Our calibrated mix (§6) and the polygon/intercept/multi-drone types are the part that makes our eval a stronger claim than theirs. When Phase 7 starts, adapt `sadar_synthetic_bench.py` into `inject_anomalies(...)` applying every ❌/➕ row above, and cite both this doc and the SADAR source in the writeup Methodology.
+
+### Feature-contract reconciliation (2026-06 — post-#22 merge, Phase 3 closed)
+
+The table above (and `sadar_synthetic_bench.py`) is written in SADAR's feature vocabulary (`x_rel/y_rel` runway-relative metres, `sin_hdg/cos_hdg`, 7 features). **Our shipped Phase-3 contract is different** — see `backend/core/preprocessing.py`:
+
+```
+AE_FEATURES     = [lat, lon, baroaltitude, velocity, vertrate, hdg_sin, hdg_cos, onground]   # 8 features
+SCALER_FEATURES = [lat, lon, baroaltitude, velocity, vertrate]                               # only these 5 are standardized
+to_sequences(df, T, scaler)  →  (N, T, 8)   # T and the FITTED scaler are Phase-6 artifacts
+```
+
+What the injection code must do differently from the SADAR scaffold:
+
+- **Position is raw `lat/lon` (degrees), not `x_rel/y_rel` (metres).** Route-deviation / zone injection specified in metres must convert metres→degrees (`Δlat ≈ m/111320`, `Δlon ≈ m/(111320·cos lat)`) **or** — preferred — bind to a runway-relative / zone-distance feature *if Phase 5 adds one from the retained `dist_to_runway_m`*. Coordinate that feature's geometry with the APW/geofence Layer-3 baseline (D-008) so injection and baseline share one definition.
+- **Heading channels are `hdg_sin/hdg_cos`** (not `sin_hdg/cos_hdg`); `baroaltitude/velocity/vertrate` match.
+- **`onground` is a new feature** SADAR lacks — injections must keep it consistent (e.g. an airborne hover sets `onground = 0`).
+- **Scaling applies to the 5 `SCALER_FEATURES` only.** The unscale→perturb→rescale dance touches `lat, lon, baroaltitude, velocity, vertrate`; `hdg_sin/hdg_cos/onground` are perturbed in raw space (already O(1), unscaled).
+- **Bind indices dynamically**, not by literal name. `sadar_synthetic_bench.py` already has `feature_indices(feature_columns, names)` — pass our `AE_FEATURES`. This survives Phase 5 reordering/adding features.
+- **`T` and the fitted scaler come from Phase 6** (the train-only `.fit()` firewall). The generator runs *after* the Phase-6 split, against `to_sequences(...)` output + the fitted scaler — never `make_scaler()` (unfitted).

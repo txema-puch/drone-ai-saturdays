@@ -77,6 +77,31 @@ This resolves the open question in `dataset6-emergency-external-validation.md §
 
 **Writeup obligations (Limitations):** list the exact source flights/templates used; state they are real-emergency-derived (not drone); note diffuse anomalies were excluded; document the firewall split.
 
+## Feature-contract reconciliation (2026-06 — post-#22 merge, Phase 3 closed)
+
+This ADR (written before Phase 3 closed) used SADAR's feature vocabulary. The **shipped contract** (`backend/core/preprocessing.py`) is:
+
+```
+AE_FEATURES     = [lat, lon, baroaltitude, velocity, vertrate, hdg_sin, hdg_cos, onground]   # the transplant TARGET
+SCALER_FEATURES = [lat, lon, baroaltitude, velocity, vertrate]                               # standardized; the rest are not
+to_sequences(df, T, scaler)  →  (N, T, 8)   # T + fitted scaler are Phase-6 artifacts
+```
+
+Source→target mapping for the transplant (Dataset #6 columns → our AE features), and the gotchas:
+
+| Dataset #6 source (Part 2 delta) | → our AE feature | note |
+|---|---|---|
+| `latitude`, `longitude` | `lat`, `lon` | **both raw lat/lon — transplant is lat/lon→lat/lon, no metre/degree conversion needed** (cleaner than the hand-coded bench, which does need it) |
+| `altitude` | `baroaltitude` | single source altitude col (no baro/geo split) |
+| `groundspeed` | `velocity` | |
+| `vertical_rate` | `vertrate` | |
+| `track` | `hdg_sin`, `hdg_cos` | convert: `sin/cos(radians(track))` |
+| — | `onground` | not in source; set consistently for the maneuver (airborne ⇒ 0) |
+
+- **Scale only the 5 `SCALER_FEATURES`** in the unscale→perturb→rescale step; `hdg_sin/hdg_cos/onground` are unscaled.
+- **Bind indices dynamically** via `feature_indices(AE_FEATURES, …)`, so the code survives Phase 5 adding runway-relative/zone features.
+- Run **after the Phase-6 split**, against the fitted scaler — never `make_scaler()` (unfitted). The lat/lon→lat/lon transplant means Generator B (real-derived) is *less* affected by the contract change than the hand-coded Generator A (which assumed `x_rel/y_rel` metres).
+
 ## References
 - `backend/docs/ml/decisions/D-008-output-validation-layers.md` — the 5-layer stack this slots into.
 - `backend/docs/ml/07-eval-prep.md` — §6 hand-coded bench + "Reference implementation — SADAR synthetic bench" + "Post-reframe reconciliation".
