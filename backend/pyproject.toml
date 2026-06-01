@@ -37,6 +37,18 @@ dependencies = [
     "pyarrow>=15.0.0",
 ]
 
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+# Tests import `backend.core.*`; the package root is the repo root (one level up
+# from this pyproject). tests/conftest.py puts it on sys.path so the namespace
+# package resolves without an installed wheel and without touching credentials.
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"

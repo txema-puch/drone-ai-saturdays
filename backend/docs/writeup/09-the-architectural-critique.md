@@ -81,9 +81,11 @@ When we asked ourselves, honestly, "what unauthorized presence at LEMD does Laye
 
 2. **Pilot deviation, mode confusion, hijack.** The aircraft *is* who it claims to be, *is* where it says it is, but it's flying *wrong*. Medical event in the cockpit, autopilot in the wrong mode, deliberate deviation from filed plan, hijack. Layer 1 says clean. Independent sensors agree on position. Only the *behavior* is off. This is the case where trajectory anomaly is the unique signal — and it's the niche our model actually addresses.
 
-3. **Triage.** Layer 1 fires on hundreds of "unidentified" tracks per day at any major airport — GA aircraft with transponder issues, late flight plans, brief radio gaps. Most are nothing. Layer 2 could rank-order those by trajectory unusualness so a controller looks at the most concerning ones first. This is a UX problem, not a detection problem.
+3. **Triage.** Layer 1 fires on hundreds of "unidentified" tracks per day at any major airport — GA aircraft with transponder issues, late flight plans, brief radio gaps. Most are nothing. Layer 2 could rank-order those by trajectory unusualness so a safety analyst reviewing the day's completed traffic looks at the most concerning ones first. This is a retrospective UX problem, not a real-time detection problem.
 
 That's it. That's the Layer 2 domain when Layer 1 is as clean as aviation's. It's a real niche. It's not Gatwick.
+
+**And one more honest qualifier — the one that pins down who this is even for: the time horizon.** Our model scores *complete* trajectories. The score lands after the flight is over, which rules out the live controller — the aircraft is already gone by the time we have a number. The realistic user is retrospective: surveillance-side flight-data monitoring, post-operations safety review, triage of yesterday's traffic for an analyst to inspect the next morning. So the deployed safety nets and our model aren't complementary by catching different things in the same instant; they're complementary by *time horizon* — real-time geometric alerting for the controller, retrospective behavioral analysis for the safety analyst. A streaming version would be more operationally useful, but it's a different architecture (predictive or windowed, not whole-trajectory reconstruction) and partly the nets' turf already. And for a five-week course project on public OpenSky data, that analyst is hypothetical anyway: the real deliverable is the methodology, not a tool anyone is about to deploy.
 
 ## The reframe
 

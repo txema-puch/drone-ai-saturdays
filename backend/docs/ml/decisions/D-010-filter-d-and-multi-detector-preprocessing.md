@@ -199,3 +199,56 @@ Without criterion 3, these ~3,300 trajectories would be excluded — a meaningfu
 3. **Filter D borderline trajectories.** The 0.7% of Filter B trajectories that Filter D rejects could in principle be inspected one-by-one. Worth doing only if Phase 6 surfaces systematic noise traceable to Filter D's loose tail. Not pre-committed.
 
 4. **Should `n_imputed` be a feature for the LSTM AE?** Adding it as a per-trajectory side feature would let the AE condition its reconstruction on "this trajectory had N imputations." Likely small effect; defer to Phase 5 feature engineering.
+
+---
+
+## Amendment — 2026-06-01 (Phase 3 implementation, issue #22)
+
+Implementation (`backend/core/preprocessing.py`, notebook `07` Findings A–E, codex
+×2) extended this ADR's preprocessing spec. The Part 1 Filter-D gate is unchanged and
+reproduced exactly (18,928 / 19,057 = 99.3%). The Part 2 pipeline is refined as follows;
+the full ordered spec lives in `backend/docs/ml/03-preprocess.md`.
+
+1. **NaN handling (Stage 1 now handles `NaN`, not only `==0`).** Finding A surfaced a
+   separate ~13% genuine-`NaN` population (MNAR, concentrated on-ground) that the
+   original Stage-1 (`==0` placeholder + out-of-bounds) did not address. Stage 1 now
+   sets **impossible values → `NaN`** (codex #4: they must be imputed, not silently
+   kept and trained on), and Stage 2 interpolation imputes them alongside the routine
+   nulls. The airborne `velocity==0` case is a missing-data **placeholder** (nulled,
+   counted as *missing*), distinct from the hard kinematic bounds.
+
+2. **`n_imputed` counter split.** One per-trajectory counter became two:
+   `n_imputed_impossible` (hard physical-bound violations only — the D-008 Layer-1
+   cohort, ~513 segments measured) and `n_imputed_missing` (routine nulls +
+   placeholder). A single merged counter would tag ~69% of the corpus (almost every
+   flight touches the ground) and gut the cohort. Measured post-flag/pre-interpolate
+   (codex #5).
+
+3. **On-ground idle-trim (new).** Movement is detected from **speed = displacement/dt**
+   (`velocity` is 56% null on-ground; position is never null). Keep the active
+   operational span (first→last moving/airborne row — in-queue waits stay in-span);
+   trim leading/trailing parked-idle; drop pure-ground segments (Finding D).
+
+4. **Gap re-segmentation at > 3 min (new).** Split a trajectory at any internal gap
+   > 3 min *before* interpolation — a multi-minute hole secretly makes one 10 s step
+   span minutes. The threshold is a real choice, not insensitive (Finding C).
+
+5. **Resample to a strict 10 s grid (makes "uniform 10s grid" enforced, not assumed).**
+   Each segment is reindexed to a strict 10 s grid (inserting rows for ≤3 min holes);
+   `*_missing` masks flag every imputed/inserted value (codex #2).
+
+6. **Interpolation, NOT derive-from-position (Finding E).** Deriving velocity from
+   position fails exactly where it's needed (on-ground taxi: corr 0.05). Linear
+   interpolation within a segment + mask is the policy; `velocity=0` and
+   derive-from-position are both rejected.
+
+7. **Model unit = SEGMENT.** The post-split segment (not the raw flight) is the unit
+   that enters training and scoring. Flight-level aggregation deferred to Phase 7/8.
+
+8. **Mandatory order:** `dedupe → segment → filter-D(+drop non-engaging segments) →
+   trim → impossible→NaN → resample/interpolate`. The order is load-bearing (split
+   before interpolate; never interpolate across a gap).
+
+Counter semantics, the held-aside cohort, and per-feature attribution are extended in
+the D-008 amendment (same date); the pre-committed hold-aside split rule is in the
+D-009 amendment.

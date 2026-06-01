@@ -305,3 +305,55 @@ are non-trivial. It does not prove the AE is detecting real-world anomaly
    1000 km of LEMD" or use the full Western-European subset, with the
    caveat that this conflates LEMD-specific signal with the broader manned-
    aviation distribution. Decide if it happens; don't pre-commit.
+
+---
+
+## Amendment — 2026-06-01 (Phase 3 implementation, issue #22)
+
+Phase 3 makes the Layer-1 sanity cohort concrete and adds two validation cohorts +
+the attribution layer that Phase 6/7 will consume. Detection of the cohorts is built
+in Phase 3 (squawk) and Phase 5 (go-around); enforcement (route out of TRAIN) is at
+the Phase-6 split (see D-009 amendment).
+
+1. **Layer-1 cohort keys on `n_imputed_impossible > 0`.** Concretely **513 segments**
+   in cycle-3 (hard physical-bound violations only — the placeholder/routine-null
+   population is excluded, else the cohort balloons to ~69% of the corpus). This is
+   the glitch/sloppy-spoof sanity set.
+
+2. **Add a go-around real-anomaly validation cohort.** Descend-then-climb near a
+   runway — common enough for a usable N, and a *real* anomaly (not synthetic). The
+   detector is built in **Phase 5** (before the P6 split, so the AE never trains on
+   it); it joins the Olive-7700 emergency set as a labelled-by-construction cohort.
+
+3. **Add per-feature reconstruction-error attribution.** `err[f] = mean_t (X − X̂)²`;
+   the dominant feature is the axis of weirdness — free from the loss tensor. This is
+   a **Phase-6 output**, **validated in Phase 7** via synthetic injections (the
+   injected axis should dominate) and demoed as a (timestep × feature) heatmap.
+
+**Anomaly-type attribution boundary (honest claim).** The AE emits a scalar; it does
+not classify. Type is attributed by the *system*: (a) which rule co-fires (Stage-1
+channel = glitch; geofence = zone; go-around detector = go-around), (b) the per-feature
+RE breakdown above, (c) typed evaluation on the labelled cohorts (per-type AUROC).
+Live, an unlabelled flight gets a score + an attribution *hint*; the demo shows
+per-*type* performance because those cohorts are labelled by construction. We do NOT
+claim the AE classifies anomaly types.
+
+---
+
+## Amendment 2 — 2026-06-01 (Layer-4 scope resolved; issue #22)
+
+The Phase-4 inspection of Dataset #6 (`notebooks/08_phase4_dataset6_emergency_eda.ipynb`, `dataset6-emergency-external-validation.md §9`) forced the open questions below to a decision. **Layer 4 is downgraded from a statistical claim to a single case study; the quantitative external-grounding role transfers to D-011.**
+
+**Findings that drove this.** Dataset #6 stores emergency-*window* segments, so airport-code "LEMD" flights are mostly not near LEMD: of the 6 airport-code matches, 5 have **zero** trajectory points within 200 km. The authoritative LEMD-area filter is the **trajectory radius**, which yields **~7 flights within 200 km, ~4 within 50 km, and only ONE genuine close-in LEMD operation — BCS63A** (a departed-LEMD turn-back the model never saw).
+
+**Decisions:**
+
+1. **Open Question #2 resolved — LEMD-area = trajectory radius, NOT airport code, NOT Filter B.** A flight is LEMD-area iff it has trajectory points within 200 km of the LEMD ref. Filter B/D are *not* applied to the emergency set (they select for normal-operation geometry → circular).
+
+2. **Open Question #3 resolved — REJECT the Western-Europe / global fallback.** This is the same expansion already rejected in **Alternative #2** above: a LEMD-only model scores any non-LEMD flight high because *it isn't LEMD*, not because it's an emergency. Widening N re-imports that confound, producing a number we cannot interpret as an emergency signal. The fallback is closed, not merely deferred.
+
+3. **Layer 4 is now a CASE STUDY, not a headline test.** With N≈7 (6 of which are edge-of-domain transit flights), the Mann-Whitney/percentile framing in "Layer 4 — the missing piece" cannot carry a quantitative claim. Layer 4 becomes: **score the in-range set, lead with BCS63A as a narrative example** ("the model flagged a real LEMD emergency it never trained on"). The pre-committed finding template may still be reported for the in-range set, but explicitly as small-N/illustrative, never as the headline. Both-directions-publishable still holds.
+
+4. **The quantitative external-grounding role moves to D-011 (and Layer 5).** The ~825 **non-LEMD** emergencies are not wasted: per **D-011**, their maneuver *kinematics* (extracted self-referentially via the per-timestamp squawk onset) are transplanted onto LEMD-*normal* trajectories as real-derived synthetic anomalies. This keeps the geometry on LEMD (no cross-airport confound) and gives full-N evidence — so the emergency data does its heavy lifting through **Layer 2 (via D-011)**, with Layer 5 (qualitative top-K) as the other un-confounded signal. The firewall split holds: non-LEMD → Layer 2/D-011; LEMD-area (the 7) → sealed Layer 4.
+
+**Net:** Layer 4 stays in the stack as a credibility case study (BCS63A); the table's "single highest-credibility layer" claim is tempered — the *quantitative* credibility now rests on Layers 2+5 and D-011's real-derived injections. See `D-011`, `dataset6-emergency-external-validation.md §9`.

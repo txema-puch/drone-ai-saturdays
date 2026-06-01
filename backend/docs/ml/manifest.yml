@@ -8,7 +8,7 @@ model_track: "dl"   # tentative — LSTM Autoencoder primary, Isolation Forest b
                     # Confirmed in Phase 6 once we see whether the LSTM AE meaningfully
                     # beats IF. If not, we flip to "ml" and ship IF.
 
-current_phase: "preprocess"
+current_phase: "features"
 
 # Gate ledger — append, never rewrite.
 gates:
@@ -82,12 +82,36 @@ gates:
       caveat that cycle 3's 18 days span 2017-2020 rather than being
       contiguous) and the 5K-trajectory threshold → Enough=CONDITIONAL.
   preprocess:
-    status: "in_progress"
+    status: "passed"
     gate_semantics: "one_shot"
-    passed_at: null
-    artifact: null
-    pipeline_definition: null
-    summary: "Phase 2 closed 2026-05-11. Phase 3 entry pending: define trajectory segmentation, resampling, scaling pipeline per the design doc."
+    passed_at: "2026-06-01"
+    artifact: "backend/docs/ml/03-preprocess.md"
+    pipeline_definition: "sort_segment_3min + filter_d + stage1_bounds + idle_trim + interpolate_mask + standardscaler(train) + pad_mask"
+    summary: |
+      Phase 3 closed 2026-06-01 (issue #22). Unfitted, segment-level preprocessing
+      pipeline in backend/core/preprocessing.py (model unit = SEGMENT, gap-split at
+      > 3 min). NO split, NO .fit() — the StandardScaler fit, sequence length T, and
+      the train/val/test split are Phase 6 on TRAIN only (the fit/transform firewall,
+      guardrail #5). make_scaler() returns UNFITTED; to_sequences(df, T, scaler) is a
+      pure definition.
+
+      Ordered pipeline: sort_dedupe -> segment(>3min) -> filter_d(+drop non-engaging
+      segments) -> compute_speed -> trim_idle(2.5 m/s) -> flag impossible->NaN ->
+      counters(impossible vs missing) -> resample to strict 10s grid + interpolate
+      within segment + *_missing masks -> encode_heading(sin/cos) -> tag is_emergency
+      -> filter_min_length(30). Feature vector [lat, lon, baroaltitude, velocity,
+      vertrate, sin(hdg), cos(hdg), onground] + *_missing masks; dist_to_runway_m
+      retained for Phase 5.
+
+      Validated against cycle-3 (notebook 07 Part 3): Filter D 18,928/19,057 = 99.3%,
+      2,598 gap-splits, n_imputed_impossible>0 cohort = 513 segments, 4 emergency
+      segments, AE matrix NaN-free, strict 10s grid; 19,849 segments / 3.16M rows.
+      27 passing tests (backend/tests/test_preprocessing.py) with 2 CRITICAL guards
+      (interpolation never crosses a segment boundary; make_scaler UNFITTED).
+
+      Refactor A1: shared geo/derivation helpers extracted to backend/core/geo.py +
+      backend/core/derivations.py (leaf, no credentials); crud/opensky.py re-exports.
+      ADRs D-010/D-008/D-009/D-006 amended 2026-06-01.
   eda:
     status: "in_progress"
     gate_semantics: "one_shot"
@@ -170,10 +194,24 @@ gates:
     summary: null
 
 # THE TEST SET FIREWALL — sacred. Never peeked, never modified except in Phase 7.
+#
+# Split-discipline note (2026-05-31): a teammate's parallel project SADAR
+# (huggingface.co/spaces/devrup404/sadar), on the SAME OpenSky-LEMD data, ships
+# exactly the dual-criterion leak-free split we planned: jointly by flight_id
+# AND by date — no flight appears in two splits (group leakage), and test is
+# strictly later in time than train (temporal leakage). They use 2017-2019 for
+# train/val and reserve 2020 for test, which doubles as a free distribution-shift
+# stress test (start of COVID). This independently validates the strategy below.
+# Caveat for us: our cycle-3 data is 18 *Mondays* spanning 2017-2020 (not
+# contiguous, Monday-skewed per D-009), so a pure year-based temporal cut leaves
+# a thin/uneven test fold. Decide in Phase 6 whether to mirror their year cut or
+# use a group-only (flight_id/icao24) split with a held-out block of Mondays;
+# either way, keep BOTH criteria (group + temporal) — that is the part to copy.
 test_set:
   defined_at: null               # set in Phase 6 entry gate
   split_seed: null
-  split_strategy: null           # likely "group-based" by icao24 + time-based hold-out
+  split_strategy: null           # group-based (icao24/flight_id) + time-based hold-out;
+                                 # see split-discipline note above (SADAR-confirmed)
   holdout_path: null
   count: null
   burned: false                  # flips ONCE, in Phase 7
@@ -215,6 +253,7 @@ decisions:
   - id: D-006
     phase: problem
     decided_at: 2026-05-07
+    amended_at: 2026-06-01   # Phase 3 EDA-informed reconfirmation (issue #22)
     title: "Architecture: LSTM Autoencoder primary, Isolation Forest baseline; alternatives considered and rejected"
     path: backend/docs/ml/decisions/D-006-architecture-and-baseline.md
   - id: D-007
@@ -225,15 +264,23 @@ decisions:
   - id: D-008
     phase: eval
     decided_at: 2026-05-23
+    amended_at: 2026-06-01   # Phase 3: Layer-1 cohort=513, go-around cohort, per-feature RE attribution (issue #22)
     title: "Multi-layer output validation including OpenSky Dataset #6 (7700-squawk real emergencies) as external set"
     path: backend/docs/ml/decisions/D-008-output-validation-layers.md
   - id: D-009
     phase: preprocess
     decided_at: 2026-05-23
+    amended_at: 2026-06-01   # Phase 3: pre-committed hold-aside split rule (issue #22)
     title: "Training on cycle 3 alone (option B); cycles 1+2 retained as day-of-week covariate-shift diagnostic probe"
     path: backend/docs/ml/decisions/D-009-day-of-week-covariate-shift-probe.md
   - id: D-010
     phase: preprocess
     decided_at: 2026-05-30
+    amended_at: 2026-06-01   # Phase 3 implementation: NaN handling, counter split, idle-trim, gap re-seg, resample, interpolate-not-derive, segment unit (issue #22)
     title: "Filter D as LEMD-operation gate; multi-detector preprocessing pipeline (Stage 1 physical-bounds rule + Stage 2 imputation + Stage 3 LSTM AE)"
     path: backend/docs/ml/decisions/D-010-filter-d-and-multi-detector-preprocessing.md
+  - id: D-011
+    phase: eval
+    decided_at: 2026-06-01
+    title: "Real-derived synthetic anomalies from Dataset #6 non-LEMD emergencies (onset-anchored maneuver transplant); firewall split non-LEMD→Layer2, LEMD-area→Layer4. Phase-7 stretch; feasibility gate verified (per-timestamp squawk)."
+    path: backend/docs/ml/decisions/D-011-real-derived-synthetic-anomalies.md

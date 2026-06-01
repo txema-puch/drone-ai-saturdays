@@ -138,3 +138,26 @@ See `backend/docs/writeup/09-the-architectural-critique.md` for the full reframe
 - Guardrail #10 (baseline required) and Guardrail #11 (pretrained > custom; n/a here, no pretrained for this domain) — `/ml-lifecycle/references/guardrails.md`
 - Phase 6 reference: `/ml-lifecycle/references/phase-6-train.md` (DL track)
 - Medium-piece thesis (post-Phase 1 reframe): `backend/docs/writeup/09-the-architectural-critique.md`
+
+---
+
+## Amendment — 2026-06-01 (Phase 3 implementation, issue #22)
+
+EDA-informed reconfirmation (no change to the decision; the tentative choice stands
+into Phase 6). The codex second pass on notebook `07` revisited the architecture:
+
+- **Whole-segment reconstruction AE remains the primary**, now confirmed against the
+  segment model unit (gap-split at > 3 min) rather than the raw flight.
+- **The classical / Isolation-Forest baseline is elevated to a serious contender, not
+  a formality.** Because this is an ML *and* DL course, shipping IF if the LSTM AE does
+  not beat it by the pre-committed margin (D-005) is a **legitimate outcome**, not a
+  failure — the ML+DL bake-off is the deliverable.
+- **Per-phase (arrival vs departure) models** are flagged for Phase 5/6 evaluation
+  (the operation split is informative; whether to train separate models is a P6 call).
+- **Rule baselines double as the inference-time anomaly-type attribution layer**
+  (which-rule-co-fires), complemented by the per-feature reconstruction-error breakdown
+  (D-008 amendment). The baseline is thus not only a yardstick but part of the shipped
+  attribution system.
+
+The track stays `dl` (tentative) in the manifest; it confirms or flips to `ml` in
+Phase 6 once the LSTM-vs-IF result is in.

@@ -241,3 +241,24 @@ probe.
    Phase 4 EDA surfaces a candidate covariate that cycles 1+2 can probe
    (e.g., evening vs morning if cycle 3 happens to be morning-skewed),
    open a follow-up ADR. Don't bake speculative probes into Phase 3 now.
+
+---
+
+## Amendment — 2026-06-01 (Phase 3 implementation, issue #22)
+
+**Pre-committed hold-aside split rule.** Locking the contamination guard *now*, before
+any split is fit, so it cannot slip later. Three cohorts are **held aside and never
+trained on**:
+
+- `n_imputed_impossible > 0` (detected Phase 3) — the D-008 Layer-1 glitch cohort (513 segments).
+- `is_emergency` = squawk ∈ {7500, 7600, 7700} (detected Phase 3) — 4 segments in cycle-3.
+- go-arounds (detector built **Phase 5**, *before* the P6 split — not Phase 7, or the
+  AE trains on them and the cohort is worthless).
+
+**Enforcement is at the Phase-6 split:** the TRAIN fold excludes all three cohorts;
+they are scored in Phase 7 (do they score high?). Phase 3's only job here is to compute
+`is_emergency` and preserve the meta (`icao24, time, flight_id, segment_id, squawk,
+is_emergency, n_imputed_impossible, n_imputed_missing`) so Phase 5/6 can build the
+detector and route the cohorts out. The locked split itself — group-by `icao24` +
+temporal hold-out by whole Monday (SADAR-confirmed) — is fit on TRAIN only in Phase 6;
+this amendment adds the held-aside rule on top of it.

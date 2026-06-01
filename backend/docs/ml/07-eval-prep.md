@@ -52,6 +52,16 @@ For fast scan when revisiting this doc later:
 
 The single most important meta-observation: **for the 5 documented LEMD events, the public record describes only "drone in vicinity" — no trajectory detail.** AENA/AESA do not release event-level data. So all calibration of LEMD-specific perturbations remains anchored to U.S. data; this is a confidence ceiling, not a fixable gap.
 
+## Post-reframe reconciliation (added 2026-06-01) — READ BEFORE IMPLEMENTING §6
+
+This document's research report below (§1–§8) was written **2026-05-10, under the original counter-drone-detector framing**. The architectural reframe (D-010 + `writeup/09-the-architectural-critique.md`, 2026-05-23) changed what the model *is*: a **behavioral conformance monitor on cooperating manned aircraft**, whose value proposition is catching the **sequence/kinematic anomalies (hovering, speed spikes)** that the deployed geometric safety nets (APW, MSAW, APM) already miss. Two items in the verbatim §6 below are now in tension with that thesis. The verbatim text is preserved per this doc's append-only rule; this note overrides it:
+
+1. **§6 recommendation #7 ("Weight loss reconstruction toward position + altitude features over speed/heading") is a pre-reframe artifact — do NOT implement it as a model or score weighting.** Its reasoning ("the cheap tells of a *drone* are wrong-place + too-long") is drone-incident reasoning, and the model is not a drone detector. Worse, it is *backwards* against the thesis: APW already covers zone (position) and MSAW covers altitude, so down-weighting speed/heading would blind the AE in exactly the channel (hovering, speed spikes) where 09 pre-commits it must beat the rules baseline. Keep the reconstruction loss **framing-agnostic (equal-weighted)**. If you want per-feature reconstruction error, use it as a **diagnostic / interpretability output** (which channels drive a given score), never as a tuning knob — and never tune it against this bench (that would close a loop between bench design and model, inflating AUROC).
+
+2. **The synthetic bench's deliverable is the per-type stratified comparison, not a single headline AUROC.** Per 09, the result is a table of AE vs Isolation Forest vs **safety-net-rules baseline** vs geofence, broken out by anomaly type. "Calibrate the bench harder" therefore means *keep each anomaly type/intensity realistic* (no cartoonish 80 km route-shifts or ×2.2 speed-ups that flatter every detector) so the per-type comparison is honest — it was **never about maximizing a mean**. The zone-violation 40% weighting (§6 rec) is about *bench realism*; APW is *expected* to win/tie on zone, and that is the correct, honest finding, not a failure. Do not benchmark against, or chase, a single mean like a parallel project's "0.792" — that target belongs to the abandoned framing.
+
+Everything else in §6 (asymmetric-up altitude, sustained loiter, softened/demoted speed spike, the two new types) survives the reframe and stands.
+
 ## Validating beyond synthetic discrimination
 
 This section is the eval-time companion to **D-008** (multi-layer output validation). It addresses a question the synthetic-injection calibration above (Layer 2) does not answer on its own:
@@ -61,6 +71,8 @@ This section is the eval-time companion to **D-008** (multi-layer output validat
 Two protocols below close that gap. Each contributes one layer of validation; together with Layer 1 (sanity), Layer 2 (synthetic AUROC per D-005), and Layer 3 (realism via geofence + safety-net rules baseline), they form the five-layer validation stack from D-008.
 
 ### Layer 4 — external validation via real emergencies (Dataset #6)
+
+> **Scope decided 2026-06-01 (D-008 Amendment 2; `dataset6-emergency-external-validation.md §9`).** The Phase-4 inspection found only ~7 scoreable LEMD-area flights (6 of them edge-of-domain transit; only **BCS63A** is a genuine close-in LEMD operation). So **Layer 4 is a case study, not the Mann-Whitney statistical test the protocol below describes**, and the **Western-Europe fallback is rejected** (re-imports the cross-airport confound). The protocol below stands for the *in-range set* (report it as small-N/illustrative, lead with BCS63A), but the **quantitative external-grounding role moves to D-011** — the ~825 non-LEMD emergencies become real-derived injections on LEMD-normal trajectories (no confound, full N). Read the rest of this section with that reframing.
 
 **Source.** OpenSky scientific Dataset #6: *Reference Datasets for In-Flight Emergency Situations*, curated by Xavier Olive (ONERA). Derived from full OpenSky ADS-B between 1 January 2018 and 29 January 2020. Flights that triggered the **7700 transponder squawk** (pilot-set general emergency code). Cite: Olive et al., *OpenSky Report 2020*, IEEE/AIAA DASC 2020.
 
@@ -265,3 +277,25 @@ These don't block Phase 7 but are worth knowing about:
 - **EASA Annual Safety Review 2025 full PDF.** Not fetched in this session; if a full read becomes available, update §3 with EU-wide altitude/distance distributions.
 - **Aviation Safety Network UAS endpoint.** If ASN ever exposes a queryable UAS category, it would broaden the international coverage substantially.
 - **Year-on-year FAA trend.** This research used 6 months of FAA data (Jul–Dec 2025). A longer window would let us check whether the 0.7% high-speed rate is stable or shifting upward as racing/FPV drones spread.
+
+---
+
+## Reference implementation — SADAR synthetic bench (added 2026-05-31)
+
+A teammate shipped a parallel course project, **SADAR** (`huggingface.co/spaces/devrup404/sadar`), on the *same* data (OpenSky LEMD, ~18 days 2017–2020, ~20k trajectories) and the *same* approach (LSTM / VAE-LSTM autoencoder). Their `src/sadar/eval/synthetic.py` is a clean, working synthetic-anomaly bench. It is vendored verbatim (MIT) at **`backend/docs/ml/references/sadar_synthetic_bench.py`** so we don't depend on the Space staying up.
+
+**Borrow the scaffold, not the parameters.** SADAR's bench is a good engineering skeleton; its anomaly *calibration* is exactly the "too easy / wrong-shaped" trap §6 above was written to avoid. Concretely:
+
+| Element | Take it? | Why |
+|---|---|---|
+| `_ramp()` — perturbation ramps in mid-window | ✅ borrow | Matches our "anomaly onset partway through the window" framing. |
+| `_mask_from()` onset masks as ground-truth labels | ✅ borrow | Doubles as the label for **detection latency** (median steps from onset to first threshold crossing). D-005's metric stack doesn't yet name latency — SADAR shows it's free once you have onset masks. Worth adding to our Phase 7 metrics. |
+| `unscale → perturb → rescale` using the saved scaler | ✅ borrow | Correct discipline: perturb in physical units, re-apply the train-fit scaler. Mirrors our Stage-2/3 pipeline. |
+| `holding_pattern()` geometry (constant-ω heading → integrated x/y) | ✅ borrow (adapt) | Cleanest piece; closest match to our **sustained-loiter** type. But add a low-speed station-keeping variant (speed<2 m/s, σ_pos<30 m), not just turn-period. |
+| `build_cases()` driver shape `(kind, label, windows, mask)` | ✅ borrow | Reweight the mix per §6 (zone ~40%, speed ≤10%) and add the two missing types. |
+| `altitude_anomaly()` **symmetric** ±offset | ❌ override | §6/TL;DR #1: ours is **asymmetric upward** (+200…+1500 m @70%, −100 m @30%). Their `signs = rng.choice([-1,1])` is precisely the wrong shape. |
+| `speed_anomaly()` aggressive multiplicative factor | ❌ override / demote | §6: drop to 1.5–2× for 5–10 s and cap at ≤10% of the mix. SADAR runs it up to ×2.2 with equal weight. |
+| Missing: **zone violation** through the restricted polygon | ➕ add | Our highest-weight type (~40%); SADAR's `route_deviation` is a generic random-bearing offset, not a polygon-aware zone breach. |
+| Missing: **final-approach intercept**, **multi-drone** | ➕ add | §5 — neither exists in SADAR. |
+
+**Net:** SADAR saves us the boilerplate (ramps, masks, scaler round-trip, the holding-pattern integration) and contributes the **detection-latency metric** idea. Our calibrated mix (§6) and the polygon/intercept/multi-drone types are the part that makes our eval a stronger claim than theirs. When Phase 7 starts, adapt `sadar_synthetic_bench.py` into `inject_anomalies(...)` applying every ❌/➕ row above, and cite both this doc and the SADAR source in the writeup Methodology.
