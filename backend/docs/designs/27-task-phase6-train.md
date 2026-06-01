@@ -86,23 +86,39 @@ inside Phase 6.
   timesteps set `*_missing = 0`. Bind feature indices by name (`AE_FEATURES`).
 - **Freeze after Phase 6** (seed + calibration) so the Phase-7 TEST run is byte-identical.
 
+## Deliverable shape — modules + one notebook
+
+Two layers, matching the project pattern (logic in `backend/core/*.py` with tests; the
+exploratory/visual run in `notebooks/0X`):
+
+- **Reusable, testable `.py` modules** (deterministic, imported by the notebook AND by
+  Phase 7): `split.py`, `inject.py` (Generator A), `lstm_ae.py`, `baseline.py`. Unit
+  tested. These are what Phase 7 re-imports to run the *frozen* generator + the trained
+  model on TEST — so they must be importable, not notebook-only.
+- **`notebooks/09_phase6_train.ipynb`** — the training RUN + diagnostics: import the
+  modules, run split → fit-on-train → train with **train/val loss curves** (guardrail
+  #7), the IF-vs-AE **bake-off table**, the `dist_to_runway_m` **ablation**, and
+  reconstruction-overlay plots. This is where you *see* train/val behaviour; nothing
+  here touches TEST (firewall stays clean — modules are deterministic, notebook is
+  read-only on the sealed fold).
+
 ## Engineering plan
 
-1. `split.py` — `split_by_monday(meta)` → train/val/test segment-id sets; pull held-aside;
-   assert no `icao24` spans train↔val↔test (group check); assert test strictly latest.
-   Persist the split (seeds, fold→Monday map, counts) → `manifest.test_set`.
-2. Fit on TRAIN: `StandardScaler.fit(train[SCALER_FEATURES])`; `T = P95(train segment len)`;
-   `to_sequences(·, T, scaler)`.
-3. `inject.py` — Generator A wrapping the SADAR scaffold; `inject_val(val_df, scaler, T, seed)`.
-4. Baseline: `IsolationForest` on flattened/pooled features (run FIRST — guardrail #10).
-5. `lstm_ae.py` — encoder/decoder LSTM-AE; masked reconstruction loss (mask padding +
-   imputed); **equal-weighted** (no per-feature down-weight — carry-forward from P5).
-   Log train AND val curves (guardrail #7).
-6. Bake-off: val AUROC/F2/FPR/PR-AUC (D-005) for IF vs AE on the injected val; apply D-006
-   (ship AE iff `AE ≥ IF + 0.03`, else IF); record + confirm `model_track`.
-7. `dist_to_runway_m` ablation: AE val AUROC with vs without the feature (the P5-deferred
-   empirical test).
-8. `07-train.md` + manifest `train` gate.
+1. **`split.py`** (module + test) — `split_by_monday(meta)` → train/val/test segment-id
+   sets; pull held-aside; assert no `icao24` spans train↔val↔test (group check); assert
+   test strictly latest. Persist the split (seed, fold→Monday map, counts) → `manifest.test_set`.
+2. **Fit on TRAIN** (in `09` + helpers) — `StandardScaler.fit(train[SCALER_FEATURES])`;
+   `T = P95(train segment len)`; `to_sequences(·, T, scaler)`.
+3. **`inject.py`** (module + test) — Generator A wrapping the SADAR scaffold;
+   `inject(df, scaler, T, seed)`; perturb-measured → `apply_segment_derivations` → window+scale.
+4. **`baseline.py`** (module + test) — `IsolationForest` wrapper (run FIRST — guardrail #10).
+5. **`lstm_ae.py`** (module + test) — encoder/decoder LSTM-AE; masked reconstruction loss
+   (mask padding + imputed); **equal-weighted** (no per-feature down-weight — P5 carry-forward).
+6. **`notebooks/09_phase6_train.ipynb`** — orchestrates 1–5: train with curves, bake-off
+   (val AUROC/F2/FPR/PR-AUC per D-005 for IF vs AE on injected val), apply D-006 (ship AE
+   iff `AE ≥ IF + 0.03`, else IF), confirm `model_track`, run the `dist` ablation.
+7. **`07-train.md`** + manifest `train` gate (records baseline, best model + val score +
+   CI, fitted-pipeline artifact, `track_confirmed`).
 
 ## Rejected alternatives (split)
 
