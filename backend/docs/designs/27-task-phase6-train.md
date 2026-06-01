@@ -84,7 +84,12 @@ inside Phase 6.
   `features.apply_segment_derivations` (replay `hdg_sin/cos` + `dist_to_runway_m`), then
   window + scale with the **TRAIN-fit** scaler. Inject on val/test only. Injected
   timesteps set `*_missing = 0`. Bind feature indices by name (`AE_FEATURES`).
-- **Freeze after Phase 6** (seed + calibration) so the Phase-7 TEST run is byte-identical.
+- **Freeze after Phase 6 — persist a bench artifact** so the Phase-7 TEST run is
+  byte-identical. The frozen bundle is `{seed, §6 calibration params, the TRAIN-fit
+  StandardScaler, T, code/scaffold version}` written to `backend/models/phase6/bench_frozen.*`
+  (gitignored — large/binary) with a small committed manifest of the hashes. "Freeze =
+  seed only" is insufficient: the injection *rescales* with the train scaler, so the
+  scaler + T must be pinned too or P7 cannot reproduce the val-injection distribution.
 
 ## Deliverable shape — modules + one notebook
 
@@ -95,6 +100,10 @@ exploratory/visual run in `notebooks/0X`):
   Phase 7): `split.py`, `inject.py` (Generator A), `lstm_ae.py`, `baseline.py`. Unit
   tested. These are what Phase 7 re-imports to run the *frozen* generator + the trained
   model on TEST — so they must be importable, not notebook-only.
+  **Placement:** module *code* lives in `backend/core/` (alongside `preprocessing.py` /
+  `features.py`). **Not** `backend/models/` — that path is **gitignored** (for saved
+  weights / fitted artifacts). Trained weights + the frozen bench → `backend/models/phase6/`
+  (gitignored); the code that produces them → `backend/core/`.
 - **`notebooks/09_phase6_train.ipynb`** — the training RUN + diagnostics: import the
   modules, run split → fit-on-train → train with **train/val loss curves** (guardrail
   #7), the IF-vs-AE **bake-off table**, the `dist_to_runway_m` **ablation**, and
@@ -112,13 +121,57 @@ exploratory/visual run in `notebooks/0X`):
 3. **`inject.py`** (module + test) — Generator A wrapping the SADAR scaffold;
    `inject(df, scaler, T, seed)`; perturb-measured → `apply_segment_derivations` → window+scale.
 4. **`baseline.py`** (module + test) — `IsolationForest` wrapper (run FIRST — guardrail #10).
+   **Input = pooled per-segment summary stats** (mean/std/min/max per `SCALER_FEATURES`),
+   not the flattened `T×9` sequence: padding-robust and the fair "simple baseline"
+   (flattened makes IF score the pad zeros). Both IF and AE score the **same** injected
+   segments so the bake-off is apples-to-apples.
 5. **`lstm_ae.py`** (module + test) — encoder/decoder LSTM-AE; masked reconstruction loss
    (mask padding + imputed); **equal-weighted** (no per-feature down-weight — P5 carry-forward).
 6. **`notebooks/09_phase6_train.ipynb`** — orchestrates 1–5: train with curves, bake-off
-   (val AUROC/F2/FPR/PR-AUC per D-005 for IF vs AE on injected val), apply D-006 (ship AE
-   iff `AE ≥ IF + 0.03`, else IF), confirm `model_track`, run the `dist` ablation.
+   (val AUROC/F2/FPR/PR-AUC per D-005 for IF vs AE on injected val), apply the selection +
+   threshold + guardrail logic below, confirm `model_track`, run the `dist` ablation.
 7. **`07-train.md`** + manifest `train` gate (records baseline, best model + val score +
-   CI, fitted-pipeline artifact, `track_confirmed`).
+   CI, **threshold**, fitted-pipeline artifact, `track_confirmed`).
+
+## Model selection, threshold & guardrail (the bake-off logic)
+
+Three distinct steps — keep them separate (an AUROC win is not automatically a ship):
+
+1. **Selection (D-006, threshold-free):** compute **val AUROC** for IF and AE on the
+   injected val. Ship the AE iff `AE_AUROC ≥ IF_AUROC + 0.03`, else ship IF. Confirm
+   `model_track`.
+2. **Threshold (set on VAL, never test):** the shipped model's anomaly score → binary
+   needs a cut. Pick the threshold on the injected-val ROC/PR curve at the operating point
+   (e.g. the highest-F2 point subject to `FPR ≤ 15%`). The threshold is a Phase-6 artifact
+   applied unchanged to TEST in Phase 7 — selecting it on test would be a firewall leak.
+3. **Guardrail (D-005):** the shipped model + chosen threshold must satisfy `FPR ≤ 15%` on
+   val. If the AE wins selection (step 1) but cannot hit `FPR ≤ 15%` at any usable
+   recall, that is a guardrail failure — document it and fall back to IF (or re-tune).
+   Selection orders the models; the guardrail is a veto.
+
+## Test plan (modules; the notebook is diagnostic, not unit-tested)
+
+```
+split.py            (backend/tests/test_split.py)
+  ★★★ CRITICAL  firewall: no TEST segment-id appears in train or val
+  ★★★           group: no icao24 spans two folds   |   temporal: every TEST Monday > every TRAIN Monday
+  ★★            held-aside (emergency ∪ go_around ∪ impossible) absent from all 3 folds
+  ★★            deterministic (same seed → same split); fold counts match the locked table
+inject.py           (backend/tests/test_inject.py)
+  ★★★ CRITICAL  inject() is never applied to the train fold (val/test only)
+  ★★★           uses features.apply_segment_derivations (derived stay consistent) + the PASSED
+                train-fit scaler — asserts it never calls make_scaler() (unfitted)
+  ★★            injected timesteps set *_missing = 0; deterministic (seed); per-type mix ≈ §6
+lstm_ae.py          (backend/tests/test_lstm_ae.py)
+  ★★★ CRITICAL  masked reconstruction loss excludes padding AND imputed rows (zero gradient there)
+  ★★            forward/recon shape = (N,T,9); deterministic with a fixed seed
+baseline.py         (backend/tests/test_baseline.py)
+  ★★            IF fits on train pooled-stats, scores val/test; pooled-stats shape stable
+```
+
+The three CRITICAL tests are the Phase-6 firewall guards — the analogues of P3's
+interpolation-never-crosses-boundary + make_scaler-UNFITTED. They must exist before the
+training run, not after.
 
 ## Rejected alternatives (split)
 
@@ -145,7 +198,27 @@ exploratory/visual run in `notebooks/0X`):
 
 ## Open questions
 
-1. IF input shape — pooled per-segment summary stats vs flattened sequence? (decide at impl).
+1. ~~IF input shape~~ — **RESOLVED (eng review): pooled per-segment summary stats** (mean/std/
+   min/max per `SCALER_FEATURES`), padding-robust; see engineering plan step 4.
 2. AE capacity / `T` cap interaction — if P95 `T` is large, truncation rate vs compute (Finding C).
 3. Val-injection rate — what fraction of val gets injected, and the per-type mix for a
    stable AUROC (follow §6 proportions; confirm N is enough for a tight CI).
+
+## GSTACK REVIEW REPORT
+
+| Review | Trigger | Why | Runs | Status | Findings |
+|--------|---------|-----|------|--------|----------|
+| CEO Review | `/plan-ceo-review` | Scope & strategy | 0 | — | not run (no product-scope change) |
+| Eng Review | `/plan-eng-review` | Architecture & tests (required) | 1 | issues_found → resolved | 6 completeness gaps, all folded into the doc |
+| Design Review | `/plan-design-review` | UI/UX gaps | 0 | — | N/A (backend/ML, no UI) |
+
+- **ENG findings (6, all resolved):** threshold-on-VAL step added; module placement
+  (code → `backend/core/`, not gitignored `models/`); frozen-bench artifact bundle
+  spec'd (seed+§6 params+train scaler+T+version); IF input decided (pooled summary stats);
+  selection→threshold→guardrail sequenced (AUROC win ≠ auto-ship; FPR≤15% is a veto);
+  3 CRITICAL firewall tests + per-module unit tests added to the test plan.
+- **Firewall integrity:** confirmed — TEST(2020) sealed at split, inject val/test only,
+  fit-on-train only, threshold-on-val; `burned` stays false until Phase 7.
+- **Scope:** right-sized — reuses `build_features`/`to_sequences`/SADAR scaffold/sklearn;
+  one innovation token (LSTM-AE, justified by D-006).
+- **VERDICT:** ENG CLEARED — ready to implement.
