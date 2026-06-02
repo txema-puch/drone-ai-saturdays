@@ -357,3 +357,8 @@ decisions:
     decided_at: 2026-06-01
     title: "Real-derived synthetic anomalies from Dataset #6 non-LEMD emergencies (onset-anchored maneuver transplant); firewall split non-LEMD→Layer2, LEMD-area→Layer4. Phase-7 stretch; feasibility gate verified (per-timestamp squawk)."
     path: backend/docs/ml/decisions/D-011-real-derived-synthetic-anomalies.md
+  - id: D-012
+    phase: eval
+    decided_at: 2026-06-02
+    title: "Phase-7 entry: re-weight zone_violation out of the synthetic bench (APW owns zone under D-010); zone kept as out-of-remit diagnostic; MIX_V1_WITH_ZONE preserved for Phase-6 reproducibility. Signed-off deliberate deviation."
+    path: backend/docs/ml/decisions/D-012-phase7-zone-reweight.md

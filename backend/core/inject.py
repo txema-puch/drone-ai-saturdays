@@ -25,10 +25,14 @@ enforces this AND that the scaler is TRAIN-fitted (never `make_scaler()` unfitte
 SADAR's symmetric-altitude / aggressive-speed defaults):
 
     zone_violation            0.40   reroute through the airport exclusion zone (lat/lon)
+                                     [Phase-7 D-012: re-weighted OUT of DEFAULT_MIX — APW owns
+                                      zone under the D-010 reframe; kept as a diagnostic kind]
     altitude_high             0.20   asymmetric: +200..+1500 m @70%, −50..−100 m @30%
     sustained_loiter          0.20   60-300 s station-keeping: speed<2 m/s, σ<30 m
     final_approach_intercept  0.10   cross the arrival corridor at 50-300 m AGL near a rwy
     speed_spike               0.10   softened+demoted: ×1.5-2.0 for one grid step
+    (the 0.40/0.20/0.20/0.10/0.10 weights are the Phase-6 MIX_V1_WITH_ZONE; Phase-7 DEFAULT_MIX
+     drops zone and renormalizes the 4 dynamic types — see MIX_V1_WITH_ZONE / DEFAULT_MIX below)
     (multi_drone)               —    DEFERRED: a multi-TRACK phenomenon; a per-segment AE
                                      scores one trajectory at a time, so it cannot be a
                                      single labeled window. Belongs to a co-occurrence
@@ -54,17 +58,37 @@ from backend.core.preprocessing import (
     to_sequences_loss_mask,
 )
 
-# ── §6 calibrated mix (the 5 single-trajectory types; sums to 1.0) ────────────
+# ── §6 calibrated mix (the 5 single-trajectory types) ─────────────────────────
+# `zone_violation` stays a first-class injectable kind (requestable explicitly for the
+# per-type diagnostic on val/test), but it is OUT of the default mix as of D-012 — see below.
 INJECTION_KINDS: tuple[str, ...] = (
     "zone_violation", "altitude_high", "sustained_loiter",
     "final_approach_intercept", "speed_spike",
 )
-DEFAULT_MIX: dict[str, float] = {
+
+# The ORIGINAL §6 pre-reframe mix (zone @ 40%), preserved verbatim so the Phase-6 val
+# bake-off (07-train.md §4) stays exactly reproducible. Do NOT delete — it is the
+# pre-registered Phase-6 record. Phase 7 uses DEFAULT_MIX (zone re-weighted out) instead.
+MIX_V1_WITH_ZONE: dict[str, float] = {
     "zone_violation": 0.40,
     "altitude_high": 0.20,
     "sustained_loiter": 0.20,
     "final_approach_intercept": 0.10,
     "speed_spike": 0.10,
+}
+
+# Phase-7 mix (D-012, signed-off bench deviation). `zone_violation` is re-weighted OUT of the
+# headline mix: under the D-010 manned-conformance reframe the deployed APW safety net — not the
+# reconstruction AE — owns zone/position violations (07-train.md §4b; 07-eval-prep.md §"Post-reframe
+# reconciliation"). zone was a §6 *drone-era* category and, at 40%, the main drag on the synthetic
+# mean for a model not responsible for it. The 4 remaining DYNAMIC types (the AE's actual remit)
+# are renormalized proportionally: {alt 0.20, loiter 0.20, intercept 0.10, speed 0.10} / 0.60.
+# zone is STILL scored as a standalone out-of-remit diagnostic in Phase 7 (reported, not in mix).
+DEFAULT_MIX: dict[str, float] = {
+    "altitude_high": 1.0 / 3.0,
+    "sustained_loiter": 1.0 / 3.0,
+    "final_approach_intercept": 1.0 / 6.0,
+    "speed_spike": 1.0 / 6.0,
 }
 
 GRID_S = 10.0                 # the 10 s feed cadence (Phase 3 resample grid)

@@ -102,3 +102,6 @@ Thumbs.db
 .context/
 AGENTS.md
 .gstack/
+
+# External vendored projects (SADAR head-to-head, Phase 7)
+external/
