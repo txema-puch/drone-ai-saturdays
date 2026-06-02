@@ -8,10 +8,11 @@ model_track: "dl"   # tentative — LSTM Autoencoder primary, Isolation Forest b
                     # Confirmed in Phase 6 once we see whether the LSTM AE meaningfully
                     # beats IF. If not, we flip to "ml" and ship IF.
 
-current_phase: "eval"   # Phase 6 (train) passed 2026-06-01; Phase-7 ENTRY is a pending
-                        # go/loop-back decision — val AUROC 0.664 « 0.85 target. The eval
-                        # gate stays pending and the TEST set stays sealed until that call.
-                        # See gates.train.summary + 07-train.md "Phase-7 entry decision".
+current_phase: "deploy"   # Phase 7 (eval) passed + TEST BURNED 2026-06-02 (issue #29). Ship the
+                          # LSTM-AE (dl confirmed on the pre-registered real-anomaly criterion).
+                          # Synthetic AUROC>0.85 NOT met (0.731), but AE beats kNN on real anomalies
+                          # and matches SADAR (ROC 0.667 vs 0.659). Phase 8 = course-demo only.
+                          # See gates.eval.summary_phase7 + 07-eval.md.
 
 # Gate ledger — append, never rewrite.
 gates:
@@ -227,12 +228,46 @@ gates:
       Layer 6) is the contest that matters. Firewall-semantics change = D-009 implementation
       amendment. See 07-train.md §4b + "Phase-7 entry decision".
   eval:
-    status: "pending"
+    status: "passed"
     gate_semantics: "one_shot"
-    passed_at: null
-    artifact: null
-    holdout_score: null
-    holdout_ci: null
+    passed_at: "2026-06-02"
+    artifact: "backend/docs/ml/07-eval.md"
+    holdout_score: "AE synthetic test AUROC 0.731 (D-012 mix); AE real-anomaly test ROC 0.667"
+    holdout_ci: "AE synthetic AUROC 95% CI [0.714, 0.745] (1000x bootstrap on test windows)"
+    track_confirmed: true   # ship the LSTM-AE (dl). DECIDED on the pre-registered real-anomaly
+                            # criterion (07-eval-prep Layer 6): AE real-anomaly ROC/PR BEATS the
+                            # kNN (0.667/0.088 vs 0.595/0.067 on test-normal; 0.591/0.048 vs
+                            # 0.551/0.043 on val-normal) — the kNN's SYNTHETIC win (0.786 vs 0.731
+                            # test) does NOT transfer to real go-arounds/emergencies. Honest caveat:
+                            # primary AUROC>0.85 target NOT met (0.731); kNN stays a strong simpler
+                            # alternative on synthetic. See 07-eval.md + D-012.
+    summary_phase7: |
+      Phase 7 closed 2026-06-02 (issue #29). TEST BURNED ONCE (test_set.burned=true). Three
+      models scored, all reported (user-amended Layer-6: report all, drop none):
+
+      SYNTHETIC (D-012 re-weighted mix, zone OUT of headline — APW owns it; kept as diagnostic),
+      sealed 2020 test fold: AE AUROC 0.731 [0.714,0.745] / PR 0.770; kNN 0.786 / 0.827;
+      IF 0.717 / 0.734. kNN > AE on synthetic (as on val). AE op-point (thr 0.222, val-chosen,
+      no retune): F2 0.520, FPR 0.089 (<=0.15 guardrail HOLDS), recall 0.474. Per-type (test):
+      zone 0.551 (out-of-remit), altitude 0.558, loiter 0.971, intercept 0.789, speed 0.580
+      (kNN 0.815). AE owns the DYNAMIC conformance anomalies (loiter/intercept) — its D-010 remit.
+
+      REAL-ANOMALY (Layer 6, the contest that matters), held-aside emergency∪go_around (195 segs)
+      vs 2020-test-normal (SADAR-comparable): AE ROC 0.667 / PR 0.088; kNN 0.595 / 0.067;
+      IF 0.495 (chance). SADAR VAE-LSTM (native, his 2020-normal, reproduced exactly): 0.659 /
+      0.299. AE > kNN on real (representative confirmed); AE ROC 0.667 EDGES SADAR 0.659 on the
+      prevalence-invariant lens. PR gap (0.088 vs 0.299) is prevalence/windowing (4.4% whole-seg
+      vs 12.1% sliding-window), not model quality — stated as a confound, not buried.
+
+      LAYER 4 (external, OpenSky #6 7700): BCS63A — the one genuine close-in LEMD emergency
+      turn-back (the other 6 in-range flights are transit, excluded by Filter B) — scored at the
+      98.8th pctile (AE) / 100th (kNN) of normal. Real emergency flags high. N=1 case study (the
+      doc's reframe; quantitative external role is D-011, deferred).
+
+      LAYER 5 (qualitative top-20 normal-val by AE error): long full-profile segments; 7/20 show
+      circling/holding signatures, several oscillating-vertrate; 3 are AE-flagged but kNN-normal
+      (order-abnormal yet summary-normal — what the AE's sequence model catches). Final visual
+      classification is the writeup owner's pass.
     summary: |
       Phase 7 entry decision pending. Two artifacts feed this gate:
 
@@ -287,9 +322,15 @@ test_set:
     (D-009 + eng-review-2 amendment)."
   holdout_path: "backend/models/phase6/split_ids.json"   # test = 4,285 clean segments (2020)
   count: 4285
-  burned: false                  # flips ONCE, in Phase 7 — STILL SEALED
-  burned_at: null
-  burn_reason: null
+  burned: true                   # BURNED 2026-06-02, Phase 7 (issue #29) — the one-shot
+  burned_at: "2026-06-02"
+  burn_reason: |
+    Phase-7 final evaluation (backend/scripts/phase7_burn.py). Scored the sealed 2020 fold
+    ONCE with all three models on the D-012 re-weighted synthetic mix (AUROC/F2/FPR/PR-AUC +
+    bootstrap CI vs IF) AND on the real-anomaly cohort vs 2020-test-normal (Layer 6). No
+    tuning, threshold, or model selection used the test fold — the AE threshold (0.222) and
+    the representative choice (AE) were both fixed on val/held-aside before the burn. Results:
+    07-eval.md + backend/models/phase6/phase7_burn_results.json.
 
 # LLM-track sets unused (model_track is dl).
 llm_sets:

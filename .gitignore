@@ -105,3 +105,4 @@ AGENTS.md
 
 # External vendored projects (SADAR head-to-head, Phase 7)
 external/
+!backend/models/phase6/phase7_burn_results.json

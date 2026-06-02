@@ -1,0 +1,36 @@
+{
+  "headline_auroc": {
+    "AE": 0.7307613043662013,
+    "kNN": 0.7856344435425437,
+    "IF": 0.7170380362442067
+  },
+  "headline_ae_ci": [
+    0.714055219259647,
+    0.7448699501140853
+  ],
+  "per_type": {
+    "AE": {
+      "zone_violation": 0.5511035647732416,
+      "altitude_high": 0.5578259924283915,
+      "sustained_loiter": 0.9710607528125575,
+      "final_approach_intercept": 0.7891913959548665,
+      "speed_spike": 0.5804704522966443
+    },
+    "kNN": {
+      "zone_violation": 0.5410616416421912,
+      "altitude_high": 0.5940351253271569,
+      "sustained_loiter": 0.9861510321969822,
+      "final_approach_intercept": 0.7864279636259544,
+      "speed_spike": 0.8147498227786992
+    },
+    "IF": {
+      "zone_violation": 0.5031557809000098,
+      "altitude_high": 0.5560653254924617,
+      "sustained_loiter": 0.9519598475570037,
+      "final_approach_intercept": 0.7452862619616207,
+      "speed_spike": 0.5873959165249549
+    }
+  },
+  "n_test": 4285,
+  "cohort_n": 195
+}
