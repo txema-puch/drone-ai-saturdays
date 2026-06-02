@@ -66,6 +66,10 @@ exists to prevent. These conditions, all met, keep it honest:
    just not in the headline mix). Nothing is hidden; the reader sees the 0.556 and why it's excluded.
 3. **The original mix is preserved verbatim** as `inject.MIX_V1_WITH_ZONE`, so the Phase-6 val
    bake-off (07-train.md §4) stays byte-for-byte reproducible. We did not overwrite history.
+   **The Phase-6 companion notebooks (09 train, 10 SADAR, 11 loop-back, 12 density panel) were
+   updated to pass `mix=MIX_V1_WITH_ZONE` explicitly** — without that, re-running them would
+   silently pick up the new dynamic-only `DEFAULT_MIX` and the reproducibility claim would be
+   hollow (codex review, 2026-06-02). Only the new Phase-7 eval notebook reads the new default.
 4. **The deliverable was never the mean.** Per D-010 / writeup-09 the bench output is the *per-type
    AE-vs-rules table*; the writeup leads with that table, not the re-weighted mean. The mean is a
    convenience aggregate over the AE's remit, explicitly labeled as such.
