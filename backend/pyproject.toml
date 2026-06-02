@@ -18,6 +18,9 @@ dependencies = [
     "pandas>=2.1.0",
     # Machine learning
     "scikit-learn>=1.4.0",
+    # Deep learning — Phase 6 LSTM autoencoder (issue #27). CPU-trainable (small AE,
+    # ~9 features / ~9k train sequences); no GPU needed for the course demo.
+    "torch>=2.2",
     # 🔥 CLAVE: OpenSky + histórico
     "pyopensky",
     "trino>=0.328",
@@ -56,12 +59,9 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["."]
 
-# TEMPORARY (May 2026): macOS Intel (x86_64) compatibility.
-# `traffic` (in deps above) pulls in `onnxruntime`, whose latest versions don't
-# ship macOS Intel wheels. This block forces uv to resolve to onnxruntime
-# versions that DO have macOS Intel wheels. Harmless for Apple Silicon, Linux,
-# and Windows installs. Remove once no team member is on macOS Intel anymore.
-[tool.uv]
-required-environments = [
-    "sys_platform == 'darwin' and platform_machine == 'x86_64'",
-]
+# NOTE (2026-06-01, issue #27): the macOS-Intel `[tool.uv] required-environments` pin was
+# REMOVED here. Its own TEMPORARY comment said "remove once no team member is on macOS
+# Intel anymore" — confirmed no longer the case. The pin would have blocked torch (modern
+# PyTorch ships no macOS x86_64 wheels). The team's reproducibility env is the Linux
+# devcontainer, where torch wheels resolve cleanly. Re-add the pin only if an Intel-Mac
+# teammate returns.

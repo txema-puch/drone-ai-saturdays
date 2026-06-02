@@ -8,7 +8,10 @@ model_track: "dl"   # tentative — LSTM Autoencoder primary, Isolation Forest b
                     # Confirmed in Phase 6 once we see whether the LSTM AE meaningfully
                     # beats IF. If not, we flip to "ml" and ship IF.
 
-current_phase: "train"
+current_phase: "eval"   # Phase 6 (train) passed 2026-06-01; Phase-7 ENTRY is a pending
+                        # go/loop-back decision — val AUROC 0.664 « 0.85 target. The eval
+                        # gate stays pending and the TEST set stays sealed until that call.
+                        # See gates.train.summary + 07-train.md "Phase-7 entry decision".
 
 # Gate ledger — append, never rewrite.
 gates:
@@ -173,15 +176,56 @@ gates:
       (27 preprocessing + 16 features). Reconciliation docs (07-eval-prep, D-011, sadar
       bench header) updated for the AE 9 / SCALER 6 contract bump.
   train:
-    status: "pending"
+    status: "passed"             # Phase-6 work complete; see concern in summary + 07-train.md
     gate_semantics: "one_shot"
-    passed_at: null
-    artifact: null
-    track_confirmed: false       # flips to true in Phase 6 once LSTM-vs-IF result is in
-    baseline_score: null
-    best_model_id: null
-    fitted_pipeline_artifact: null
-    summary: null
+    passed_at: "2026-06-02"
+    artifact: "backend/docs/ml/07-train.md"
+    track_confirmed: false       # PROVISIONAL: AE beat IF (0.664 vs 0.625) but a wider panel
+                                 # (kNN-on-summary 0.707) BEATS the AE on synthetic val. Track
+                                 # decision DEFERRED to the Phase-7 real-anomaly test; AE + frozen
+                                 # kNN both carried. model_track stays "dl" tentatively. (§4c)
+    baseline_score: "IF val AUROC 0.625 [0.611, 0.639] (synthetic-injection val)"
+    best_model_id: "lstm_ae_small_h32_l16_1L_mean (backend/models/phase6/lstm_ae_best.pt)"
+    fitted_pipeline_artifact: "backend/models/phase6/{lstm_ae_best.pt, split_ids.json}; scaler refit-on-train(seed 42); T=260; threshold 0.222"
+    summary: |
+      Phase 6 closed 2026-06-01, codex-reviewed + corrected 2026-06-02 (issue #27). Split
+      DEFINED + TEST(2020) SEALED; firewall intact (burned=false). 19,849 segments → clean
+      folds train 8,924 / val 5,942 / test 4,285 (sealed) / held-aside 698; block counts
+      {9338,6073,4438} match the locked table. Scaler + T=260 fit on TRAIN only.
+
+      Bake-off on §6 synthetic val injections (Generator A, 5 single-trajectory types;
+      multi_drone deferred): IF baseline val AUROC 0.625 [0.611,0.639]; LSTM-AE best
+      (small h32/latent16/1L, mean scoring) val AUROC 0.664 [0.651,0.678]. D-006 margin
+      +0.040 (non-overlapping CIs) → ship AE; model_track=dl confirmed. Threshold-on-val
+      0.222 → F2 0.451, FPR 0.149 (≤15% guardrail holds), PR-AUC 0.698.
+
+      CODEX REVIEW (2026-06-02, GATE PASS): 2 P2s found+fixed+test-locked — injection onset
+      could land past T (label glitch), and the LSTM encoder ingested padding (~95% of
+      segments). Fixing the encoder removed a padding artifact that had inflated big/topk to
+      0.684; post-fix the whole config grid is FLAT 0.646–0.664, so capacity/scoring don't
+      matter and the simplest config (small/mean) ships. Headline 0.684→0.664 = more honest,
+      not a regression. dist_to_runway_m ablation Δ +0.003 (neutral; retained for geofence
+      baseline + zone injection). Seen-vs-unseen-icao24 delta −0.066 (recurrence-optimism
+      refuted; eng-review-2 + Codex).
+
+      WIDER BASELINE PANEL (§4c, nb12; codex + eng-review validated): D-006 only compared AE vs
+      IsolationForest. A kNN-on-summary density baseline (same firewall) scores 0.707 > AE 0.664
+      > IF 0.625 — the deep model does NOT earn its complexity on synthetic. "Ship AE / dl
+      confirmed" is therefore PROVISIONAL (track_confirmed=false). kNN added as
+      core/baseline.KNNSummaryBaseline + frozen (models/phase6/knn_train_summary.npy + scaler.joblib);
+      AE + kNN both carried, blind, into the Phase-7 real-anomaly burn (07-eval-prep Layer 6) —
+      real anomalies decide. The position-density "corridor" idea does NOT rescue zone (0.57).
+
+      CONCERN: best val AUROC 0.664 is below the Phase-1 primary target (AUROC > 0.85). Loop-back
+      DONE — all 4 levers (longer schedule, ENU x/y, per-phase, per-type) run blind on VAL; NONE
+      beat baseline meaningfully, and the post-fix flat grid confirms config is immaterial. The
+      per-type read shows this is a benchmark/ARCHITECTURE property, not under-tuning: the AE caps
+      on subtle spatial anomalies (zone 0.56 @40% — these belong to the geofence Layer-3, not the
+      AE) and excels on dynamic ones (loiter 0.95, intercept 0.79) — its intended complementary
+      role (D-008/D-010). small/mean ships. Phase-7 entry can proceed with honest per-type framing
+      (lead with the AE-vs-rules table, not the 0.66 mean); the SADAR real-anomaly head-to-head (07-eval-prep
+      Layer 6) is the contest that matters. Firewall-semantics change = D-009 implementation
+      amendment. See 07-train.md §4b + "Phase-7 entry decision".
   eval:
     status: "pending"
     gate_semantics: "one_shot"
@@ -234,13 +278,16 @@ gates:
 # use a group-only (flight_id/icao24) split with a held-out block of Mondays;
 # either way, keep BOTH criteria (group + temporal) — that is the part to copy.
 test_set:
-  defined_at: null               # set in Phase 6 entry gate
-  split_seed: null
-  split_strategy: null           # group-based (icao24/flight_id) + time-based hold-out;
-                                 # see split-discipline note above (SADAR-confirmed)
-  holdout_path: null
-  count: null
-  burned: false                  # flips ONCE, in Phase 7
+  defined_at: "2026-06-01"       # Phase 6, issue #27
+  split_seed: null               # deterministic by construction (fixed Monday→fold map, no RNG)
+  split_strategy: "temporal-by-Monday (train 2017-18 < val 2019 < test 2020) + no-identity-leak
+    guard (icao24/flight_id ∉ AE_FEATURES); held-aside emergency∪go_around∪impossible pulled
+    pre-split. icao24 cross-fold overlap reported (train∩test 406, all-3 274), NOT asserted-zero —
+    leak-free because identifiers are not features; seen/unseen AUROC Δ −0.061 confirms benign
+    (D-009 + eng-review-2 amendment)."
+  holdout_path: "backend/models/phase6/split_ids.json"   # test = 4,285 clean segments (2020)
+  count: 4285
+  burned: false                  # flips ONCE, in Phase 7 — STILL SEALED
   burned_at: null
   burn_reason: null
 
