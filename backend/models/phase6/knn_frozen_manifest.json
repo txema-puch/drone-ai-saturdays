@@ -1,0 +1,23 @@
+{
+  "k": 5,
+  "T": 260,
+  "seed": 42,
+  "scaler_features": [
+    "lat",
+    "lon",
+    "baroaltitude",
+    "velocity",
+    "vertrate",
+    "dist_to_runway_m"
+  ],
+  "summary_shape": [
+    8924,
+    24
+  ],
+  "stats": [
+    "mean",
+    "std",
+    "min",
+    "max"
+  ]
+}
