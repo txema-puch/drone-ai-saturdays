@@ -392,6 +392,33 @@ def to_sequences(
     return X, mask, info
 
 
+def to_sequences_loss_mask(clean_df: pd.DataFrame, T: int):
+    """PHASE-6 helper — the per-window `(N, T)` LOSS mask: `1.0` = real, observed timestep;
+    `0.0` = padding OR imputed.
+
+    The AE reconstruction loss (and the per-segment reconstruction-error score) multiplies
+    by this so the model is rewarded for neither padding NOR imputed rows (guardrail: a row
+    interpolated by Phase 3 carries no ground truth to reconstruct). A row is "imputed" iff
+    ANY of its `MASKED_FEATURES` `*_missing` flags is set.
+
+    Iterates exactly like `to_sequences` (group `sort=False`, sort by `time`, first `T`,
+    pad) so window `i` here aligns with window `i` of the `X`/`mask` it returns. Torch-free
+    (lives beside `to_sequences`) so the injection bench and the LSTM-AE both consume it
+    without importing a model framework. Synthetic-injection timesteps set `*_missing = 0`
+    upstream, so they read as real here and DO count toward the loss.
+    """
+    miss_cols = [f + "_missing" for f in MASKED_FEATURES]
+    masks = []
+    for _, seg in clean_df.groupby("segment_id", sort=False):
+        seg = seg.sort_values("time")
+        imputed = seg[miss_cols].to_numpy(dtype=bool).any(axis=1)
+        valid = (~imputed).astype("float32")[:T]
+        m = np.zeros(T, dtype="float32")
+        m[: len(valid)] = valid
+        masks.append(m)
+    return np.stack(masks) if masks else np.empty((0, T), dtype="float32")
+
+
 # ── Step 15: orchestration ────────────────────────────────────────────────────
 
 def preprocess(raw_df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
