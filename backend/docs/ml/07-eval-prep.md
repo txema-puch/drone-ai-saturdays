@@ -136,6 +136,70 @@ With them, the claim becomes:
 
 That is the sentence-density a Medium piece aimed at practitioners needs.
 
+### Layer 6 — SADAR cross-project head-to-head on real anomalies (PRE-REGISTERED 2026-06-01)
+
+**Pre-registration (written before peeking — that is what makes it blind).** A teammate's
+parallel project SADAR (`huggingface.co/spaces/devrup404/sadar`) trained the same kind of
+model (LSTM / VAE-LSTM AE) on the same OpenSky-LEMD data and is the natural comparison. This
+block commits the comparison protocol **now**, in Phase 6, so the Phase-7 result cannot be
+fished or reframed post-hoc.
+
+**What is already settled (clean, spent nothing sealed):** the *synthetic* difficulty
+question. Scoring OUR Phase-6 model (big/topk) on SADAR-style injections (his `eval.yaml`
+params — 20-80 km route, ±300-1500 m altitude, ×1.6/2.2/0.4 speed, holding, freeze) gives
+**mean AUROC 0.772**, next to his reported **0.792** — and the per-type pattern matches his
+(easy types 0.88-0.98, realistic altitude-300 m ≈ 0.60). Conclusion already drawn: **the
+0.684-vs-0.792 headline gap is benchmark difficulty, not model quality** — our §6 injections
+are deliberately harder. This used only our model on our val + reproduced injections; it
+touched no sealed cohort.
+
+**What stays SEALED until Phase 7:** his real-anomaly number is **0.659 ROC / 0.299 PR**,
+computed as normal-2020 vs his real emergency+go-around cohort (his report: **~4 emergency +
+~100 go-around flights**, windowed; go-around-dominated, window-level label noise). Our
+analogue is our held-aside cohort (`emergency ∪ go_around`, 191 GA + 4 emergency segments).
+**We do not peek at it in Phase 6** — no model/feature/threshold/loop-back decision may use it
+(it would contaminate both the loop-back call and the Phase-7 claim; see #27 thread).
+
+**Phase-7 protocol (run once, blind — our AE + our frozen kNN vs SADAR's VAE-LSTM):**
+
+0. **Our side is TWO models** (added 2026-06-02, §4c of `07-train.md`): the LSTM-AE
+   (`lstm_ae_best.pt`) AND the frozen kNN-on-summary (`knn_train_summary.npy` + `scaler.joblib`,
+   k=5) — because on synthetic val the kNN beat the AE (0.707 vs 0.664) and the model choice is
+   deferred to this real-anomaly test. **Scoring two own-models on the sealed cohort is fine ONLY
+   because we pre-commit here to: (a) report BOTH, every metric, no dropping the loser; (b) our
+   "representative" model = the higher **real-anomaly PR-AUC** (PR, not ROC — the honest lens at
+   ~12% prevalence); (c) no per-model threshold/feature tuning on the cohort.** This avoids
+   turning a 2-model burn into multiple-comparisons cherry-picking on the test set.
+1. **Fix the shared real-anomaly cohort by `flight_id`** before scoring. Pre-commit our
+   go-around definition (`features.detect_go_around`, the airborne-run geometric rule) +
+   `is_emergency` as the ground-truth set; if his vertrate-threshold rule disagrees on
+   membership, report the intersection AND each project's own cohort (don't silently pick the
+   flattering one).
+2. **Each model on its NATIVE representation of the SAME flights** — his VAE-LSTM on his ENU
+   60-step windows; our AE + kNN on our per-segment 260×9 / 24-dim summary. No cross-feature
+   translation (lossy and would unfairly handicap a side). The comparison is "systems as each was
+   actually built," not a controlled ablation — state that caveat.
+3. **Metrics:** ROC-AUC **and** PR-AUC (PR is the honest lens at ~12% prevalence), reported
+   **per cohort** (go-around vs emergency separately — go-arounds are the easier, dominant
+   class; pooling hides it). Plus our external D-008 **Layer-4** set (OpenSky #6 7700), which
+   has more real emergencies than the n=4 in-distribution either project holds.
+4. **Pre-committed finding template** (fill N / numbers from the run; both outcomes publish):
+
+   > "On a shared real-anomaly cohort (K go-around + M emergency flights neither model trained
+   > on), our model scored ROC-AUC **A** / PR-AUC **B** vs SADAR VAE-LSTM **C** / **D**. [We
+   > beat / matched / trailed it] on real anomalies — the comparison that, unlike synthetic
+   > AUROC, neither project could calibrate toward."
+
+**Honest confounds to state, not bury:** SADAR trains on 2017-**2019** (we hold 2019 as val →
+he has more training data); different features (ENU x/y vs our raw+dist), windowing (10-min
+sliding vs whole-segment), and go-around definitions. So a small gap either way is not proof
+of model superiority. The un-gameable part is simply that *both* numbers are on real anomalies
+neither side designed.
+
+**Engineering note (Phase-7 setup):** his weights (`models/vae_lstm.pt`) + processed arrays
+are git-LFS in his Space (cloned, uv-installable); running his model = `git lfs pull` + his
+`sadar.eval.compare`. Budget that as a Phase-7 task.
+
 ---
 
 ## Sources and how to reproduce

@@ -43,6 +43,33 @@ has no identity to memorise — the temporal criterion is the load-bearing one.
 OUT before the split (never trained on) and scored in Phase 7 as real-anomaly cohorts.
 The split operates on the **clean-normal** pool.
 
+## Firewall semantics — `icao24` overlap (eng-review-2, 2026-06-01)
+
+Measuring the actual cycle-3 data: **413 airframes fly in both TRAIN and TEST, 281 in
+all three folds** (commercial jets recur at LEMD year over year). A clean year-based
+temporal split therefore **cannot** also satisfy the originally-specified CRITICAL test
+"no `icao24` spans two folds." Resolution (eng-review-2 + Codex outside voice):
+
+- **Temporal-by-Monday is the load-bearing firewall** (train years < val < test). Kept.
+- **`icao24` overlap is NOT asserted-to-zero.** `icao24`/`flight_id`/`callsign` are NOT in
+  `AE_FEATURES` — they live only in split metadata — so the unsupervised AE has no *direct*
+  identity channel and no label to memorise. CRITICAL test #3 is reframed from the
+  impossible "no `icao24` spans folds" to **no-identity-leak**: assert
+  `icao24` ∧ `flight_id` ∉ the built feature matrix. The overlap count is reported, not asserted.
+- **Recurrence-optimism is MEASURED, not assumed away (Codex finding).** "No identity
+  feature" kills only *direct* leakage; the AE can still learn an airframe's recurring
+  kinematic *template* from the features, so a recurring jet's test reconstruction error is
+  optimistically low. We quantify this: **notebook 09 reports VAL AUROC split by
+  seen-in-train vs unseen-in-train `icao24`**, and the same seen/unseen breakdown is
+  **pre-registered for the Phase-7 TEST burn**. Small delta → overlap was ~harmless (shown,
+  not claimed); large delta → caveat the headline AUROC. Folds into the D-009
+  restricted-regime honesty note. The wording in `07-train.md` is "no *direct* identity
+  leakage; recurrence-optimism quantified by the seen/unseen delta" — never "harmless".
+
+Implementation amendment of D-009's split discipline (consistent with its "identifiers
+dropped" rationale); recorded in `07-train.md` + `manifest.test_set` at the gate. The
+*primary* split contract (the locked fold table above) is unchanged.
+
 ## Data flow
 
 ```
@@ -114,8 +141,9 @@ exploratory/visual run in `notebooks/0X`):
 ## Engineering plan
 
 1. **`split.py`** (module + test) — `split_by_monday(meta)` → train/val/test segment-id
-   sets; pull held-aside; assert no `icao24` spans train↔val↔test (group check); assert
-   test strictly latest. Persist the split (seed, fold→Monday map, counts) → `manifest.test_set`.
+   sets; pull held-aside; **no-identity-leak guard** (`icao24`/`flight_id` ∉ feature matrix —
+   see "Firewall semantics"); assert test strictly latest; report `icao24` overlap (not zero).
+   Persist the split (fold→Monday map, counts; the split itself is RNG-free) → `manifest.test_set`.
 2. **Fit on TRAIN** (in `09` + helpers) — `StandardScaler.fit(train[SCALER_FEATURES])`;
    `T = P95(train segment len)`; `to_sequences(·, T, scaler)`.
 3. **`inject.py`** (module + test) — Generator A wrapping the SADAR scaffold;
@@ -129,7 +157,8 @@ exploratory/visual run in `notebooks/0X`):
    (mask padding + imputed); **equal-weighted** (no per-feature down-weight — P5 carry-forward).
 6. **`notebooks/09_phase6_train.ipynb`** — orchestrates 1–5: train with curves, bake-off
    (val AUROC/F2/FPR/PR-AUC per D-005 for IF vs AE on injected val), apply the selection +
-   threshold + guardrail logic below, confirm `model_track`, run the `dist` ablation.
+   threshold + guardrail logic below, confirm `model_track`, run the `dist` ablation, and
+   report the **seen-vs-unseen-`icao24` VAL AUROC delta** (recurrence-optimism, eng-review-2).
 7. **`07-train.md`** + manifest `train` gate (records baseline, best model + val score +
    CI, **threshold**, fitted-pipeline artifact, `track_confirmed`).
 
@@ -153,10 +182,14 @@ Three distinct steps — keep them separate (an AUROC win is not automatically a
 
 ```
 split.py            (backend/tests/test_split.py)
-  ★★★ CRITICAL  firewall: no TEST segment-id appears in train or val
-  ★★★           group: no icao24 spans two folds   |   temporal: every TEST Monday > every TRAIN Monday
+  ★★★ CRITICAL  no-test-leak: no TEST segment-id appears in train or val (partition disjoint)
+  ★★★           no-identity-leak: icao24 ∧ flight_id ∉ AE_FEATURES / the built X — the property that
+                makes airframe recurrence unable to leak (replaces impossible "no icao24 spans folds")
+  ★★★           temporal: every TEST Monday > every TRAIN/VAL Monday
   ★★            held-aside (emergency ∪ go_around ∪ impossible) absent from all 3 folds
-  ★★            deterministic (same seed → same split); fold counts match the locked table
+  ★★            deterministic by construction (fixed Monday→fold map, no RNG); fold counts match locked table
+  ★★            icao24 cross-fold overlap REPORTED (413 train∩test, 281 all-3), NOT asserted-zero
+                (seen-vs-unseen-icao24 VAL AUROC delta lives in notebook 09 — needs a trained model)
 inject.py           (backend/tests/test_inject.py)
   ★★★ CRITICAL  inject() is never applied to the train fold (val/test only)
   ★★★           uses features.apply_segment_derivations (derived stay consistent) + the PASSED
@@ -209,16 +242,30 @@ training run, not after.
 | Review | Trigger | Why | Runs | Status | Findings |
 |--------|---------|-----|------|--------|----------|
 | CEO Review | `/plan-ceo-review` | Scope & strategy | 0 | — | not run (no product-scope change) |
-| Eng Review | `/plan-eng-review` | Architecture & tests (required) | 1 | issues_found → resolved | 6 completeness gaps, all folded into the doc |
+| Codex Review | `/codex` (outside voice) | Independent firewall challenge | 1 | issues_found → resolved | proxy-recurrence AUROC optimism; mitigation accepted |
+| Eng Review | `/plan-eng-review` | Architecture & tests (required) | 2 | issues_found → resolved | run 1: 6 completeness gaps; run 2: firewall semantics (icao24 overlap) |
 | Design Review | `/plan-design-review` | UI/UX gaps | 0 | — | N/A (backend/ML, no UI) |
 
-- **ENG findings (6, all resolved):** threshold-on-VAL step added; module placement
+- **ENG run 1 (6, all resolved):** threshold-on-VAL step added; module placement
   (code → `backend/core/`, not gitignored `models/`); frozen-bench artifact bundle
   spec'd (seed+§6 params+train scaler+T+version); IF input decided (pooled summary stats);
   selection→threshold→guardrail sequenced (AUROC win ≠ auto-ship; FPR≤15% is a veto);
   3 CRITICAL firewall tests + per-module unit tests added to the test plan.
+- **ENG run 2 (firewall semantics, 2026-06-01):** measured 413 airframes span train∩test
+  (281 all-3) → the locked "no `icao24` spans folds" CRITICAL test is impossible. Reframed
+  test #3 to **no-identity-leak** (`icao24`/`flight_id` ∉ feature matrix — the property that
+  actually makes airframe recurrence safe); `icao24` overlap reported, not asserted-zero.
+  See "Firewall semantics — `icao24` overlap".
+- **CODEX (outside voice):** refuted "harmless" — "no identity feature" kills only *direct*
+  leakage; the AE can still learn an airframe's recurring kinematic template, inflating test
+  AUROC. Mitigation accepted: notebook 09 reports **seen-vs-unseen-`icao24` VAL AUROC delta**,
+  pre-registered for the Phase-7 TEST burn; wording softened from "harmless" to "no direct
+  leak; optimism measured." Already-covered points (deployment-realism ≠ broad generalization,
+  Monday-skew) map to existing D-009/D-008 caveats.
+- **CROSS-MODEL:** the one tension (is overlap "harmless"?) resolved in Codex's favour — claim
+  softened + optimism now measured rather than assumed.
 - **Firewall integrity:** confirmed — TEST(2020) sealed at split, inject val/test only,
   fit-on-train only, threshold-on-val; `burned` stays false until Phase 7.
 - **Scope:** right-sized — reuses `build_features`/`to_sequences`/SADAR scaffold/sklearn;
   one innovation token (LSTM-AE, justified by D-006).
-- **VERDICT:** ENG CLEARED — ready to implement.
+- **VERDICT:** ENG CLEARED (run 2) — ready to implement `split.py` + the 3 reframed CRITICAL tests.
