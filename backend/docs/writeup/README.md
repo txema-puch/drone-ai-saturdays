@@ -35,6 +35,13 @@ Keep the tone conversational. We'll polish before publication.
 | 06 | [Validating the data before doing anything else](06-validating-the-data.md) | What did we actually do before training a single model, and why was that worth doing? |
 | 07 | [Working with someone else's pipeline](07-working-with-someones-pipeline.md) | When a teammate produces the data we model on, how do we trust it without re-implementing everything? |
 | 08 | [Data engineering rabbit holes](08-data-engineering-rabbit-holes.md) | Why parquet + pyarrow, why hash file bytes, and the speculative-deps trap. |
+| 09 | [The architectural critique (the Medium thesis)](09-the-architectural-critique.md) | We set out to build a counter-drone detector — why the architecture was the wrong question, and what the model actually does. **Flagship piece; numbers resolved from Phase 6+7.** |
+| 10 | [The unglamorous middle: preprocessing & features](10-preprocessing-and-features.md) | The fit/transform firewall, segment-as-unit, the multi-detector split, the feature that didn't earn its place, and the held-aside cohort that became the Phase-7 test set. |
+| 11 | [The bake-off, the loop-back, and the one-shot burn](11-the-bakeoff-and-the-burn.md) | The full model comparison, the simple model that won synthetic and lost on real, the loop-back, and the irreversible test burn + SADAR head-to-head. |
+
+> **Reading order for the Medium piece:** 09 is the standalone thesis. 10 and 11 are the
+> "receipts" deep-dives 09 references — chronologically they sit between 08 and 09 (Phases 3/5/6/7),
+> but they read as companion detail to the thesis. 01–08 are the Phase 1–2 methodology chapters.
 
 ### Process / tooling notes (separate audience)
 
@@ -58,6 +65,6 @@ Optional draft material on how we structured the project, intended for an audien
 
 | Deliverable | Source files | Approx. effort |
 |---|---|---|
-| Presentation slides (~15 min) | All 5 topics, condensed to 2-3 slides each | Adapt + trim |
-| Medium article (~2,000–3,000 words) | All 5 topics, expanded with figures + plots from EDA and evaluation | Adapt + add visuals |
-| Course writeup (academic format) | All 5 topics + numbers from final evaluation + references | Reformat to LaTeX/PDF |
+| Presentation slides (~15 min) | Chapters 00–11, condensed (09 carries the arc; 01/03/10/11 supply the receipts) | Adapt + trim |
+| Medium article (~2,500–3,000 words) | **09 is the article**; pull figures/numbers from 10–11 and the Phase-7 eval | Edit 09 for length + add visuals |
+| Course writeup (academic format) | All chapters (00–11) + final-evaluation numbers (`07-eval.md`) + references | Reformat to LaTeX/PDF |
