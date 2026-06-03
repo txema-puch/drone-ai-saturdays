@@ -2,7 +2,7 @@
 
 **Status:** PROPOSAL (discovery only — no merge code written, nothing committed to the teammate's repo).
 **Date:** 2026-06-03.
-**Owner:** Txema. **Coordination required with:** devrup404 (SADAR author — it is his repo + his HF Space deployment).
+**Owner:** Txema. **Coordination with:** devrup404 — for **C** a courtesy heads-up only (his frontend is MIT; we deploy our own Space). His consent is a gate **only for the optional B** (a PR into his Space).
 **Inputs read:** `external/sadar/` (vendored, gitignored) full serve + data + model contract; our `backend/core/` contract + frozen Phase-6 artifacts.
 **Related:** [[project_sadar_merge_next]], [[project_sadar_parallel]], [[project_ml_lifecycle]]; `backend/docs/ml/07-eval.md`.
 
@@ -10,9 +10,11 @@
 
 ## 1. The goal in one line
 
-Two parallel Saturdays.AI projects on identical OpenSky-LEMD data should converge into one deliverable: **our pipeline + model** (the better-on-real-anomalies LSTM-AE, clean Phase 1–7 lifecycle) running inside **his product shell** (FastAPI + React radar demo + Docker + HF Space) — the deployable face we never built.
+Two parallel Saturdays.AI projects on identical OpenSky-LEMD data should converge into one deliverable: **his vis** (his MIT React radar demo + the serve skeleton) **brought into OUR repo, around our pipeline + model** (the better-on-real-anomalies LSTM-AE, clean Phase 1–7 lifecycle) — giving our rigorous lifecycle the deployable face we never built, in the repo that already owns everything that matters.
 
-Phase 7 result that motivates this: on the held-aside real-anomaly cohort our AE scored **ROC 0.667** vs his VAE-LSTM **0.659** (a dead heat, slight edge to us); our pipeline carries the eval discipline (firewall split, five-layer credibility stack, per-type table). His repo carries the demo. Merge = take the best of each.
+Phase 7 result that motivates this: on the held-aside real-anomaly cohort our AE scored **ROC 0.667** vs his VAE-LSTM **0.659** (a dead heat, slight edge to us); our pipeline carries the eval discipline (firewall split, five-layer credibility stack, per-type table). His repo carries the reusable frontend. Merge = take the best of each.
+
+**Direction (decided 2026-06-03):** **C primary** — his vis → our repo, we own the build + deploy our own Space. **B is an optional downstream** — once C exists, the *same* serve rewrite can be offered to devrup as a PR so his Space also runs our model. See §4. (The earlier framing had B primary; reading the contracts + the HF-Space/LFS/packaging facts flipped it — §4.0.)
 
 **Critical honest flag:** this merge is a **deployment/visualisation change, not a model change.** The shipped detector stays our Phase-6 LSTM-AE (`small/mean`, thr 0.222). So **Phase-7 numbers and writeup ch.11 do NOT change** — the merge gives those exact results a deployable UI; it does not re-open the eval gate.
 
@@ -67,24 +69,30 @@ The memory framed the choice as *"adapter (our raw frame → his ENU 60-step rep
 - Our **model is trained on OUR 9-feature, 260-masked rep.** It physically cannot score his 7-feature, 60-step windows.
 - If we translate our data *into* his ENU rep, then **his model (not ours) scores it** — which throws away the entire reason to merge (our better model + our `dist_to_runway_m`/`onground`/masking contract).
 
-So a raw→ENU feature adapter is a dead end. The only coherent merge keeps **our pipeline + our model + our rep end-to-end** and swaps **his scoring core**, keeping his **API skeleton + frontend + Docker**. The "adapter" that remains is a thin **response adapter** (our scored outputs → his JSON shapes), which is trivial.
+So a raw→ENU feature adapter is a dead end. The only coherent merge keeps **our pipeline + our model + our rep end-to-end** and swaps **the scoring core**, keeping the **API skeleton + frontend + Docker** shape. The "adapter" that remains is a thin **response adapter** (our scored outputs → his JSON shapes), which is trivial. The remaining question is purely *where that lands* — our repo (C) or his (B).
 
 ---
 
-## 4. Decision — Direction B: graft our pipeline into his shell
+## 4. Decision — Direction C primary (his vis → our repo), B as optional downstream
 
-**Rewrite `serve/inference.py` against OUR contract; keep his `app.py` routes, his React frontend, his Dockerfile / compose / HF Space wiring.** His repo stays his deployable artifact; the diff is contained to the scoring core + one frontend vocabulary swap + the baked artifacts.
+The serve rewrite below is **identical** whether it lands in our repo or his — it rewrites the scoring core against our contract either way. So the only real choice is *where the frontend + the rewritten serve live*, and three independent facts all point to **our repo (C)**:
 
-Two sub-variants on *how our code reaches his Docker build*:
+1. **Packaging.** Our `backend/core` is *not* cleanly installable (no `__init__.py` markers — PEP-420 namespace via path; pyproject named `drone-rute`; imports are `from backend.core import …` resolved by repo-root-on-path). In **our** repo it is imported **natively** — zero packaging work. In **his** repo (B) it must be wheel-packaged or vendored as a drifting snapshot.
+2. **His repo is an HF Space, LFS-backed** (`origin = huggingface.co/spaces/devrup404/sadar`; his weights + `data/processed/*` are git-LFS). Direction B means pushing **our** model artifacts as new **LFS objects into his personal account's storage**, via the clunkier HF-Hub PR flow — intrusive.
+3. **Ownership of the deliverable.** This is Txema's ML-lifecycle deliverable (the rigor, the writeup, ch.11 all live here). The demo belongs next to them.
 
-- **B1 (recommended): our `backend/core` as an installed dependency** of his backend. Smallest conceptual change, no copy-paste drift. **Blocker found:** our code is *not cleanly installable today* — no `__init__.py` markers (PEP-420 namespace via path), pyproject named `drone-rute`, imports are `from backend.core import …` resolved by repo-root-on-path. So B1 needs a packaging task first (carve `backend/core/*` + the frozen artifacts into a minimal installable `drone_core` wheel, or add his `pyproject` a path/git dependency that exposes `backend.core`).
-- **B2 (fallback): vendor a frozen snapshot** of `backend/core/{geo,derivations,preprocessing,features,split,inject,baseline,lstm_ae}.py` + artifacts into his repo under e.g. `src/sadar/drone/`. Zero packaging work, but creates fork-drift (his copy goes stale when we touch core). Acceptable for a one-shot course demo that won't track our repo.
+What we take from SADAR is the genuinely reusable artifact — **his MIT-licensed React frontend** (`frontend/src/*`) + the serve *skeleton shape* — not his data/model/training code, which we replace with ours.
 
-Recommendation: **B1 if we expect the demo to keep tracking our model; B2 if this is a freeze-once course deliverable.** Default to B2 for the course timeline unless devrup wants a living integration.
+### 4.0 C primary, B optional — and what "both" means
 
-### What gets rewritten in `ConformanceService`
+- **C (the build, source of truth):** vendor his `frontend/` + a `Dockerfile` into **our** repo (e.g. `backend/serve/` + `frontend/`); write a **fresh FastAPI serve** that imports `backend.core` natively; deploy **our own** HF Space. Our repo owns the whole stack; the writeup links here.
+- **B (optional downstream, his call):** because the serve rewrite is the same code, it can later be **offered to devrup as a PR** so his Space also runs our model. This is the only sane "do both" — *build once in C, offer B*; it is **not** a second, separately-engineered integration.
 
-| His step | Our replacement |
+**Sequencing rule:** **C first, always.** Never do B in parallel or B-first — that re-incurs the packaging + LFS + cross-account-PR friction for a redundant second deploy. B is take-it-or-leave-it for devrup, after C works.
+
+### What the new serve layer does (same core, now in OUR repo)
+
+| His step (`ConformanceService`) | Our replacement (fresh `backend/serve/`) |
 |---|---|
 | load `test.npy/val.npy` | precompute a **scene cohort** at build time: load `phase6/clean_df.parquet` + `meta.parquet`, select 2020-test-normal (+ a few held-aside go-around/emergency segments for a compelling demo), `to_sequences(clean_df, T=260, scaler)` → `(X, mask)` |
 | `StandardScaler3D.load(.npz)` | `joblib.load(scaler.joblib)` (sklearn, 6 feat); sin/cos/onground passthrough |
@@ -95,13 +103,16 @@ Recommendation: **B1 if we expect the demo to keep tracking our model; B2 if thi
 | `synthetic.<kind>` (simulate) | our `inject.inject_segment` via `features.apply_segment_derivations` replay: perturb measured channel → recompute derived (`dist_to_runway_m`, `hdg_sin/cos`) → re-window+scale → re-score |
 | `metrics()` static file | reshape our `phase7_burn_results.json` (headline + per-type) into his `MetricRow[]` schema |
 
-### Frontend changes (minimal)
+Keep `app.py`'s route shapes + `api.ts`'s response interfaces **unchanged** so his frontend works against our serve verbatim (the response adapter from §3.1).
+
+### Frontend changes (minimal — to the vendored copy in our repo)
 - `Simulator.tsx` `KINDS` array + `i18n.tsx` labels: swap his 5 kinds for ours (`zone_violation, altitude_high, sustained_loiter, final_approach_intercept, speed_spike`) with our slider ranges. (Note: `zone_violation` is out-of-remit under D-012 but stays a valid *injectable* — fine to expose in a sandbox simulator.)
 - Everything else (radar plot, score timeline, alert banner, scene animation) consumes `{lat,lon,alt,t}` + score arrays unchanged.
 
-### Docker changes (minimal)
-- Swap the `COPY data/processed/{scaler.npz,test.npy,val.npy}` line for our baked scene artifacts + `lstm_ae_best.pt` + `scaler.joblib`.
-- Add our core (B1 dependency or B2 vendored dir) + its deps (`scikit-learn`, `joblib`, `pandas`, `pyproj` already present, `torch` already present). Drop `optuna` (training-only).
+### Docker (in our repo)
+- Adapt his two-stage Dockerfile (Node frontend build → Python backend). Bake our scene artifacts + `lstm_ae_best.pt` + `scaler.joblib` instead of his `data/processed/*.npy`.
+- Backend deps are our `backend/pyproject.toml` (`torch`, `scikit-learn`, `pandas`, `pyproj` already present; add `joblib`, `fastapi`/`uvicorn` already present). No `optuna` (training-only).
+- Deploy as **our** HF Space (same container, new Space under our account — no push to his).
 
 ---
 
@@ -109,26 +120,31 @@ Recommendation: **B1 if we expect the demo to keep tracking our model; B2 if thi
 
 1. **Whole-segment vs sliding-window radar feel.** His `/api/scene` animates many ~10-min slices; our segments are full approach/departure tracks (fewer, longer). Renders fine, but the radar *looks* different — a handful of long arcs vs a swarm of short ones. Worth a deliberate scene-curation choice (maybe cap segment length for the animation).
 2. **Variable-length timelines.** His per-step arrays are fixed length 60; ours vary (≤260, masked). The score-timeline + onset slider must trim to valid length. Mechanical.
-3. **Packaging (B1).** Our core isn't a wheel today — see §4. This is the single biggest *engineering* task if we go B1.
-4. **No CI on either repo.** Tests pass locally only (our 84 tests; his pass locally). Integration is verified by hand + the HF Space health check.
-5. **Coordination / ownership.** It is devrup's repo and his HF Space. We do **not** push to it from here. The merge proceeds as a proposal he agrees to, then a PR *he* reviews/merges (or we fork + he pulls).
+3. **Frontend toolchain into our repo (C).** We add a Node/pnpm + Vite frontend + a serve layer to a previously pure-Python ML repo. Bigger surface, but self-contained under `frontend/` + `backend/serve/`. This is C's main cost — and it is far smaller than B's packaging + LFS friction.
+4. **Attribution.** His frontend is MIT — reuse is granted; keep his licence/attribution in the vendored `frontend/`. Courtesy: give devrup a heads-up before vendoring (he'll almost certainly be glad his vis gets used).
+5. **No CI on either repo.** Tests pass locally only (our 84 tests). Integration is verified by hand + the Space health check.
+6. **B is devrup's call.** If we later offer B, it is a PR *he* reviews/merges into *his* Space — never a push from us, and never overwriting his own SADAR work.
 
 ---
 
-## 6. Proposed sequencing (a FOLLOWING session, after devrup agrees)
+## 6. Proposed sequencing (a FOLLOWING session)
 
-Normal per-phase pattern (issue + branch + PR to `develop` on our side; coordinate the actual graft with devrup):
+Normal per-phase pattern on our side (issue + branch + PR to `develop`). **C is self-contained — it needs no permission from devrup**, only the courtesy heads-up (step 1).
 
-1. **Coordinate** with devrup — share this doc, agree B1 vs B2 and who owns the deploy.
-2. **Packaging** (if B1): carve `drone_core` wheel from `backend/core/*` + frozen artifacts; or (B2) freeze-vendor into his tree.
-3. **Scene precompute script** — `clean_df`→ curated scene cohort → `(X, mask, paths, scores)` baked artifact (mirrors his `test.npy` role).
-4. **Rewrite `serve/inference.py`** core against our contract (§4 table) + thin response adapter to his JSON shapes.
-5. **Frontend** simulator vocabulary swap + i18n.
-6. **Docker** artifact + dependency swap; rebuild; verify `/api/health` + a manual radar walkthrough.
-7. **Writeup** — add a "deployment" section pointing at the live Space; **ch.11 numbers unchanged** (merge ≠ model change).
+**C — the build (we own all of it):**
+1. **Heads-up to devrup** — share this doc; tell him we're reusing his MIT frontend (courtesy, not a gate).
+2. **Vendor his frontend** — copy `external/sadar/frontend/` into our repo (`frontend/`), keep his licence/attribution.
+3. **Scene precompute script** — `phase6/clean_df.parquet` → curated scene cohort → `(X, mask, paths, scores)` baked artifact (mirrors his `test.npy` role).
+4. **Write `backend/serve/`** — fresh FastAPI app reusing his route shapes + `api.ts` response interfaces; scoring core per §4 table, importing `backend.core` natively.
+5. **Frontend** simulator vocabulary swap + i18n (our 5 kinds).
+6. **Docker** — adapt his two-stage build; bake our artifacts; **deploy our own HF Space**; verify `/api/health` + a manual radar walkthrough.
+7. **Writeup** — add a "deployment" section pointing at our live Space; **ch.11 numbers unchanged** (merge ≠ model change).
+
+**B — optional downstream (devrup's call, only after C works):**
+8. Offer the same serve rewrite to devrup as an **HF-Hub PR to his Space** so it also runs our model. Requires wheel-packaging or vendoring our core into his tree + pushing our LFS artifacts to his account — only if *he* wants it. Take-it-or-leave-it.
 
 ---
 
 ## 7. Decision record candidate
 
-If devrup agrees, promote §4 to **ADR D-013 (deployment architecture)** under `backend/docs/ml/decisions/` + a pointer in `manifest.yml > decisions[]`. Until then this stays a proposal.
+Promote §4 to **ADR D-013 (deployment architecture)** under `backend/docs/ml/decisions/` + a pointer in `manifest.yml > decisions[]` once C lands. Until then this stays a proposal.
