@@ -2,7 +2,7 @@
 
 **Status:** PROPOSAL (discovery only — no merge code written, nothing committed to the teammate's repo).
 **Date:** 2026-06-03.
-**Owner:** Txema. **Coordination with:** devrup404 — for **C** a courtesy heads-up only (his frontend is MIT; we deploy our own Space). His consent is a gate **only for the optional B** (a PR into his Space).
+**Owner:** Txema. **Coordination with:** devrup404 — **no message until C is built + deployed** (Txema's call: message him once it's done so he can decide if he wants B — his Space on our model). C needs no permission anyway (his frontend is MIT; we deploy our own Space + keep his attribution). His consent gates **only the optional B / dual-view stretch**.
 **Inputs read:** `external/sadar/` (vendored, gitignored) full serve + data + model contract; our `backend/core/` contract + frozen Phase-6 artifacts.
 **Related:** [[project_sadar_merge_next]], [[project_sadar_parallel]], [[project_ml_lifecycle]]; `backend/docs/ml/07-eval.md`.
 
@@ -105,9 +105,9 @@ What we take from SADAR is the genuinely reusable artifact — **his MIT-license
 
 Keep `app.py`'s route shapes + `api.ts`'s response interfaces **unchanged** so his frontend works against our serve verbatim (the response adapter from §3.1).
 
-### Frontend changes (minimal — to the vendored copy in our repo)
-- `Simulator.tsx` `KINDS` array + `i18n.tsx` labels: swap his 5 kinds for ours (`zone_violation, altitude_high, sustained_loiter, final_approach_intercept, speed_spike`) with our slider ranges. (Note: `zone_violation` is out-of-remit under D-012 but stays a valid *injectable* — fine to expose in a sandbox simulator.)
-- Everything else (radar plot, score timeline, alert banner, scene animation) consumes `{lat,lon,alt,t}` + score arrays unchanged.
+### Frontend changes — an IA rebuild, NOT a relabel (see §4.5)
+- The serve/data contract is unchanged, but the **information architecture is rebuilt** into a post-hoc analyst-triage flow (ranked queue → case file). His *components* are reused; his *narrative* (live Monitor) is replaced. Detail in §4.5.
+- `Simulator.tsx` `KINDS` + `i18n.tsx` labels: swap his 5 kinds for ours (`zone_violation, altitude_high, sustained_loiter, final_approach_intercept, speed_spike`) with our slider ranges. (`zone_violation` is out-of-remit under D-012 but stays a valid *injectable* — fine in a sandbox what-if.)
 
 ### Docker (in our repo)
 - Adapt his two-stage Dockerfile (Node frontend build → Python backend). Bake our scene artifacts + `lstm_ae_best.pt` + `scaler.joblib` instead of his `data/processed/*.npy`.
@@ -116,11 +116,36 @@ Keep `app.py`'s route shapes + `api.ts`'s response interfaces **unchanged** so h
 
 ---
 
+## 4.5 UI framing — post-hoc analyst triage (NOT real-time control)
+
+**Decided 2026-06-03.** His SADAR UI is framed for **real-time controllers** (live radar scope, a "Monitor" page, alert-as-it-happens, detection-latency). That framing fits neither our model nor our use case:
+
+- **Our model is a whole-segment scorer.** The encoder bottleneck is gathered at the *last valid timestep* → it needs the **complete trajectory** to produce a score, and the threshold (0.222) is calibrated on whole segments. It yields **one score per completed flight.** A live-streaming view over it would render a number it *cannot compute until the flight is over* — theater, not capability.
+- **The modality can't see the threat live anyway.** Per D-010, ADS-B observes only *cooperating* aircraft; a non-cooperating intruder doesn't transmit. The honest job is **retrospective conformance audit of cooperating traffic** — "which completed LEMD operations deviated from learned-normal behaviour, and how." That is an analyst question about finished flights.
+
+**Decision: a genuine analyst-triage IA** (not a light relabel of his screens):
+
+- **Ranked queue — the primary flow.** The landing screen is retrospective triage: score-ranked completed segments ("of N segments, here are the most anomalous"), filterable, with per-type attribution. Replaces his live "Monitor" / incoming-traffic scope.
+- **Case file — per-flight detail.** Opening a flight shows the trajectory (his radar/plot component, recast as a **case viewer**, not a live scope), the **per-step reconstruction-error timeline** (scrub to watch the deviation emerge — honest temporal dynamism, no fake real-time), the actual-vs-reconstructed overlay, and which feature drove the RE.
+- **Simulator → analyst what-if.** Keep his onset/perturbation simulator, reframed from "detection latency" to "*where in the flight did it diverge, and by how much*." **Demote** detection-latency as a headline metric (a real-time concept); don't delete the machinery.
+
+**What survives vs what's rebuilt:** his *components* (radar/trajectory plot, score timeline, reconstruction overlay, per-type metrics panel) are reused; his *information architecture + narrative* (Monitor / live scope / alert banner / latency-headline) is rebuilt as queue → case-file. So the frontend work is **a real IA rebuild on reused components**, not a vocabulary swap.
+
+**Honest credit (for the writeup):** his sliding-window design *is* the more real-time-deployable of the two — say so. Ours wins on the conformance metric; his wins on streaming-readiness. Different strengths.
+
+### 4.5.1 Dual-model / dual-view — explicit STRETCH (gate before B)
+
+The genuinely-both end state: serve **both** models, each in its honest mode — **his streaming VAE-LSTM → a live monitoring view; our whole-segment AE → the audit view.** This is the true convergence (each model where it wins: his sliding-window can stream; ours has the higher real-anomaly ROC). **Deferred**, because it ~doubles serve surface (vendoring his model + his 7-feat/60-step pipeline alongside ours) and makes the deliverable explicitly co-authored — a credit/coordination conversation with devrup, not just a courtesy.
+
+**Sequencing (locked 2026-06-03):** build the **single post-hoc tool first**; once it works, evaluate the dual story; **only then** decide whether/how to involve his side. The dual-view question is the natural moment the optional **B** comes back on the table — not before.
+
+---
+
 ## 5. Known frictions (flag, not blockers)
 
-1. **Whole-segment vs sliding-window radar feel.** His `/api/scene` animates many ~10-min slices; our segments are full approach/departure tracks (fewer, longer). Renders fine, but the radar *looks* different — a handful of long arcs vs a swarm of short ones. Worth a deliberate scene-curation choice (maybe cap segment length for the animation).
-2. **Variable-length timelines.** His per-step arrays are fixed length 60; ours vary (≤260, masked). The score-timeline + onset slider must trim to valid length. Mechanical.
-3. **Frontend toolchain into our repo (C).** We add a Node/pnpm + Vite frontend + a serve layer to a previously pure-Python ML repo. Bigger surface, but self-contained under `frontend/` + `backend/serve/`. This is C's main cost — and it is far smaller than B's packaging + LFS friction.
+1. **Whole-segment vs sliding-window — mostly dissolved by §4.5.** His live `/api/scene` swarm is *replaced* by the ranked queue, so the "many short slices vs few long arcs" concern no longer drives the primary flow. It only survives inside the case viewer (one full trajectory at a time — fine, even better for a single-flight view).
+2. **Variable-length timelines.** His per-step arrays are fixed length 60; ours vary (≤260, masked). The case-file score-timeline + onset slider must trim to valid length. Mechanical.
+3. **Frontend is an IA rebuild (C's main cost).** Not just a Node/pnpm + Vite frontend into a previously pure-Python repo — we rebuild the information architecture into queue → case-file (§4.5) on top of his reused components. Bigger than a relabel, but self-contained under `frontend/` + `backend/serve/`, and still far smaller than B's packaging + LFS friction.
 4. **Attribution.** His frontend is MIT — reuse is granted; keep his licence/attribution in the vendored `frontend/`. Courtesy: give devrup a heads-up before vendoring (he'll almost certainly be glad his vis gets used).
 5. **No CI on either repo.** Tests pass locally only (our 84 tests). Integration is verified by hand + the Space health check.
 6. **B is devrup's call.** If we later offer B, it is a PR *he* reviews/merges into *his* Space — never a push from us, and never overwriting his own SADAR work.
@@ -131,17 +156,17 @@ Keep `app.py`'s route shapes + `api.ts`'s response interfaces **unchanged** so h
 
 Normal per-phase pattern on our side (issue + branch + PR to `develop`). **C is self-contained — it needs no permission from devrup**, only the courtesy heads-up (step 1).
 
-**C — the build (we own all of it):**
-1. **Heads-up to devrup** — share this doc; tell him we're reusing his MIT frontend (courtesy, not a gate).
+**C — the build, single post-hoc analyst tool (we own all of it):**
+1. **No message to devrup yet** — Txema messages him only once C is built + deployed, so he can decide whether he wants B (his Space on our model). Keep his MIT licence/attribution in the vendored frontend regardless.
 2. **Vendor his frontend** — copy `external/sadar/frontend/` into our repo (`frontend/`), keep his licence/attribution.
-3. **Scene precompute script** — `phase6/clean_df.parquet` → curated scene cohort → `(X, mask, paths, scores)` baked artifact (mirrors his `test.npy` role).
-4. **Write `backend/serve/`** — fresh FastAPI app reusing his route shapes + `api.ts` response interfaces; scoring core per §4 table, importing `backend.core` natively.
-5. **Frontend** simulator vocabulary swap + i18n (our 5 kinds).
-6. **Docker** — adapt his two-stage build; bake our artifacts; **deploy our own HF Space**; verify `/api/health` + a manual radar walkthrough.
-7. **Writeup** — add a "deployment" section pointing at our live Space; **ch.11 numbers unchanged** (merge ≠ model change).
+3. **Scene/triage precompute script** — `phase6/clean_df.parquet` → ranked retrospective cohort (score-ranked completed segments, 2020-test-normal + a few held-aside anomalies for compelling cases) → baked `(X, mask, paths, scores, per_type)` artifact + the ranked-queue index.
+4. **Write `backend/serve/`** — fresh FastAPI app reusing his route shapes + `api.ts` interfaces; scoring core per §4 table, importing `backend.core` natively. Add a queue endpoint (ranked list) + case-file endpoint (per-flight detail) — the `/api/flights` + `/api/flights/{id}` shapes already fit.
+5. **Frontend IA rebuild (§4.5)** — ranked queue as the landing/primary flow; case file (trajectory case-viewer + per-step RE timeline + reconstruction overlay + feature attribution) as detail; simulator reframed to analyst what-if; demote latency; swap inject kinds + i18n. Drop the live "Monitor" framing.
+6. **Docker** — adapt his two-stage build; bake our artifacts; **deploy our own HF Space**; verify `/api/health` + a manual queue→case walkthrough.
+7. **Writeup** — add a "deployment" section pointing at our live Space, framed as a **post-hoc conformance-audit tool**; credit his sliding-window design as the more streaming-ready; **ch.11 numbers unchanged** (merge ≠ model change).
 
-**B — optional downstream (devrup's call, only after C works):**
-8. Offer the same serve rewrite to devrup as an **HF-Hub PR to his Space** so it also runs our model. Requires wheel-packaging or vendoring our core into his tree + pushing our LFS artifacts to his account — only if *he* wants it. Take-it-or-leave-it.
+**STRETCH — dual-model / dual-view (§4.5.1), evaluate only after C ships:**
+8. Add his streaming VAE-LSTM as a second "live monitoring" mode beside our audit view. This is the gate where **B** (offering his Space our model, or co-deploying the dual tool) comes back — a credit/coordination conversation with devrup, decided then, not now.
 
 ---
 
