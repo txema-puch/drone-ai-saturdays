@@ -131,6 +131,18 @@ Keep `app.py`'s route shapes + `api.ts`'s response interfaces **unchanged** so h
 
 **What survives vs what's rebuilt:** his *components* (radar/trajectory plot, score timeline, reconstruction overlay, per-type metrics panel) are reused; his *information architecture + narrative* (Monitor / live scope / alert banner / latency-headline) is rebuilt as queue → case-file. So the frontend work is **a real IA rebuild on reused components**, not a vocabulary swap.
 
+**Because it is a real IA rebuild, it is gated by a design stage (gstack), not coded ad-hoc** — see §4.5.2.
+
+### 4.5.2 UI design stage (gstack design skills) — gates the frontend build
+
+The analyst-triage IA (queue → case-file) is new design, not a relabel, so it goes through a deliberate design pass before any React is written:
+
+- **Explore** — `/design-shotgun` (or `/design-consultation` for a fuller system + a `DESIGN.md` source of truth): generate variants of the two core screens (ranked queue, case file) and compare. Decide how much of his SADAR dark-ops radar aesthetic to keep vs restyle — his visual language already suits an ops/analyst tool, so this is likely *reskin the IA, keep the palette*, but the shotgun makes that an evidenced choice, not an assumption.
+- **Lock** — `/plan-design-review`: rate the chosen direction dimension-by-dimension, fix the plan to a 10 before building.
+- **QA (post-deploy)** — `/design-review`: visual audit on the live Space with before/after screenshots.
+
+Only after Explore + Lock does the frontend IA rebuild (§6 step 6) begin. The precompute (§6 step 3, **done**) already fixes the data the screens render, so the design stage works against a real contract, not a guess.
+
 **Honest credit (for the writeup):** his sliding-window design *is* the more real-time-deployable of the two — say so. Ours wins on the conformance metric; his wins on streaming-readiness. Different strengths.
 
 ### 4.5.1 Dual-model / dual-view — explicit STRETCH (gate before B)
@@ -159,14 +171,15 @@ Normal per-phase pattern on our side (issue + branch + PR to `develop`). **C is 
 **C — the build, single post-hoc analyst tool (we own all of it):**
 1. **No message to devrup yet** — Txema messages him only once C is built + deployed, so he can decide whether he wants B (his Space on our model). Keep his MIT licence/attribution in the vendored frontend regardless.
 2. **Vendor his frontend** — copy `external/sadar/frontend/` into our repo (`frontend/`), keep his licence/attribution.
-3. **Scene/triage precompute script** — `phase6/clean_df.parquet` → ranked retrospective cohort (score-ranked completed segments, 2020-test-normal + a few held-aside anomalies for compelling cases) → baked `(X, mask, paths, scores, per_type)` artifact + the ranked-queue index.
-4. **Write `backend/serve/`** — fresh FastAPI app reusing his route shapes + `api.ts` interfaces; scoring core per §4 table, importing `backend.core` natively. Add a queue endpoint (ranked list) + case-file endpoint (per-flight detail) — the `/api/flights` + `/api/flights/{id}` shapes already fit.
-5. **Frontend IA rebuild (§4.5)** — ranked queue as the landing/primary flow; case file (trajectory case-viewer + per-step RE timeline + reconstruction overlay + feature attribution) as detail; simulator reframed to analyst what-if; demote latency; swap inject kinds + i18n. Drop the live "Monitor" framing.
-6. **Docker** — adapt his two-stage build; bake our artifacts; **deploy our own HF Space**; verify `/api/health` + a manual queue→case walkthrough.
-7. **Writeup** — add a "deployment" section pointing at our live Space, framed as a **post-hoc conformance-audit tool**; credit his sliding-window design as the more streaming-ready; **ch.11 numbers unchanged** (merge ≠ model change).
+3. **Triage precompute script** ✅ **DONE** — `backend/serve/precompute.py`: `phase6/clean_df.parquet` → 2020-test ∪ held-aside real anomalies (4480 segs) → frozen-contract scoring (T=260, masked mean RE, thr 0.222) → `models/sadar_demo/{queue.json, cases.json, manifest.json}` (ranked queue + per-flight path / reconstructed path / per-step RE timeline / feature attribution). Verified: anomaly mean 0.186 vs normal 0.114 — reproduces the Phase-7 signal.
+4. **Write `backend/serve/` API** — fresh FastAPI app reusing his route shapes + `api.ts` interfaces, serving the precompute bundle. Queue endpoint (ranked list) + case-file endpoint (per-flight detail) — the `/api/flights` + `/api/flights/{id}` shapes already fit. `/api/simulate` → our `inject` replay; `/api/metrics` → `phase7_burn_results.json`.
+5. **UI DESIGN STAGE (gstack, §4.5.2)** — `/design-shotgun` (or `/design-consultation`) to explore queue + case-file variants → `/plan-design-review` to lock. Gates step 6. Works against the real precompute contract from step 3.
+6. **Frontend IA rebuild (§4.5)** — implement the locked design: ranked queue as the landing/primary flow; case file (trajectory case-viewer + per-step RE timeline + reconstruction overlay + feature attribution) as detail; simulator reframed to analyst what-if; demote latency; swap inject kinds + i18n. Drop the live "Monitor" framing.
+7. **Docker** — adapt his two-stage build; bake our artifacts; **deploy our own HF Space**; verify `/api/health` + a manual queue→case walkthrough. `/design-review` for visual QA on the live Space.
+8. **Writeup** — add a "deployment" section pointing at our live Space, framed as a **post-hoc conformance-audit tool**; credit his sliding-window design as the more streaming-ready; **ch.11 numbers unchanged** (merge ≠ model change).
 
 **STRETCH — dual-model / dual-view (§4.5.1), evaluate only after C ships:**
-8. Add his streaming VAE-LSTM as a second "live monitoring" mode beside our audit view. This is the gate where **B** (offering his Space our model, or co-deploying the dual tool) comes back — a credit/coordination conversation with devrup, decided then, not now.
+9. Add his streaming VAE-LSTM as a second "live monitoring" mode beside our audit view. This is the gate where **B** (offering his Space our model, or co-deploying the dual tool) comes back — a credit/coordination conversation with devrup, decided then, not now.
 
 ---
 
