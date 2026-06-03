@@ -42,10 +42,21 @@ from backend.core.preprocessing import (  # noqa: E402
 )
 
 M = REPO / "backend/models/phase6"
+BURN = M / "phase7_burn_results.json"
 OUT = REPO / "backend/models/sadar_demo"
 T = 260
 AE_THR = 0.222  # val-chosen operating point — frozen, never retuned here
 SEED = 42
+
+# Real-anomaly ROC/PR are the Phase-7 burn's printed head-to-head (held-aside cohort vs
+# 2020-test-normal); the saved burn JSON keeps only the synthetic headline + per-type, so the
+# real numbers are recorded here with provenance (07-eval.md) and baked into the bundle.
+REAL_RESULTS = {
+    "AE": (0.667, 0.088),
+    "kNN": (0.595, 0.067),
+    "IF": (0.495, None),
+    "SADAR-VAE-LSTM": (0.659, 0.299),  # his native rep, reproduced
+}
 
 # how many case files to bake (heavy: paths + timelines). The queue lists EVERY segment;
 # case files cover all real anomalies + the most-anomalous normals + a typical sample.
@@ -182,6 +193,36 @@ def main() -> None:
             "feature_attribution": {f: round(float(v), 6) for f, v in zip(AE_FEATURES, feat[i])},
         }
 
+    # per-step threshold from NORMAL cases (99th pctile of valid per-step RE) — the
+    # "this step is surprising" line for the case-file timeline; from normal behaviour only
+    normal_steps = np.array(
+        [step[i, t] for i in range(len(seg_ids)) if seg_ids[i] not in anomaly_ids
+         for t in range(int(loss_mask[i].sum()))]
+    )
+    step_thr = float(np.percentile(normal_steps, 99)) if normal_steps.size else AE_THR
+
+    # ── metrics panel (Phase-7 results, MetricRow[] shape) — bundle-self-contained ────────
+    burn = json.loads(BURN.read_text()) if BURN.exists() else {}
+    head, per_type = burn.get("headline_auroc", {}), burn.get("per_type", {})
+    metrics = {
+        "selected_model": "AE",
+        "results": [
+            {
+                "model": m,
+                "real_roc_auc": REAL_RESULTS[m][0],
+                "real_pr_auc": REAL_RESULTS[m][1],
+                "synthetic_mean_roc_auc": head.get(m),     # None for SADAR (own bench)
+                "synthetic_per_type": per_type.get(m, {}),
+            }
+            for m in ("AE", "kNN", "IF", "SADAR-VAE-LSTM")
+        ],
+        "notes": {
+            "real_cohort": "held-aside go-around ∪ emergency vs sealed 2020-test-normal",
+            "synthetic_mix": "D-012 (4 dynamic types; zone re-weighted out)",
+            "ae_target_unmet": "synthetic 0.731 < 0.85 target — reported honestly",
+        },
+    }
+
     manifest = {
         "n_segments": len(seg_ids),
         "n_test": len(ids["test"]),
@@ -189,11 +230,15 @@ def main() -> None:
         "n_anomalous_at_thr": int((scores >= AE_THR).sum()),
         "n_cases_baked": len(cases),
         "threshold": AE_THR,
+        "step_threshold": round(step_thr, 6),
         "T": T,
         "median_score": round(median, 6),
+        "center": {"lat": 40.4936, "lon": -3.5668},
+        "step_seconds": 10,
     }
     (OUT / "queue.json").write_text(json.dumps(queue))
     (OUT / "cases.json").write_text(json.dumps(cases))
+    (OUT / "metrics.json").write_text(json.dumps(metrics, indent=2))
     (OUT / "manifest.json").write_text(json.dumps(manifest, indent=2))
 
     # ── verification (does the foundation reproduce Phase-7's signal?) ────────────────────
