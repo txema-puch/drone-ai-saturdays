@@ -132,6 +132,17 @@ def main() -> None:
     step = per_step_re(recon, X, loss_mask)
     feat = per_feature_re(recon, X, loss_mask)
 
+    # percentile rank of each score among the whole cohort — turns a bare "1.94" into
+    # "98th pctile" so an analyst can read severity at a glance (design-review fix #3)
+    order_asc = np.argsort(scores)
+    ranks = np.empty(len(scores), dtype="float64")
+    ranks[order_asc] = np.arange(len(scores))
+    pct = ranks / max(len(scores) - 1, 1) * 100.0
+
+    def band(p):
+        return ("highly anomalous" if p >= 95 else "elevated" if p >= 80
+                else "upper-normal" if p >= 50 else "normal range")
+
     def label_of(sid: str) -> str:
         if sid in anomaly_ids:
             return "emergency" if g.loc[sid, "is_em"] else "go_around"
@@ -144,6 +155,7 @@ def main() -> None:
             "id": int(i),
             "segment_id": seg_ids[i],
             "score": round(float(scores[i]), 6),
+            "pct": round(float(pct[i]), 1),
             "anomalous": bool(scores[i] >= AE_THR),
             "label": label_of(seg_ids[i]),
         }
@@ -184,6 +196,8 @@ def main() -> None:
             "segment_id": sid,
             "label": label_of(sid),
             "score": round(float(scores[i]), 6),
+            "pct": round(float(pct[i]), 1),
+            "band": band(pct[i]),
             "threshold": AE_THR,
             "anomalous": bool(scores[i] >= AE_THR),
             "valid_steps": valid,

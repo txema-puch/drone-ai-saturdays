@@ -108,6 +108,8 @@ def flight(flight_id: int) -> dict:
         "reconstructed": case["reconstructed"],
         "scores": case["step_scores"],          # SADAR `scores` = per-step timeline
         "window_score": case["score"],          # SADAR `window_score` = the segment score
+        "pct": case["pct"],                     # percentile rank among the cohort
+        "band": case["band"],                   # plain-language severity band
         "anomalous": case["anomalous"],
         "threshold": THRESHOLD,
         "step_threshold": STEP_THRESHOLD,
