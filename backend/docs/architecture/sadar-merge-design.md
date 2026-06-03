@@ -143,6 +143,8 @@ The analyst-triage IA (queue → case-file) is new design, not a relabel, so it 
 
 Only after Explore + Lock does the frontend IA rebuild (§6 step 6) begin. The precompute (§6 step 3, **done**) already fixes the data the screens render, so the design stage works against a real contract, not a guess.
 
+**Outcome (2026-06-03, `/design-shotgun`): direction C "Forensic Dossier" LOCKED.** The OpenAI-image path was unavailable (no key), so variants were built as live HTML prototypes wired to the serve API (:8077) — better here than gen-images (real 4,480-row queue, real trajectories). Three queue directions compared (A keep-SADAR ops-radar / B light analytics workbench / C dark forensic dossier); C won — best post-hoc "case review" framing, dark canvas fits the reused trajectory plot, distinctive for the demo; A rejected because the green-on-black scope re-asserts the real-time framing. Both core screens prototyped in C (queue + case file with trajectory + deviation-span overlay, RE-vs-step-threshold timeline, per-feature attribution, analyst what-if). Artifacts: `~/.gstack/projects/txema-puch-drone-ai-saturdays/designs/ranked-queue-20260603/` (`variant-{A,B,C}.html`, `case-C.html`, screenshots, `approved.json`). These HTML prototypes are the implementation reference for the React build.
+
 **Honest credit (for the writeup):** his sliding-window design *is* the more real-time-deployable of the two — say so. Ours wins on the conformance metric; his wins on streaming-readiness. Different strengths.
 
 ### 4.5.1 Dual-model / dual-view — explicit STRETCH (gate before B)
