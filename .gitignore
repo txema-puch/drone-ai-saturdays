@@ -102,3 +102,11 @@ Thumbs.db
 .context/
 AGENTS.md
 .gstack/
+
+########################################
+# Vendored upstream (SADAR)            #
+########################################
+# external/ holds the vendored SADAR repo (devrup404, MIT) read during the
+# merge. We copy only what we reuse into frontend/ with attribution; the full
+# clone must never be committed.
+external/

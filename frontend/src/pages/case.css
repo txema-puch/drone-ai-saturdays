@@ -1,0 +1,320 @@
+/* Case file (Direction C) — forensic dossier. Mirrors case-C.html. */
+
+.cf-header {
+  padding: 18px 28px;
+  border-bottom: 1px solid var(--edge);
+}
+.cf-crumb {
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  color: var(--mut);
+  text-transform: uppercase;
+}
+.cf-crumb a {
+  color: var(--accent);
+}
+.cf-titlerow {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  margin-top: 8px;
+  gap: 20px;
+}
+.cf-titlerow h1 {
+  font-family: var(--serif);
+  font-weight: 600;
+  font-size: 26px;
+  margin: 0;
+  letter-spacing: 0.01em;
+}
+.cf-sid {
+  font-size: 18px;
+  color: var(--mut);
+  margin-left: 10px;
+}
+.cf-verdict {
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.cf-operation {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 12px 28px;
+  border-bottom: 1px solid var(--edge);
+}
+.cf-operation h2 {
+  margin: 0;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+}
+.cf-operation p {
+  margin: 3px 0 0;
+  color: var(--mut);
+  font-size: 10.5px;
+}
+.cf-assessment {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  padding: 0 28px;
+  border-bottom: 1px solid var(--edge);
+}
+.cf-assessment > div {
+  padding: 10px 12px 10px 0;
+}
+.cf-assessment > div + div {
+  padding-left: 12px;
+  border-left: 1px solid var(--edge);
+}
+.cf-assessment span,
+.cf-assessment b {
+  display: block;
+}
+.cf-assessment span {
+  color: var(--mut);
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.cf-assessment b {
+  margin-top: 3px;
+  font-size: 11px;
+  font-weight: 600;
+}
+.cf-neighbors {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+.cf-neighbors button,
+.cf-neighbors > div {
+  min-width: 132px;
+  padding: 6px 9px;
+  border: 1px solid var(--edge);
+  border-radius: 6px;
+  background: var(--panel2);
+  color: var(--ink);
+  text-align: left;
+}
+.cf-neighbors button {
+  cursor: pointer;
+}
+.cf-neighbors button:hover {
+  border-color: var(--accent);
+}
+.cf-neighbors .current {
+  border-color: var(--accent);
+}
+.cf-neighbors b,
+.cf-neighbors span {
+  display: block;
+  font-size: 10px;
+}
+.cf-neighbors b {
+  color: var(--accent);
+}
+.cf-neighbors span {
+  margin-top: 2px;
+  color: var(--mut);
+}
+.cf-score {
+  font-family: var(--serif);
+  font-size: 40px;
+  font-weight: 600;
+  line-height: 1;
+}
+.cf-pctband {
+  font-size: 12px;
+  margin-top: 6px;
+  font-weight: 600;
+}
+.cf-vs {
+  font-size: 11px;
+  color: var(--mut);
+  letter-spacing: 0.05em;
+  margin-top: 5px;
+}
+
+.cf-trunc {
+  margin: 14px 28px 0;
+  padding: 11px 14px;
+  border: 1px solid rgba(224, 169, 59, 0.4);
+  background: rgba(224, 169, 59, 0.07);
+  border-radius: 8px;
+  font-size: 12px;
+  color: var(--mut);
+  line-height: 1.5;
+}
+.cf-trunc b {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.cf-grid {
+  display: grid;
+  grid-template-columns: 1.55fr 1fr;
+  gap: 16px;
+  padding: 18px 28px;
+}
+.cf-full {
+  grid-column: 1 / -1;
+}
+.cf-mapwrap {
+  position: relative;
+}
+.cf-legend {
+  position: absolute;
+  right: 12px;
+  top: 34px;
+  font-size: 10px;
+  color: var(--mut);
+  text-align: right;
+  line-height: 1.7;
+}
+.cf-legend i {
+  display: inline-block;
+  width: 16px;
+  height: 2px;
+  vertical-align: middle;
+  margin-left: 6px;
+}
+.cf-note {
+  font-size: 10.5px;
+  color: var(--mut);
+  margin-top: 8px;
+  line-height: 1.5;
+}
+
+/* analysis report panel (inside the attribution card) */
+.rp-btn {
+  margin-top: 12px;
+  width: 100%;
+  background: transparent;
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  border-radius: 7px;
+  padding: 9px;
+  letter-spacing: 0.06em;
+  font-size: 12px;
+  cursor: pointer;
+}
+.rp-btn:hover {
+  background: rgba(201, 162, 90, 0.08);
+}
+.rp-text {
+  margin: 12px 0 0;
+  white-space: pre-wrap;
+  font-family: var(--serif);
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--ink);
+}
+.rp-prov {
+  font-size: 10px;
+  color: var(--mut);
+  letter-spacing: 0.04em;
+  margin: 10px 0 0;
+}
+.rp-empty {
+  margin-top: 12px;
+  font-size: 11px;
+  color: var(--mut);
+  line-height: 1.5;
+}
+
+.cf-whatif-delta {
+  font-size: 11px;
+  color: var(--mut);
+  margin-top: 8px;
+  letter-spacing: 0.02em;
+}
+
+/* temporal channel selector */
+.cf-channels {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+.cf-chan {
+  background: var(--panel2);
+  border: 1px solid var(--edge);
+  color: var(--mut);
+  border-radius: 99px;
+  padding: 4px 12px;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+}
+.cf-chan:hover {
+  color: var(--ink);
+}
+.cf-chan.on {
+  color: var(--bg);
+  background: var(--accent);
+  border-color: var(--accent);
+  font-weight: 600;
+}
+
+.cf-foot {
+  color: var(--mut);
+  font-size: 11px;
+  padding: 0 28px 18px;
+}
+
+/* loading / error states */
+.cf-state {
+  text-align: center;
+  color: var(--mut);
+  padding: 80px 24px;
+}
+.cf-state .big {
+  font-family: var(--serif);
+  font-size: 24px;
+  color: var(--ink);
+  margin-bottom: 8px;
+}
+.cf-state p {
+  max-width: 480px;
+  margin: 0 auto 18px;
+  line-height: 1.5;
+}
+.cf-back-btn,
+.cf-state .cf-back-btn {
+  background: transparent;
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  border-radius: 7px;
+  padding: 9px 18px;
+}
+
+@media (max-width: 760px) {
+  .cf-titlerow,
+  .cf-operation {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .cf-verdict {
+    text-align: left;
+  }
+  .cf-neighbors {
+    justify-content: flex-start;
+  }
+  .cf-grid {
+    grid-template-columns: 1fr;
+  }
+  .cf-full {
+    grid-column: 1;
+  }
+  .cf-assessment {
+    grid-template-columns: 1fr;
+  }
+  .cf-assessment > div + div {
+    padding-left: 0;
+    border-left: 0;
+    border-top: 1px solid var(--edge);
+  }
+}
