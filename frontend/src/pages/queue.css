@@ -200,6 +200,12 @@
     background-position: 0 0;
   }
 }
+@media (prefers-reduced-motion: reduce) {
+  .q-skel {
+    animation: none;
+    background: var(--panel);
+  }
+}
 .q-empty {
   text-align: center;
   color: var(--mut);

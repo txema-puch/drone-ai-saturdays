@@ -21,6 +21,7 @@
   --ink: #e7e3d8;      /* primary text — paper-cream */
   --mut: #8b8e98;      /* secondary text */
   --accent: #c9a25a;   /* gold — interactive / case numbers */
+  --visited: #aa9168;  /* subdued bronze — previously visited navigation */
   --amber: #e0a93b;    /* severity: elevated / go-around */
   --red: #e0564f;      /* severity: high / emergency */
   --blue: #6f8fb5;     /* model reconstruction line + altitude trace */
@@ -52,6 +53,10 @@ body,
   margin: 0;
 }
 
+html {
+  color-scheme: dark;
+}
+
 body {
   background: var(--bg);
   color: var(--ink);
@@ -71,6 +76,9 @@ body {
 a {
   color: var(--accent);
   text-decoration: none;
+}
+a:visited {
+  color: var(--visited);
 }
 
 /* uppercase micro-labels — section headers only, never running text */
