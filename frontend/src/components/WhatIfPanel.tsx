@@ -12,7 +12,9 @@ const KINDS = [
   "zone_violation",
 ] as const;
 
-type Status = "idle" | "pending" | "error";
+type Status = "idle" | "pending" | "timeout" | "error";
+
+export const SIMULATION_TIMEOUT_MS = 45_000;
 
 interface Props {
   flightId: number;
@@ -34,12 +36,24 @@ export default function WhatIfPanel({ flightId, active, onResult, onClear }: Pro
 
   async function run() {
     setStatus("pending");
+    let timeoutId: number | undefined;
     try {
-      const r = await simulate({ id: flightId, kind, intensity: intensity / 100, onset: onset / 100 });
+      const timeout = new Promise<never>((_, reject) => {
+        timeoutId = window.setTimeout(
+          () => reject(new Error("simulation timeout")),
+          SIMULATION_TIMEOUT_MS,
+        );
+      });
+      const r = await Promise.race([
+        simulate({ id: flightId, kind, intensity: intensity / 100, onset: onset / 100 }),
+        timeout,
+      ]);
       setStatus("idle");
       onResult(r);
-    } catch {
-      setStatus("error");
+    } catch (error) {
+      setStatus(error instanceof Error && error.message === "simulation timeout" ? "timeout" : "error");
+    } finally {
+      if (timeoutId != null) window.clearTimeout(timeoutId);
     }
   }
 
@@ -89,7 +103,11 @@ export default function WhatIfPanel({ flightId, active, onResult, onClear }: Pro
           disabled={status === "pending"}
           style={{ flex: 1, background: "transparent", border: "1px solid var(--accent)", color: "var(--accent)", borderRadius: 7, padding: 9, letterSpacing: "0.06em" }}
         >
-          {status === "pending" ? "RE-SCORING…" : "RE-SCORE PERTURBED SEGMENT →"}
+          {status === "pending"
+            ? "RE-SCORING…"
+            : status === "timeout" || status === "error"
+              ? "RETRY RE-SCORE →"
+              : "RE-SCORE PERTURBED SEGMENT →"}
         </button>
         {active && (
           <button
@@ -102,9 +120,13 @@ export default function WhatIfPanel({ flightId, active, onResult, onClear }: Pro
       </div>
 
       <p style={{ fontSize: 13, lineHeight: 1.5, margin: 0 }}>
-        {status === "error"
-          ? "Could not reach the re-score endpoint."
-          : "What-if only. Injects a synthetic anomaly into this real segment and re-scores it against the same frozen model — the perturbed track + error overlay the charts above (magenta). For understanding the detector, not a live alert."}
+        {status === "pending"
+          ? "Loading the frozen model and re-scoring. The first run on a sleeping demo server can take longer."
+          : status === "timeout"
+            ? "The demo model did not finish loading within 45 seconds. Retry once; its first load may have completed in the background."
+            : status === "error"
+              ? "The re-score request failed. Check that the audit service is running, then retry."
+              : "What-if only. Injects a synthetic anomaly into this real segment and re-scores it against the same frozen model — the perturbed track + error overlay the charts above (magenta). For understanding the detector, not a live alert."}
       </p>
     </div>
   );
