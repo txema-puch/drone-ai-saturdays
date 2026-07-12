@@ -84,15 +84,15 @@ export default function CaseFile() {
     : null;
 
   return (
-    <div>
+    <main>
       <header className="cf-header">
-        <div className="cf-crumb sans">
+        <nav className="cf-crumb sans" aria-label="Breadcrumb">
           <a href="/" onClick={(e) => { e.preventDefault(); back(); }}>
             ‹ Conformance Audit — LEMD
           </a>
           &nbsp;/&nbsp;
           <span>{detail.case_ref} · <a href={`/operation/${encodeURIComponent(detail.operation_ref)}`} onClick={(event) => { event.preventDefault(); navigate(`/operation/${encodeURIComponent(detail.operation_ref)}`); }}>{detail.operation_ref}</a> · {parseEpoch(detail.segment_id)}</span>
-        </div>
+        </nav>
         <div className="cf-titlerow">
           <div>
             <h1>
@@ -280,6 +280,6 @@ export default function CaseFile() {
         {detail.case_ref} · segment {detail.segment_id} · {detail.valid_steps} valid steps · scrub the lower charts to trace
         where this segment diverged
       </div>
-    </div>
+    </main>
   );
 }

@@ -54,7 +54,7 @@ export default function Operation() {
   return (
     <main className="op-page">
       <header className="op-header">
-        <div className="op-crumb sans"><a href="/" onClick={(event) => { event.preventDefault(); navigate("/"); }}>‹ Conformance Audit — LEMD</a><span>/</span><span>Operation</span></div>
+        <nav className="op-crumb sans" aria-label="Breadcrumb"><a href="/" onClick={(event) => { event.preventDefault(); navigate("/"); }}>‹ Conformance Audit — LEMD</a><span>/</span><span>Operation</span></nav>
         <div className="op-title-row">
           <div>
             <h1>Operation review</h1>

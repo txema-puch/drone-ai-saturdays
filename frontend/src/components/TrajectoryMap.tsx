@@ -58,6 +58,9 @@ export default function TrajectoryMap({
   const cy = proj.y(center.lat);
   const marker = scrubIndex != null && path[scrubIndex] ? proj.project(path[scrubIndex]) : null;
   const hasContext = !!(contextPath && contextPath.length > path.length);
+  const deviationCount = path.filter(
+    (_, i) => stepScores[i] != null && stepScores[i] >= stepThreshold,
+  ).length;
 
   // scale bar: pick a round km that's ~1/4 of the frame width
   const targetPx = (W - 2 * PAD) / 4;
@@ -65,7 +68,8 @@ export default function TrajectoryMap({
   const barPx = niceKm * proj.pxPerKm;
 
   return (
-    <svg
+    <>
+      <svg
       viewBox={`0 0 ${W} ${H}`}
       preserveAspectRatio="xMidYMid meet"
       role="img"
@@ -174,6 +178,12 @@ export default function TrajectoryMap({
           {niceKm} km
         </text>
       </g>
-    </svg>
+      </svg>
+      <p className="sr-only">
+        The scored segment contains {path.length} positions, with {deviationCount} above-threshold
+        deviation points. The model reconstruction contains {reconstructed.length} positions.
+        {hasContext ? ` Full-operation context contains ${contextPath!.length} positions.` : ""}
+      </p>
+    </>
   );
 }
