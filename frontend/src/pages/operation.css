@@ -35,7 +35,7 @@
 .op-meta {
   margin-top: 5px;
   color: var(--mut);
-  font-size: 11px;
+  font-size: 13px;
 }
 .op-worst {
   display: grid;
@@ -48,12 +48,12 @@
   line-height: 1;
 }
 .op-worst > span:last-child {
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 600;
 }
 .op-worst small {
   color: var(--mut);
-  font-size: 10px;
+  font-size: 12px;
 }
 .op-worst .op-abstain {
   color: var(--mut);
@@ -88,7 +88,7 @@
 .op-summary b {
   margin-top: 5px;
   overflow-wrap: anywhere;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
 }
 
@@ -110,7 +110,7 @@
 .op-section-head p {
   margin: 5px 0 0;
   color: var(--mut);
-  font-size: 11px;
+  font-size: 14px;
 }
 .op-signals {
   display: flex;
@@ -148,7 +148,7 @@
   padding: 8px 10px;
   border-top: 1px solid var(--edge);
   vertical-align: middle;
-  font-size: 12px;
+  font-size: 14px;
 }
 .op-table tr.worst {
   background: rgba(224, 169, 59, 0.05);
@@ -158,11 +158,11 @@
   display: block;
   margin-top: 3px;
   color: var(--mut);
-  font-size: 9px;
+  font-size: 12px;
 }
 .op-table td:first-child b {
   color: var(--accent);
-  font-size: 11px;
+  font-size: 12px;
 }
 .op-flagged {
   color: var(--amber);
@@ -172,7 +172,7 @@
   color: var(--green);
 }
 .op-assessment {
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 600;
   text-transform: capitalize;
 }
@@ -200,16 +200,16 @@
   background: transparent;
   color: var(--accent);
   padding: 7px 10px;
-  font-size: 10px;
+  font-size: 12px;
 }
 .op-action span {
   color: var(--mut);
-  font-size: 10px;
+  font-size: 12px;
 }
 .op-foot {
   padding: 0 28px 18px;
   color: var(--mut);
-  font-size: 10px;
+  font-size: 12px;
 }
 .op-state {
   padding: 80px 24px;

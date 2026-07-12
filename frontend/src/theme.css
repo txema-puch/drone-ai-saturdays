@@ -52,7 +52,7 @@ body {
   background: var(--bg);
   color: var(--ink);
   font-family: var(--serif);
-  font-size: 14px;
+  font-size: 16px;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
@@ -131,7 +131,7 @@ button {
 /* severity stamps */
 .stamp {
   font-family: var(--sans);
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: 0.14em;
   font-weight: 700;
   padding: 4px 9px;

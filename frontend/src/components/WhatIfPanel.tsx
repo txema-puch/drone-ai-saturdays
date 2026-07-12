@@ -44,7 +44,7 @@ export default function WhatIfPanel({ flightId, active, onResult, onClear }: Pro
   }
 
   return (
-    <div className="sans" style={{ display: "flex", flexDirection: "column", gap: 11, fontSize: 12, color: "var(--mut)" }}>
+    <div className="sans" style={{ display: "flex", flexDirection: "column", gap: 11, fontSize: 14, color: "var(--mut)" }}>
       <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
         <span style={{ color: "var(--ink)" }}>Anomaly type</span>
         <select
@@ -101,7 +101,7 @@ export default function WhatIfPanel({ flightId, active, onResult, onClear }: Pro
         )}
       </div>
 
-      <p style={{ fontSize: 10.5, lineHeight: 1.5, margin: 0 }}>
+      <p style={{ fontSize: 13, lineHeight: 1.5, margin: 0 }}>
         {status === "error"
           ? "Could not reach the re-score endpoint."
           : "What-if only. Injects a synthetic anomaly into this real segment and re-scores it against the same frozen model — the perturbed track + error overlay the charts above (magenta). For understanding the detector, not a live alert."}

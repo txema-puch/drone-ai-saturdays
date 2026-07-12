@@ -31,7 +31,7 @@
   text-align: left;
   background: transparent;
   border: 0;
-  font-size: 13px;
+  font-size: 14px;
   color: var(--mut);
   padding: 5px 0;
 }
@@ -54,7 +54,7 @@
   border: 0;
   background: transparent;
   color: var(--mut);
-  font-size: 11px;
+  font-size: 12px;
 }
 .q-mode-btn + .q-mode-btn {
   border-left: 1px solid var(--edge);
@@ -71,7 +71,7 @@
   border-radius: 7px;
   padding: 8px 10px;
   color: var(--ink);
-  font-size: 12px;
+  font-size: 14px;
 }
 .q-search::placeholder {
   color: var(--mut);
@@ -99,7 +99,7 @@
 }
 .q-docket {
   color: var(--mut);
-  font-size: 12px;
+  font-size: 13px;
   letter-spacing: 0.04em;
   margin-top: 6px;
 }
@@ -143,7 +143,7 @@
 }
 .q-cno {
   font-family: var(--sans);
-  font-size: 11px;
+  font-size: 12px;
   letter-spacing: 0.08em;
   color: var(--accent);
   overflow-wrap: anywhere;
@@ -155,13 +155,13 @@
   margin-top: 2px;
 }
 .q-sid {
-  font-size: 12.5px;
+  font-size: 14px;
   color: var(--ink);
 }
 .q-sub {
   display: block;
   color: var(--mut);
-  font-size: 10.5px;
+  font-size: 12px;
   margin-top: 2px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -171,7 +171,7 @@
   font-weight: 600;
 }
 .q-pct {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   text-align: right;
 }
@@ -222,7 +222,7 @@
 
 .q-foot {
   color: var(--mut);
-  font-size: 11px;
+  font-size: 12px;
   letter-spacing: 0.06em;
   margin-top: 14px;
 }

@@ -17,7 +17,7 @@ export default function Attribution({ attribution }: { attribution: Record<strin
             gridTemplateColumns: "120px 1fr 46px",
             alignItems: "center",
             gap: 10,
-            fontSize: 12,
+            fontSize: 14,
           }}
         >
           <span>{feature}</span>

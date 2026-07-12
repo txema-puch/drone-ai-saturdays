@@ -53,7 +53,7 @@
 .cf-operation p {
   margin: 3px 0 0;
   color: var(--mut);
-  font-size: 10.5px;
+  font-size: 13px;
 }
 .cf-assessment {
   display: grid;
@@ -80,7 +80,7 @@
 }
 .cf-assessment b {
   margin-top: 3px;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 600;
 }
 .cf-neighbors {
@@ -111,7 +111,7 @@
 .cf-neighbors b,
 .cf-neighbors span {
   display: block;
-  font-size: 10px;
+  font-size: 12px;
 }
 .cf-neighbors b {
   color: var(--accent);
@@ -132,7 +132,7 @@
   font-weight: 600;
 }
 .cf-vs {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--mut);
   letter-spacing: 0.05em;
   margin-top: 5px;
@@ -144,7 +144,7 @@
   border: 1px solid rgba(224, 169, 59, 0.4);
   background: rgba(224, 169, 59, 0.07);
   border-radius: 8px;
-  font-size: 12px;
+  font-size: 14px;
   color: var(--mut);
   line-height: 1.5;
 }
@@ -182,7 +182,7 @@
   margin-left: 6px;
 }
 .cf-note {
-  font-size: 10.5px;
+  font-size: 13px;
   color: var(--mut);
   margin-top: 8px;
   line-height: 1.5;
@@ -208,7 +208,7 @@
   margin: 12px 0 0;
   white-space: pre-wrap;
   font-family: var(--serif);
-  font-size: 13.5px;
+  font-size: 16px;
   line-height: 1.55;
   color: var(--ink);
 }
@@ -220,13 +220,13 @@
 }
 .rp-empty {
   margin-top: 12px;
-  font-size: 11px;
+  font-size: 13px;
   color: var(--mut);
   line-height: 1.5;
 }
 
 .cf-whatif-delta {
-  font-size: 11px;
+  font-size: 13px;
   color: var(--mut);
   margin-top: 8px;
   letter-spacing: 0.02em;
@@ -245,7 +245,7 @@
   color: var(--mut);
   border-radius: 99px;
   padding: 4px 12px;
-  font-size: 11px;
+  font-size: 12px;
   letter-spacing: 0.04em;
   cursor: pointer;
 }
@@ -261,7 +261,7 @@
 
 .cf-foot {
   color: var(--mut);
-  font-size: 11px;
+  font-size: 12px;
   padding: 0 28px 18px;
 }
 
