@@ -201,7 +201,7 @@ export default function CaseFile() {
             {detail.n_siblings > 1 && (
               <>
                 <br />
-                rest of operation <i style={{ background: "#3a4252" }} />
+                rest of operation <i style={{ background: "var(--chart-context)" }} />
               </>
             )}
             {sim && (

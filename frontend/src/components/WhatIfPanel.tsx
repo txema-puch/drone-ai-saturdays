@@ -53,7 +53,7 @@ export default function WhatIfPanel({ flightId, active, onResult, onClear }: Pro
           style={{
             background: "var(--panel2)",
             color: "var(--ink)",
-            border: "1px solid var(--edge)",
+            border: "1px solid var(--control-edge)",
             borderRadius: 7,
             padding: "7px 9px",
             fontFamily: "inherit",
@@ -94,7 +94,7 @@ export default function WhatIfPanel({ flightId, active, onResult, onClear }: Pro
         {active && (
           <button
             onClick={onClear}
-            style={{ background: "transparent", border: "1px solid var(--edge)", color: "var(--mut)", borderRadius: 7, padding: "9px 14px", letterSpacing: "0.06em" }}
+            style={{ background: "transparent", border: "1px solid var(--control-edge)", color: "var(--mut)", borderRadius: 7, padding: "9px 14px", letterSpacing: "0.06em" }}
           >
             CLEAR
           </button>

@@ -93,7 +93,7 @@
 .cf-neighbors > div {
   min-width: 132px;
   padding: 6px 9px;
-  border: 1px solid var(--edge);
+  border: 1px solid var(--control-edge);
   border-radius: 6px;
   background: var(--panel2);
   color: var(--ink);
@@ -241,7 +241,7 @@
 }
 .cf-chan {
   background: var(--panel2);
-  border: 1px solid var(--edge);
+  border: 1px solid var(--control-edge);
   color: var(--mut);
   border-radius: 99px;
   padding: 4px 12px;

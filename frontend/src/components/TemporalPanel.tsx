@@ -140,7 +140,7 @@ export default function TemporalPanel({
           y1={geo.ry(stepThreshold)}
           x2={TW}
           y2={geo.ry(stepThreshold)}
-          stroke="#5a6472"
+          stroke="var(--chart-muted)"
           strokeWidth={1}
           strokeDasharray="5 4"
         />
@@ -166,9 +166,9 @@ export default function TemporalPanel({
 
         {/* peak + scrub playhead */}
         {geo.peak >= 0 && (
-          <line x1={geo.tx(geo.peak)} y1={A0} x2={geo.tx(geo.peak)} y2={R1} stroke="#3a4252" strokeWidth={1} />
+          <line x1={geo.tx(geo.peak)} y1={A0} x2={geo.tx(geo.peak)} y2={R1} stroke="var(--chart-grid)" strokeWidth={1} />
         )}
-        {phX != null && <line x1={phX} y1={A0} x2={phX} y2={R1} stroke="#fff" strokeWidth={1} />}
+        {phX != null && <line x1={phX} y1={A0} x2={phX} y2={R1} stroke="var(--ink)" strokeWidth={1} />}
       </svg>
 
       {/* screen-reader data-table fallback (DESIGN.md a11y fix #5). Wrapped in a div.sr-only —

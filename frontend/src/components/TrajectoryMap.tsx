@@ -80,8 +80,8 @@ export default function TrajectoryMap({
         if (r < 6 || r > W) return null;
         return (
           <g key={km}>
-            <circle cx={cx} cy={cy} r={r} fill="none" stroke="#222a36" strokeWidth={1} />
-            <text x={cx} y={cy - r - 3} fill="#5a6472" fontSize={8.5} fontFamily="var(--sans)" textAnchor="middle">
+            <circle cx={cx} cy={cy} r={r} fill="none" stroke="var(--chart-grid)" strokeWidth={1} />
+            <text x={cx} y={cy - r - 3} fill="var(--chart-muted)" fontSize={8.5} fontFamily="var(--sans)" textAnchor="middle">
               {km} km
             </text>
           </g>
@@ -95,8 +95,8 @@ export default function TrajectoryMap({
         if (fx < 4 || fx > W - 4 || fy < 10 || fy > H - 4) return null;
         return (
           <g key={f.name}>
-            <circle cx={fx} cy={fy} r={3.5} fill="none" stroke="#4a5260" strokeWidth={1} />
-            <text x={fx + 7} y={fy + 3.5} fill="#5a6472" fontSize={9} fontFamily="var(--sans)">
+            <circle cx={fx} cy={fy} r={3.5} fill="none" stroke="var(--chart-context)" strokeWidth={1} />
+            <text x={fx + 7} y={fy + 3.5} fill="var(--chart-muted)" fontSize={9} fontFamily="var(--sans)">
               {f.name}
             </text>
           </g>
@@ -104,8 +104,8 @@ export default function TrajectoryMap({
       })}
 
       {/* airport reference */}
-      <circle cx={cx} cy={cy} r={5} fill="none" stroke="#7c8696" strokeWidth={1.2} />
-      <text x={cx + 9} y={cy + 4} fill="#7c8696" fontSize={10} fontFamily="var(--sans)">
+      <circle cx={cx} cy={cy} r={5} fill="none" stroke="var(--chart-muted)" strokeWidth={1.2} />
+      <text x={cx + 9} y={cy + 4} fill="var(--chart-muted)" fontSize={10} fontFamily="var(--sans)">
         LEMD
       </text>
 
@@ -114,7 +114,7 @@ export default function TrajectoryMap({
         <polyline
           points={toPoints(contextPath!, proj)}
           fill="none"
-          stroke="#3a4252"
+          stroke="var(--chart-context)"
           strokeWidth={1.2}
           strokeLinejoin="round"
         />
@@ -162,15 +162,15 @@ export default function TrajectoryMap({
 
       {/* scrub marker */}
       {marker && (
-        <circle cx={marker.x} cy={marker.y} r={6} fill="#fff" stroke="var(--bg)" strokeWidth={2} />
+        <circle cx={marker.x} cy={marker.y} r={6} fill="var(--ink)" stroke="var(--bg)" strokeWidth={2} />
       )}
 
       {/* scale bar */}
       <g transform={`translate(${PAD}, ${H - 16})`}>
-        <line x1={0} y1={0} x2={barPx} y2={0} stroke="#7c8696" strokeWidth={1.5} />
-        <line x1={0} y1={-3} x2={0} y2={3} stroke="#7c8696" strokeWidth={1.5} />
-        <line x1={barPx} y1={-3} x2={barPx} y2={3} stroke="#7c8696" strokeWidth={1.5} />
-        <text x={barPx / 2} y={-5} fill="#8b8e98" fontSize={9} fontFamily="var(--sans)" textAnchor="middle">
+        <line x1={0} y1={0} x2={barPx} y2={0} stroke="var(--chart-muted)" strokeWidth={1.5} />
+        <line x1={0} y1={-3} x2={0} y2={3} stroke="var(--chart-muted)" strokeWidth={1.5} />
+        <line x1={barPx} y1={-3} x2={barPx} y2={3} stroke="var(--chart-muted)" strokeWidth={1.5} />
+        <text x={barPx / 2} y={-5} fill="var(--chart-muted)" fontSize={9} fontFamily="var(--sans)" textAnchor="middle">
           {niceKm} km
         </text>
       </g>

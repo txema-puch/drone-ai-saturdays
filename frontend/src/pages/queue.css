@@ -44,7 +44,7 @@
 .q-mode {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  border: 1px solid var(--edge);
+  border: 1px solid var(--control-edge);
   border-radius: 7px;
   overflow: hidden;
 }
@@ -57,7 +57,7 @@
   font-size: 12px;
 }
 .q-mode-btn + .q-mode-btn {
-  border-left: 1px solid var(--edge);
+  border-left: 1px solid var(--control-edge);
 }
 .q-mode-btn.on {
   background: var(--accent);
@@ -67,7 +67,7 @@
 .q-search {
   width: 100%;
   background: var(--panel2);
-  border: 1px solid var(--edge);
+  border: 1px solid var(--control-edge);
   border-radius: 7px;
   padding: 8px 10px;
   color: var(--ink);
@@ -139,7 +139,7 @@
   cursor: pointer;
 }
 .q-row--open:hover {
-  background: #1c212a;
+  background: var(--panel2);
 }
 .q-cno {
   font-family: var(--sans);
