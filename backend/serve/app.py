@@ -12,7 +12,7 @@ Read endpoints are bundle-backed — no torch at boot, fast cold start for an HF
   GET  /api/operations/{ref}  one operation with all scored segment evidence
   GET  /api/flights/{id}      a segment case file with neighboring operation segments
   GET  /api/metrics           our Phase-7 results (real + synthetic), MetricRow[] shape
-  POST /api/simulate          analyst what-if — wired in the next increment (501 for now)
+  POST /api/simulate          serialized analyst what-if against the frozen model
 
 Run:  cd backend && uv run uvicorn serve.app:app --reload
 """
@@ -22,6 +22,7 @@ import json
 import sys
 from functools import lru_cache
 from pathlib import Path
+from threading import Lock
 
 import numpy as np
 from fastapi import FastAPI, HTTPException
@@ -74,6 +75,7 @@ CENTER = MANIFEST["center"]
 STEP_SECONDS = MANIFEST["step_seconds"]
 T = int(MANIFEST["T"])
 COHORT_SCORES = np.array([q["score"] for q in QUEUE], dtype="float64")
+SIMULATION_LOCK = Lock()
 
 
 @lru_cache(maxsize=1)
@@ -264,20 +266,25 @@ def simulate(request: SimulationRequest) -> dict:
     if case is None:
         raise HTTPException(status_code=404, detail="no case file for this segment")
 
-    clean, scaler, model = _sim_artifacts()
-    seg = clean[clean.segment_id == case["segment_id"]]
-    if seg.empty:
-        raise HTTPException(status_code=404, detail="raw segment not in the baked cohort")
-
+    if not SIMULATION_LOCK.acquire(blocking=False):
+        raise HTTPException(status_code=409, detail="simulation already in progress")
     try:
-        result = simulate_segment(
-            seg, request.kind, request.intensity, request.onset,
-            scaler=scaler, model=model, T=T,
-            threshold=THRESHOLD, step_threshold=STEP_THRESHOLD,
-            cohort_scores=COHORT_SCORES,
-        )
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        clean, scaler, model = _sim_artifacts()
+        seg = clean[clean.segment_id == case["segment_id"]]
+        if seg.empty:
+            raise HTTPException(status_code=404, detail="raw segment not in the baked cohort")
+
+        try:
+            result = simulate_segment(
+                seg, request.kind, request.intensity, request.onset,
+                scaler=scaler, model=model, T=T,
+                threshold=THRESHOLD, step_threshold=STEP_THRESHOLD,
+                cohort_scores=COHORT_SCORES,
+            )
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+    finally:
+        SIMULATION_LOCK.release()
 
     result["id"] = request.id
     result["segment_id"] = case["segment_id"]
