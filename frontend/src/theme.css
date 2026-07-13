@@ -16,7 +16,7 @@
   --edge: #272d39;     /* borders / rules */
   --control-edge: #687386; /* interactive boundaries — ≥3:1 on --panel2 */
   --chart-grid: #303847;
-  --chart-context: #566174;
+  --chart-context: #586477; /* meaningful non-text evidence — ≥3:1 on --map-bg */
   --chart-muted: #9da3ae; /* small chart labels — ≥4.5:1 on --map-bg */
   --ink: #e7e3d8;      /* primary text — paper-cream */
   --mut: #8b8e98;      /* secondary text */

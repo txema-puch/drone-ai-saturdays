@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
-import { simulate, type SimulationResult } from "../api";
+import { ApiError, simulate, type SimulationResult } from "../api";
 
 /** Our inject vocabulary (D-012). zone_violation is out-of-remit for the shipped
  *  detector but remains a valid sandbox injectable. */
@@ -12,9 +12,11 @@ const KINDS = [
   "zone_violation",
 ] as const;
 
-type Status = "idle" | "pending" | "timeout" | "error";
+type Status = "idle" | "pending" | "timeout" | "busy" | "error";
 
 export const SIMULATION_TIMEOUT_MS = 45_000;
+export const SIMULATION_TIMEOUT_SECONDS = SIMULATION_TIMEOUT_MS / 1_000;
+const SIMULATION_TIMEOUT = Symbol("simulation timeout");
 
 interface Props {
   flightId: number;
@@ -33,27 +35,53 @@ export default function WhatIfPanel({ flightId, active, onResult, onClear }: Pro
   const [intensity, setIntensity] = useState(100);
   const [onset, setOnset] = useState(50);
   const [status, setStatus] = useState<Status>("idle");
+  const requestGeneration = useRef(0);
+  const activeController = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    setStatus("idle");
+    return () => {
+      requestGeneration.current += 1;
+      activeController.current?.abort();
+      activeController.current = null;
+    };
+  }, [flightId]);
 
   async function run() {
+    const requestId = ++requestGeneration.current;
+    activeController.current?.abort();
+    const controller = new AbortController();
+    activeController.current = controller;
     setStatus("pending");
     let timeoutId: number | undefined;
     try {
       const timeout = new Promise<never>((_, reject) => {
         timeoutId = window.setTimeout(
-          () => reject(new Error("simulation timeout")),
+          () => {
+            reject(SIMULATION_TIMEOUT);
+            controller.abort();
+          },
           SIMULATION_TIMEOUT_MS,
         );
       });
       const r = await Promise.race([
-        simulate({ id: flightId, kind, intensity: intensity / 100, onset: onset / 100 }),
+        simulate(
+          { id: flightId, kind, intensity: intensity / 100, onset: onset / 100 },
+          controller.signal,
+        ),
         timeout,
       ]);
+      if (requestId !== requestGeneration.current || r.id !== flightId) return;
       setStatus("idle");
       onResult(r);
     } catch (error) {
-      setStatus(error instanceof Error && error.message === "simulation timeout" ? "timeout" : "error");
+      if (requestId !== requestGeneration.current) return;
+      if (error === SIMULATION_TIMEOUT) setStatus("timeout");
+      else if (error instanceof ApiError && error.status === 409) setStatus("busy");
+      else if (!(error instanceof DOMException && error.name === "AbortError")) setStatus("error");
     } finally {
       if (timeoutId != null) window.clearTimeout(timeoutId);
+      if (requestId === requestGeneration.current) activeController.current = null;
     }
   }
 
@@ -105,7 +133,7 @@ export default function WhatIfPanel({ flightId, active, onResult, onClear }: Pro
         >
           {status === "pending"
             ? "RE-SCORING…"
-            : status === "timeout" || status === "error"
+            : status === "timeout" || status === "busy" || status === "error"
               ? "RETRY RE-SCORE →"
               : "RE-SCORE PERTURBED SEGMENT →"}
         </button>
@@ -119,11 +147,13 @@ export default function WhatIfPanel({ flightId, active, onResult, onClear }: Pro
         )}
       </div>
 
-      <p style={{ fontSize: 13, lineHeight: 1.5, margin: 0 }}>
+      <p role="status" aria-live="polite" style={{ fontSize: 13, lineHeight: 1.5, margin: 0 }}>
         {status === "pending"
           ? "Loading the frozen model and re-scoring. The first run on a sleeping demo server can take longer."
           : status === "timeout"
-            ? "The demo model did not finish loading within 45 seconds. Retry once; its first load may have completed in the background."
+            ? `The demo model did not finish loading within ${SIMULATION_TIMEOUT_SECONDS} seconds. Retry once; its first load may have completed in the background.`
+            : status === "busy"
+              ? "A re-score is still running on the demo server. Wait a moment, then retry."
             : status === "error"
               ? "The re-score request failed. Check that the audit service is running, then retry."
               : "What-if only. Injects a synthetic anomaly into this real segment and re-scores it against the same frozen model — the perturbed track + error overlay the charts above (magenta). For understanding the detector, not a live alert."}

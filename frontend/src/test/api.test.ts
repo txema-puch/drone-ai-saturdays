@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { getFlight, getFlights, getHealth, getOperation, getOperations, simulate } from "../api";
+import { ApiError, getFlight, getFlights, getHealth, getOperation, getOperations, simulate } from "../api";
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -51,8 +51,25 @@ describe("api client", () => {
 
   it("surfaces the 501 from the simulate stub", async () => {
     mockFetch(() => ({ ok: false, status: 501, json: () => Promise.resolve({}) }));
-    await expect(
-      simulate({ id: 1, kind: "speed_spike", intensity: 1, onset: 0.5 }),
-    ).rejects.toThrow("501");
+    const error = await simulate({ id: 1, kind: "speed_spike", intensity: 1, onset: 0.5 })
+      .catch((caught) => caught);
+    expect(error).toBeInstanceOf(ApiError);
+    expect(error.status).toBe(501);
+  });
+
+  it("passes cancellation through to the simulation request", async () => {
+    let seenSignal: AbortSignal | null | undefined;
+    mockFetch((_url, init) => {
+      seenSignal = init?.signal;
+      return { ok: true, json: () => Promise.resolve({}) };
+    });
+    const controller = new AbortController();
+
+    await simulate(
+      { id: 1, kind: "speed_spike", intensity: 1, onset: 0.5 },
+      controller.signal,
+    );
+
+    expect(seenSignal).toBe(controller.signal);
   });
 });

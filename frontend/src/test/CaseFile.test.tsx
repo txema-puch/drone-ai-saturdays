@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -162,6 +162,30 @@ describe("CaseFile", () => {
     // undo
     await userEvent.click(screen.getByRole("button", { name: "CLEAR" }));
     expect(screen.queryByText(/what-if sustained loiter:/)).not.toBeInTheDocument();
+  });
+
+  it("clears a completed what-if when navigating to another case", async () => {
+    vi.mocked(api.simulate).mockResolvedValue(SIM);
+    vi.mocked(api.getFlight).mockImplementation((id) => Promise.resolve(
+      id === 4239
+        ? {
+            ...DETAIL,
+            id: 4239,
+            case_ref: "CASE-4239",
+            segment_id: "502ce6_1543855510#2",
+            window_score: 0.18,
+          }
+        : DETAIL,
+    ));
+    renderCase();
+    await screen.findByText("1.20");
+    await userEvent.click(screen.getByRole("button", { name: /RE-SCORE PERTURBED SEGMENT/ }));
+    expect(await screen.findByText(/what-if sustained loiter:/)).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: /CASE-4239/ }));
+
+    await waitFor(() => expect(api.getFlight).toHaveBeenLastCalledWith(4239, expect.any(AbortSignal)));
+    await waitFor(() => expect(screen.queryByText(/what-if sustained loiter:/)).not.toBeInTheDocument());
   });
 
   it("shows the truncation banner for a long arrival", async () => {

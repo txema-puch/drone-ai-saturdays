@@ -177,6 +177,13 @@ export interface SimulationResult {
   step_seconds: number;
 }
 
+export class ApiError extends Error {
+  constructor(public readonly status: number) {
+    super(`request failed: ${status}`);
+    this.name = "ApiError";
+  }
+}
+
 async function getJson<T>(path: string, signal?: AbortSignal): Promise<T> {
   const response = await fetch(`${BASE}${path}`, { signal });
   if (!response.ok) throw new Error(`request failed: ${response.status}`);
@@ -220,12 +227,16 @@ export function getMetrics(signal?: AbortSignal): Promise<Metrics> {
 
 /** Analyst what-if: inject a synthetic anomaly into the real segment and re-score it
  *  against the same frozen model. Returns the perturbed segment for overlay. */
-export async function simulate(request: SimulationRequest): Promise<SimulationResult> {
+export async function simulate(
+  request: SimulationRequest,
+  signal?: AbortSignal,
+): Promise<SimulationResult> {
   const response = await fetch(`${BASE}/simulate`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(request),
+    signal,
   });
-  if (!response.ok) throw new Error(`request failed: ${response.status}`);
+  if (!response.ok) throw new ApiError(response.status);
   return response.json() as Promise<SimulationResult>;
 }
