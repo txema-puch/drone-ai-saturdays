@@ -2,7 +2,31 @@
 
 from __future__ import annotations
 
+import base64
+import hashlib
 from collections import defaultdict
+from collections.abc import Callable
+
+
+DigestFunction = Callable[[bytes], bytes]
+
+
+def _sha256(data: bytes) -> bytes:
+    return hashlib.sha256(data).digest()
+
+
+def case_identity(
+    segment_id: str,
+    *,
+    digest_fn: DigestFunction = _sha256,
+) -> tuple[str, str]:
+    """Return the schema-v2 machine and analyst identities for one segment."""
+    digest = digest_fn(segment_id.encode("utf-8"))
+    if len(digest) < 10:
+        raise ValueError("case identity digest must contain at least 10 bytes")
+    case_id = "c_" + base64.b32encode(digest[:10]).decode("ascii").lower().rstrip("=")
+    case_ref = "CASE-" + base64.b32encode(digest[:8]).decode("ascii").rstrip("=")
+    return case_id, case_ref
 
 
 def operation_key(segment_id: str) -> str:
@@ -14,17 +38,36 @@ def operation_ref(segment_id: str) -> str:
     return f"OP-{operation_key(segment_id).upper().replace('_', '-')}"
 
 
-def annotate_segment_refs(rows: list[dict]) -> list[dict]:
-    """Bake stable analyst references without depending on queue position."""
-    return [
-        {
-            **row,
+def annotate_segment_refs(
+    rows: list[dict],
+    *,
+    digest_fn: DigestFunction = _sha256,
+) -> list[dict]:
+    """Bake stable case identities and abort if either identifier collides."""
+    annotated: list[dict] = []
+    seen_case_ids: dict[str, str] = {}
+    seen_case_refs: dict[str, str] = {}
+    for row in rows:
+        segment_id = row["segment_id"]
+        case_id, case_ref = case_identity(segment_id, digest_fn=digest_fn)
+        for identifier, seen in ((case_id, seen_case_ids), (case_ref, seen_case_refs)):
+            if identifier in seen:
+                prior_segment = seen[identifier]
+                raise ValueError(
+                    f"case identity collision for {identifier}: "
+                    f"{prior_segment!r} and {segment_id!r}"
+                )
+            seen[identifier] = segment_id
+
+        stable_row = {key: value for key, value in row.items() if key != "id"}
+        annotated.append({
+            **stable_row,
+            "case_id": case_id,
+            "case_ref": case_ref,
             "band": row.get("band", severity_band(float(row["pct"]))),
-            "case_ref": f"CASE-{int(row['id']):04d}",
-            "operation_ref": operation_ref(row["segment_id"]),
-        }
-        for row in rows
-    ]
+            "operation_ref": operation_ref(segment_id),
+        })
+    return annotated
 
 
 def severity_band(pct: float) -> str:
@@ -65,9 +108,9 @@ def build_operation_summaries(rows: list[dict]) -> list[dict]:
             "worst_score": worst["score"],
             "worst_pct": worst["pct"],
             "worst_band": severity_band(worst["pct"]),
+            "worst_case_id": worst["case_id"],
             "worst_case_ref": worst["case_ref"],
             "worst_segment_id": worst["segment_id"],
-            "worst_segment_id_num": worst["id"],
             "labels_seen": sorted({row["label"] for row in segments}),
             "has_confirmed_event": any(row["label"] != "normal" for row in segments),
             "has_model_flag_unlabeled": any(
@@ -93,8 +136,8 @@ def build_operation_summaries(rows: list[dict]) -> list[dict]:
             "behavioral_worst_case_ref": (
                 behavioral_worst["case_ref"] if behavioral_worst else None
             ),
-            "behavioral_worst_segment_id_num": (
-                behavioral_worst["id"] if behavioral_worst else None
+            "behavioral_worst_case_id": (
+                behavioral_worst["case_id"] if behavioral_worst else None
             ),
             "terminal_segment_count": terminal_count,
             "truncated_segment_count": truncated_count,

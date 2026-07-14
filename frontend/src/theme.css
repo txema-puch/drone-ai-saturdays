@@ -53,6 +53,52 @@ body,
   margin: 0;
 }
 
+.app-shell {
+  min-height: 100%;
+}
+.app-nav {
+  height: 54px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 0 28px;
+  border-bottom: 1px solid var(--edge);
+  background: var(--bg);
+}
+.app-nav .app-brand {
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: .1em;
+}
+.app-brand span {
+  color: var(--mut);
+  font-weight: 400;
+}
+.app-nav nav {
+  display: flex;
+  align-items: stretch;
+  align-self: stretch;
+  gap: 22px;
+}
+.app-nav nav a {
+  display: flex;
+  align-items: center;
+  border-bottom: 2px solid transparent;
+  color: var(--mut);
+  font-size: 13px;
+}
+.app-nav nav a:hover,
+.app-nav nav a.active {
+  color: var(--ink);
+  border-bottom-color: var(--accent);
+}
+.app-content {
+  min-height: calc(100vh - 54px);
+}
+
 html {
   color-scheme: dark;
 }

@@ -14,6 +14,18 @@ from backend.core.geo import haversine_dist
 MIN_OBSERVED_STEPS = 30
 MAX_IMPLIED_VERTICAL_RATE_MPS = 50.0
 MAX_IMPLIED_GROUND_SPEED_MPS = 400.0
+TERMINAL_DISTANCE_M = 5_000.0
+TERMINAL_ALTITUDE_M = 1_500.0
+
+
+def is_terminal_window(segment: pd.DataFrame, *, window_length: int) -> bool:
+    """Whether the scored window contains a low-and-close LEMD observation."""
+    window = segment.sort_values("time").head(window_length)
+    if window.empty:
+        return False
+    distance = window["dist_to_runway_m"].to_numpy(dtype="float64")
+    altitude = window["baroaltitude"].to_numpy(dtype="float64")
+    return bool(((distance < TERMINAL_DISTANCE_M) & (altitude < TERMINAL_ALTITUDE_M)).any())
 
 
 def assess_segment(

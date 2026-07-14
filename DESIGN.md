@@ -102,7 +102,8 @@ First-screen hierarchy:
 1. **Orientation:** `Evaluate new data` plus frozen release/model identity.
 2. **Trust boundary:** compact, always-visible notice that processing is ephemeral, the public
    demo is unauthenticated, and confidential/proprietary uploads are prohibited.
-3. **Action:** one visible file selector/drop target with CSV/Parquet, 10 MiB, 50,000-row, and
+3. **Action:** one visible file selector/drop target with CSV/Parquet, 10 MiB, 50,000-raw-row,
+   100,000-resampled-row, and
    25-segment limits; adjacent links download the exact schema and synthetic sample.
 
 After success, the action area contracts but remains available for replacement. The results

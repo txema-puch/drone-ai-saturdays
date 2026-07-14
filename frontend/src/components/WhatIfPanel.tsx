@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 
-import { hasApiStatus, simulate, type SimulationResult } from "../api";
+import { hasApiCode, hasApiStatus, simulate, type SimulationResult } from "../api";
 
 /** Our inject vocabulary (D-012). zone_violation is out-of-remit for the shipped
  *  detector but remains a valid sandbox injectable. */
@@ -12,14 +12,14 @@ const KINDS = [
   "zone_violation",
 ] as const;
 
-type Status = "idle" | "pending" | "timeout" | "busy" | "error";
+type Status = "idle" | "pending" | "timeout" | "busy" | "preparing" | "error";
 
 export const SIMULATION_TIMEOUT_MS = 45_000;
 export const SIMULATION_TIMEOUT_SECONDS = SIMULATION_TIMEOUT_MS / 1_000;
 const SIMULATION_TIMEOUT = Symbol("simulation timeout");
 
 interface Props {
-  flightId: number;
+  caseId: string;
   active: boolean;
   onResult: (r: SimulationResult) => void;
   onClear: () => void;
@@ -30,7 +30,7 @@ interface Props {
  *  intensity interpolates clean → the full calibrated anomaly. Reframed from SADAR's
  *  "detection latency" to "where in the segment does it diverge." A sandbox — the result
  *  overlays on the charts and never edits the stored case. */
-export default function WhatIfPanel({ flightId, active, onResult, onClear }: Props) {
+export default function WhatIfPanel({ caseId, active, onResult, onClear }: Props) {
   const [kind, setKind] = useState<string>(KINDS[0]);
   const [intensity, setIntensity] = useState(100);
   const [onset, setOnset] = useState(50);
@@ -45,7 +45,7 @@ export default function WhatIfPanel({ flightId, active, onResult, onClear }: Pro
       activeController.current?.abort();
       activeController.current = null;
     };
-  }, [flightId]);
+  }, [caseId]);
 
   async function run() {
     const requestId = ++requestGeneration.current;
@@ -67,18 +67,19 @@ export default function WhatIfPanel({ flightId, active, onResult, onClear }: Pro
       });
       const r = await Promise.race([
         simulate(
-          { id: flightId, kind, intensity: intensity / 100, onset: onset / 100 },
+          { case_id: caseId, kind, intensity: intensity / 100, onset: onset / 100 },
           controller.signal,
         ),
         timeout,
       ]);
-      if (requestId !== requestGeneration.current || r.id !== flightId) return;
+      if (requestId !== requestGeneration.current || r.case_id !== caseId) return;
       setStatus("idle");
       onResult(r);
     } catch (error) {
       if (requestId !== requestGeneration.current) return;
       if (error === SIMULATION_TIMEOUT) setStatus("timeout");
-      else if (hasApiStatus(error, 409)) setStatus("busy");
+      else if (hasApiStatus(error, 429) || hasApiStatus(error, 409)) setStatus("busy");
+      else if (hasApiStatus(error, 503) && hasApiCode(error, "model_not_ready")) setStatus("preparing");
       else if (!(error instanceof DOMException && error.name === "AbortError")) setStatus("error");
     } finally {
       if (timeoutId != null) window.clearTimeout(timeoutId);
@@ -151,7 +152,7 @@ export default function WhatIfPanel({ flightId, active, onResult, onClear }: Pro
         >
           {status === "pending"
             ? "RE-SCORING…"
-            : status === "timeout" || status === "busy" || status === "error"
+            : status === "timeout" || status === "busy" || status === "preparing" || status === "error"
               ? "RETRY RE-SCORE →"
               : "RE-SCORE PERTURBED SEGMENT →"}
         </button>
@@ -172,6 +173,8 @@ export default function WhatIfPanel({ flightId, active, onResult, onClear }: Pro
             ? `The demo model did not finish loading within ${SIMULATION_TIMEOUT_SECONDS} seconds. Retry once; its first load may have completed in the background.`
             : status === "busy"
               ? "A re-score is still running on the demo server. Wait a moment, then retry."
+            : status === "preparing"
+              ? "The frozen model is preparing on the demo server. Wait a moment, then retry."
             : status === "error"
               ? "The re-score request failed. Check that the audit service is running, then retry."
               : "What-if only. Injects a synthetic anomaly into this real segment and re-scores it against the same frozen model — the perturbed track + error overlay the charts above (magenta). For understanding the detector, not a live alert."}

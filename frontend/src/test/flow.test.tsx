@@ -25,8 +25,8 @@ const HEALTH: api.Health = {
 };
 
 const FLIGHT: api.FlightSummary = {
-  id: 4238,
-  case_ref: "CASE-4238",
+  case_id: "c_c2bwwjgaxbqg43kb",
+  case_ref: "CASE-C2BWWJGAXBQG4",
   operation_ref: "OP-502CE6-1543855510",
   segment_id: "502ce6_1543855510#1",
   score: 1.94,
@@ -56,9 +56,9 @@ const OPERATION: api.OperationSummary = {
   worst_score: FLIGHT.score,
   worst_pct: FLIGHT.pct,
   worst_band: FLIGHT.band,
+  worst_case_id: FLIGHT.case_id,
   worst_case_ref: FLIGHT.case_ref,
   worst_segment_id: FLIGHT.segment_id,
-  worst_segment_id_num: FLIGHT.id,
   worst_has_case: true,
   labels_seen: [FLIGHT.label],
   has_confirmed_event: true,
@@ -76,13 +76,13 @@ const OPERATION: api.OperationSummary = {
   behavioral_worst_score: FLIGHT.score,
   behavioral_worst_pct: FLIGHT.pct,
   behavioral_worst_band: FLIGHT.band,
+  behavioral_worst_case_id: FLIGHT.case_id,
   behavioral_worst_case_ref: FLIGHT.case_ref,
-  behavioral_worst_segment_id_num: FLIGHT.id,
   segments: [FLIGHT],
 };
 
 const DETAIL: api.FlightDetail = {
-  id: 4238,
+  case_id: FLIGHT.case_id,
   case_ref: FLIGHT.case_ref,
   operation_ref: FLIGHT.operation_ref,
   segment_id: "502ce6_1543855510#1",
@@ -151,12 +151,27 @@ function renderApp() {
 }
 
 describe("queue → operation → case flow", () => {
+  it("shows persistent evaluation navigation only when the deployment enables it", async () => {
+    vi.mocked(api.getHealth).mockResolvedValue({
+      ...HEALTH,
+      evaluation_enabled: true,
+      model_state: "ready",
+      model_retry_remaining: 1,
+      release_id: "release-123",
+      model_id: "lstm-ae",
+    });
+    renderApp();
+    const link = await screen.findByRole("link", { name: "Evaluate data" });
+    await userEvent.click(link);
+    expect(await screen.findByRole("heading", { name: "Evaluate new data" })).toBeInTheDocument();
+  });
+
   it("opens the operation before drilling into its segment case", async () => {
     renderApp();
     const row = await screen.findByRole("button", { name: "Open operation OP-502CE6-1543855510" });
     await userEvent.click(row);
     expect(await screen.findByText("Operation review")).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: "Open CASE-4238 segment case file" }));
+    await userEvent.click(screen.getByRole("button", { name: "Open CASE-C2BWWJGAXBQG4 segment case file" }));
     expect(await screen.findByText("Segment conformance review")).toBeInTheDocument();
     expect(screen.getByText(/100th percentile/)).toBeInTheDocument();
   });

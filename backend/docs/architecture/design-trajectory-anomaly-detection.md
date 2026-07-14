@@ -242,7 +242,7 @@ Layer 1 remains conceptual/future integration unless an actual registry or fligh
 wired into the deployed product.
 
 The public course deployment is anonymous and has no server-side history. Evaluation is disabled
-by default, accepts at most 10 MiB / 50,000 rows / 25 accepted segments, serializes heavyweight
+by default, accepts at most 10 MiB / 50,000 raw rows / 100,000 projected grid rows / 25 accepted segments, serializes heavyweight
 analysis with What-If, deletes temporary bytes, and warns users not to upload confidential or
 proprietary data. See `/DESIGN.md` for interaction/state rules and
 `backend/docs/designs/31-task-sadar-release-hardening.md` for the release/API/test contract.

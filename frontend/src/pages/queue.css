@@ -2,7 +2,7 @@
 
 .q-wrap {
   display: flex;
-  height: 100vh;
+  height: calc(100vh - 54px);
 }
 
 /* left meta column */

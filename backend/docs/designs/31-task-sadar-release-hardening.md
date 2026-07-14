@@ -1,6 +1,6 @@
 # Issue #31 — SADAR application release hardening
 
-**Status:** reviewed and implementation-ready
+**Status:** implementation complete through the pre-publication gate; external publication and deployment pending
 **Date:** 2026-07-14
 **Branch:** `task-sadar-merge-c`
 **Scope:** close the release blockers and make frozen-model evaluation a first-class analyst workflow
@@ -352,6 +352,7 @@ The boundary is deliberately small and measurable:
 | Multipart request body | 10 MiB, counted while streaming rather than trusting `Content-Length` |
 | Upload time | 5 s maximum idle gap and 60 s total body-read deadline; timeout returns 408 |
 | Raw rows | 50,000 before derivation |
+| Projected preprocessing | 100 segments and 100,000 ten-second grid rows before resampling allocation |
 | Accepted post-preprocess segments | 25; reject the upload rather than silently truncate |
 | CSV | UTF-8, comma-delimited, one header row, no duplicate columns |
 | Parquet | one flat schema, metadata inspected before materialization, ≤50 MiB declared uncompressed bytes |
@@ -1044,25 +1045,25 @@ Conflict flags:
 
 ## Implementation tasks
 
-- [ ] **T1 (P1, human: ~1 day / CC: ~45 min)** — Identity — replace positional IDs with the
+- [x] **T1 (P1, human: ~1 day / CC: ~45 min)** — Identity — replace positional IDs with the
   exact schema-v2 `case_id`/`case_ref` contract across bake, API, UI, docs, fixtures, and tests.
   - Surfaced by: architecture — numeric IDs currently derive from cohort position.
   - Files: `backend/serve/`, `backend/tests/`, `frontend/src/`.
   - Verify: known vectors, reorder/extension/correction cases, route flow, and collision abort.
-- [ ] **T2 (P1, human: ~1.5 days / CC: ~60 min)** — Release — add the standard-library
+- [x] **T2 (P1, human: ~1.5 days / CC: ~60 min)** — Release — add the standard-library
   manifest core, immutable staging, full referential validation, atomic promotion, cleanup, and
   deterministic archive packaging.
   - Surfaced by: architecture — current precompute writes one mutable ignored directory.
   - Files: `backend/serve/release.py`, `backend/serve/release_semantics.py`, precompute, release tests.
   - Verify: corruption matrix, interrupted promotion, duplicate IDs, deterministic bytes.
-- [ ] **T3 (P1, human: ~1 day / CC: ~45 min)** — Model artifacts — export tensor-only weights,
+- [x] **T3 (P1, human: ~1 day / CC: ~45 min)** — Model artifacts — export tensor-only weights,
   JSON scaler, enforced online-transform versions, and full-precision cohort-reference contracts;
   reject pickle objects and model/scaler/statistical-reference drift.
   - Surfaced by: security/code quality — `weights_only` did not remove `scaler.joblib` risk.
   - Files: `backend/serve/model_artifacts.py`, precompute, scoring, model-artifact tests.
   - Verify: checkpoint object rejection, tensor metadata, scaler parity, transform-version
     mismatch, cohort digest/count/formula, and invalid-number cases.
-- [ ] **T4 (P1, human: ~0.5 day / CC: ~30 min)** — Reports — bind cached prose to canonical
+- [x] **T4 (P1, human: ~0.5 day / CC: ~30 min)** — Reports — bind cached prose to canonical
   evidence, prompt, and generator digests before the schema-v2 bake.
   - Surfaced by: architecture — a report must prove it belongs to the shipped evidence.
   - Files: `backend/serve/report.py`, precompute, report tests.
@@ -1072,19 +1073,21 @@ Conflict flags:
   - Surfaced by: distribution — ignored serving data is unavailable to a clean checkout.
   - Files: `backend/scripts/`, `backend/serve/demo_bundle.lock.json`, publisher tests.
   - Verify: dirty tree, failed upload/redownload, immutable revision, unchanged prior lock.
-- [ ] **T6 (P1, human: ~1 day / CC: ~60 min)** — Delivery — replace the legacy Dockerfile
+  - Status 2026-07-14: publisher/fetcher and transaction tests are complete; the real public
+    artifact has not been uploaded and `demo_bundle.lock.json` is intentionally absent.
+- [x] **T6 (P1, human: ~1 day / CC: ~60 min)** — Delivery — replace the legacy Dockerfile
   with a digest-pinned, non-root `linux/amd64` multi-stage image and tracked serving-only lock.
   - Surfaced by: architecture/performance — current image starts `main:app` and ships no SPA.
   - Files: root `Dockerfile`, `.dockerignore`, serving requirement locks, FastAPI static routes.
   - Verify: UID 1000, port 7860, image/lock budgets, same-origin SPA and JSON API 404.
-- [ ] **T7 (P1, human: ~0.5 day / CC: ~30 min)** — Model lifecycle — preserve
+- [x] **T7 (P1, human: ~0.5 day / CC: ~30 min)** — Model lifecycle — preserve
   non-blocking preparation and expose `not_loaded/loading/ready/failed`, one retry, shared
   analysis admission, 429 busy, and visible frontend recovery states.
   - Surfaced by: performance/prior learning — first model load may outlive the browser timeout.
   - Files: `backend/serve/model_runtime.py`, `backend/serve/app.py`, What-If UI, related tests.
   - Verify: prepare idempotency, capability disabled/enabled states, client timeout continuation,
     health transitions, shared busy retry header, terminal failure.
-- [ ] **T8 (P1, human: ~1.5 days / CC: ~75 min)** — Evaluation backend — add bounded
+- [x] **T8 (P1, human: ~1.5 days / CC: ~75 min)** — Evaluation backend — add bounded
   multipart CSV/Parquet parsing, raw normalization, exact online preprocessing, shared complete
   scoring, deterministic evaluation references, provenance, and ephemeral cleanup.
   - Surfaced by: product/architecture — the model currently re-scores baked cases only.
@@ -1093,7 +1096,7 @@ Conflict flags:
   - Verify: format/schema/null/boolean/duplicate/deadline matrix, canonical digest,
     baked-vs-upload score/percentile/terminal-quality parity, upload-only DTO/allowlist,
     no persistence/log/error leakage, and resource caps.
-- [ ] **T9 (P1, human: ~1 day / CC: ~60 min)** — Evaluation UI — add `/evaluate`, model
+- [x] **T9 (P1, human: ~1 day / CC: ~60 min)** — Evaluation UI — add `/evaluate`, model
   preparation/readiness, accessible file workflow, rejection summary, multi-segment dossier,
   shared structured-error decoding, cohort/privacy/product caveats, sample/template onboarding,
   abort/stale protection, clear action, and client-side JSON export.
@@ -1108,6 +1111,8 @@ Conflict flags:
   - Surfaced by: test review — unit suites do not prove the distributed application works.
   - Files: `.github/`, container smoke scripts, backend/frontend tests.
   - Verify: every path in the 100+ coverage diagram plus the eleven performance/size gates.
+  - Status 2026-07-14: CI, smoke, latency, response-size, RSS, compressed-image, and cleanup
+    gates are implemented; final `linux/amd64` execution awaits T5 and a Docker runner.
 - [ ] **T11 (P1, human: ~0.5 day / CC: ~30 min)** — Release — deploy the pinned inputs to the
   Space, run live desktop visual QA, record rollback evidence, reconcile Issue #31, and notify
   `devrup`.
@@ -1118,37 +1123,37 @@ Conflict flags:
 
 ## Definition of done
 
-- [ ] Stable case IDs pass reorder and extension tests.
-- [ ] Documentation states that corrected/resegmented telemetry creates a new case identity.
-- [ ] Release builder cannot expose a partial or mixed generation.
-- [ ] Every shipped file is hash-verified against schema v2 manifest metadata.
-- [ ] Runtime loads no unrestricted model or scaler pickle.
+- [x] Stable case IDs pass reorder and extension tests.
+- [x] Documentation states that corrected/resegmented telemetry creates a new case identity.
+- [x] Release builder cannot expose a partial or mixed generation.
+- [x] Every shipped file is hash-verified against schema v2 manifest metadata.
+- [x] Runtime loads no unrestricted model or scaler pickle.
 - [ ] Clean checkout backend test collection does not require local ignored files.
 - [ ] Clean checkout Docker build needs no untracked local input.
-- [ ] Serving-only Linux dependency lock regenerates with no diff in CI.
+- [x] Serving-only Linux dependency lock regenerates with no diff in CI.
 - [ ] Container smoke checks UID/platform, token absence, health, deep SPA routing, API 404,
   case response, and zero-intensity parity.
-- [ ] `/api/health` exposes deployed release/schema identity and the four-state model status.
-- [ ] Public simulation returns 429 while busy and never queues unbounded work.
-- [ ] `/api/model/prepare` is non-blocking/idempotent and simulation/evaluation share one bounded
+- [x] `/api/health` exposes deployed release/schema identity and the four-state model status.
+- [x] Public simulation returns 429 while busy and never queues unbounded work.
+- [x] `/api/model/prepare` is non-blocking/idempotent and simulation/evaluation share one bounded
   analysis slot.
-- [ ] CSV and Parquet upload limits are enforced on streamed bytes, metadata, rows, schema, and
+- [x] CSV and Parquet upload limits are enforced on streamed bytes, metadata, rows, schema, and
   accepted segments before unbounded materialization or scoring.
-- [ ] Uploaded raw observations pass through the exact core derivation/preprocessing contract;
+- [x] Uploaded raw observations pass through the exact core derivation/preprocessing contract;
   client-derived columns are ignored.
-- [ ] Runtime rejects a release whose input/derivation/preprocessing versions or full-precision
+- [x] Runtime rejects a release whose input/derivation/preprocessing versions or full-precision
   cohort statistical reference do not match the image/model contract.
-- [ ] Exact duplicates are counted/collapsed, conflicting timestamp observations are rejected,
+- [x] Exact duplicates are counted/collapsed, conflicting timestamp observations are rejected,
   and canonical dataset/evaluation references ignore row order and CSV/Parquet container format.
 - [ ] Baked-vs-upload parity proves one segment receives the same score, reconstruction,
   attribution, terminal quality assessment, inclusive weak-ECDF percentile, and thresholds.
-- [ ] `/evaluate` handles readiness, upload, rejection reasons, multiple results, JSON export,
+- [x] `/evaluate` handles readiness, upload, rejection reasons, multiple results, JSON export,
   shared structured errors, sample/template onboarding, abort/replacement, clear, and ephemeral
   refresh states accessibly without fake progress percentages.
 - [ ] Uploads never mutate release/queue/cases/reports and leave no temp file or server-side result.
-- [ ] `EvaluationResult` and its serializer contain no ground-truth label, case/operation/report
+- [x] `EvaluationResult` and its serializer contain no ground-truth label, case/operation/report
   fields, or non-allowlisted raw payload; UI/export make no authorization/drone/incident claim.
-- [ ] Public-demo copy rejects the expectation of private handling and warns not to upload
+- [x] Public-demo copy rejects the expectation of private handling and warns not to upload
   confidential/proprietary data; evaluation is fail-closed behind its deployment capability.
 - [ ] Eleven performance/size gates pass in the final `linux/amd64` image.
 - [ ] Hugging Face Space is live and visually approved on desktop.

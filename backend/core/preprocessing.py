@@ -421,7 +421,11 @@ def to_sequences_loss_mask(clean_df: pd.DataFrame, T: int):
 
 # ── Step 15: orchestration ────────────────────────────────────────────────────
 
-def preprocess(raw_df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
+def preprocess(
+    raw_df: pd.DataFrame,
+    *,
+    diagnostics: dict[str, int] | None = None,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Run the unfitted Phase-3 pipeline (steps 1–12) on a raw cycle-3 frame.
 
     Returns `(clean_df, meta)`:
@@ -434,24 +438,43 @@ def preprocess(raw_df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
 
     Never splits, never fits. The scaler fit, `T`, and the split are Phase 6.
     """
+    if diagnostics is not None:
+        diagnostics["input_rows"] = int(len(raw_df))
     df = sort_and_dedupe(raw_df)
+    if diagnostics is not None:
+        diagnostics["deduplicated_rows"] = int(len(raw_df) - len(df))
     df = segment(df)
+    before_filter_d = set(df["segment_id"].astype(str))
     df = filter_d(df)
+    if diagnostics is not None:
+        after_filter_d = set(df["segment_id"].astype(str))
+        diagnostics["filter_d_segments"] = len(before_filter_d - after_filter_d)
     if df.empty:
         return _empty_clean(), _empty_meta()
 
     df = compute_speed(df)
+    before_trim = set(df["segment_id"].astype(str))
     df = trim_idle(df)
+    if diagnostics is not None:
+        after_trim = set(df["segment_id"].astype(str))
+        diagnostics["idle_segments"] = len(before_trim - after_trim)
     if df.empty:
         return _empty_clean(), _empty_meta()
 
     df, impossible_cells = flag_kinematic_impossibility(df)
     counters = compute_counters(df, impossible_cells)          # per-segment, pre-interpolate
+    if diagnostics is not None:
+        diagnostics["impossible_observations"] = int(counters["n_imputed_impossible"].sum())
+        diagnostics["missing_observations"] = int(counters["n_imputed_missing"].sum())
     emergency = _segment_is_emergency(df)                       # per-segment, pre-resample
 
     df = df.drop(columns=[c for c in ("_speed",) if c in df.columns])
     df = resample_to_grid(df)
+    before_length = set(df["segment_id"].astype(str))
     df = filter_min_length(df)
+    if diagnostics is not None:
+        after_length = set(df["segment_id"].astype(str))
+        diagnostics["short_segments"] = len(before_length - after_length)
     if df.empty:
         return _empty_clean(), _empty_meta()
 
@@ -473,6 +496,9 @@ def preprocess(raw_df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
     clean_df = df[clean_cols].copy()
 
     _assert_clean(clean_df)
+    if diagnostics is not None:
+        diagnostics["output_rows"] = int(len(clean_df))
+        diagnostics["output_segments"] = int(clean_df["segment_id"].nunique())
     return clean_df, meta
 
 

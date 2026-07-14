@@ -12,8 +12,8 @@ vi.mock("../api", async (importOriginal) => {
 });
 
 const DETAIL: api.FlightDetail = {
-  id: 4238,
-  case_ref: "CASE-4238",
+  case_id: "c_c2bwwjgaxbqg43kb",
+  case_ref: "CASE-C2BWWJGAXBQG4",
   operation_ref: "OP-502CE6-1543855510",
   segment_id: "502ce6_1543855510#1",
   label: "go_around",
@@ -64,13 +64,13 @@ const DETAIL: api.FlightDetail = {
   center: { lat: 40.4936, lon: -3.5668 },
   step_seconds: 10,
   operation_segments: [
-    { id: 4238, case_ref: "CASE-4238", operation_ref: "OP-502CE6-1543855510", segment_id: "502ce6_1543855510#1", score: 1.2, pct: 99, band: "highly anomalous", anomalous: true, label: "go_around", has_case: true, n_steps: 3, truncated: false, terminal_op: true, assessment_state: "reviewable", behavioral_verdict: "reviewable", review_lane: "behavioral", data_quality_flags: [], valid_steps: 3, observed_fraction: 1, max_altitude_jump_m: 100, max_implied_vertical_rate_mps: 10, max_implied_ground_speed_mps: 100 },
-    { id: 4239, case_ref: "CASE-4239", operation_ref: "OP-502CE6-1543855510", segment_id: "502ce6_1543855510#2", score: 0.18, pct: 70, band: "upper-normal", anomalous: false, label: "normal", has_case: true, n_steps: 3, truncated: false, terminal_op: true, assessment_state: "reviewable", behavioral_verdict: "reviewable", review_lane: "behavioral", data_quality_flags: [], valid_steps: 3, observed_fraction: 1, max_altitude_jump_m: 100, max_implied_vertical_rate_mps: 10, max_implied_ground_speed_mps: 100 },
+    { case_id: "c_c2bwwjgaxbqg43kb", case_ref: "CASE-C2BWWJGAXBQG4", operation_ref: "OP-502CE6-1543855510", segment_id: "502ce6_1543855510#1", score: 1.2, pct: 99, band: "highly anomalous", anomalous: true, label: "go_around", has_case: true, n_steps: 3, truncated: false, terminal_op: true, assessment_state: "reviewable", behavioral_verdict: "reviewable", review_lane: "behavioral", data_quality_flags: [], valid_steps: 3, observed_fraction: 1, max_altitude_jump_m: 100, max_implied_vertical_rate_mps: 10, max_implied_ground_speed_mps: 100 },
+    { case_id: "c_26fr5zzkc52t2iax", case_ref: "CASE-26FR5ZZKC52T2", operation_ref: "OP-502CE6-1543855510", segment_id: "502ce6_1543855510#2", score: 0.18, pct: 70, band: "upper-normal", anomalous: false, label: "normal", has_case: true, n_steps: 3, truncated: false, terminal_op: true, assessment_state: "reviewable", behavioral_verdict: "reviewable", review_lane: "behavioral", data_quality_flags: [], valid_steps: 3, observed_fraction: 1, max_altitude_jump_m: 100, max_implied_vertical_rate_mps: 10, max_implied_ground_speed_mps: 100 },
   ],
 };
 
 const SIM: api.SimulationResult = {
-  id: 4238,
+  case_id: "c_c2bwwjgaxbqg43kb",
   segment_id: "502ce6_1543855510#1",
   kind: "sustained_loiter",
   intensity: 1,
@@ -105,10 +105,10 @@ afterEach(() => vi.clearAllMocks());
 
 function renderCase() {
   return render(
-    <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }} initialEntries={["/case/4238"]}>
+    <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }} initialEntries={["/case/c_c2bwwjgaxbqg43kb"]}>
       <Routes>
         <Route path="/" element={<div>QUEUE LANDING</div>} />
-        <Route path="/case/:id" element={<CaseFile />} />
+        <Route path="/case/:caseId" element={<CaseFile />} />
       </Routes>
     </MemoryRouter>,
   );
@@ -126,8 +126,8 @@ describe("CaseFile", () => {
   it("shows neighboring scored segments from the same operation", async () => {
     renderCase();
     expect(await screen.findByText(/Operation context · OP-502CE6-1543855510/)).toBeInTheDocument();
-    expect(screen.getByText("CASE-4238")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /CASE-4239/ })).toBeInTheDocument();
+    expect(screen.getByText("CASE-C2BWWJGAXBQG4")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /CASE-26FR5ZZKC52T2/ })).toBeInTheDocument();
     expect(screen.getByText(/Each score remains independent/)).toBeInTheDocument();
   });
 
@@ -169,12 +169,12 @@ describe("CaseFile", () => {
 
   it("clears a completed what-if when navigating to another case", async () => {
     vi.mocked(api.simulate).mockResolvedValue(SIM);
-    vi.mocked(api.getFlight).mockImplementation((id) => Promise.resolve(
-      id === 4239
+    vi.mocked(api.getFlight).mockImplementation((caseId) => Promise.resolve(
+      caseId === "c_26fr5zzkc52t2iax"
         ? {
             ...DETAIL,
-            id: 4239,
-            case_ref: "CASE-4239",
+            case_id: "c_26fr5zzkc52t2iax",
+            case_ref: "CASE-26FR5ZZKC52T2",
             segment_id: "502ce6_1543855510#2",
             window_score: 0.18,
           }
@@ -185,9 +185,9 @@ describe("CaseFile", () => {
     await userEvent.click(screen.getByRole("button", { name: /RE-SCORE PERTURBED SEGMENT/ }));
     expect(await screen.findByText(/what-if sustained loiter:/)).toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole("button", { name: /CASE-4239/ }));
+    await userEvent.click(screen.getByRole("button", { name: /CASE-26FR5ZZKC52T2/ }));
 
-    await waitFor(() => expect(api.getFlight).toHaveBeenLastCalledWith(4239, expect.any(AbortSignal)));
+    await waitFor(() => expect(api.getFlight).toHaveBeenLastCalledWith("c_26fr5zzkc52t2iax", expect.any(AbortSignal)));
     await waitFor(() => expect(screen.queryByText(/what-if sustained loiter:/)).not.toBeInTheDocument());
   });
 

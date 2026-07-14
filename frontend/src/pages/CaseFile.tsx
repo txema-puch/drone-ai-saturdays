@@ -12,7 +12,7 @@ import { CHANNELS, parseEpoch, pctColor, scoreColor } from "../lib/format";
 import "./case.css";
 
 export default function CaseFile() {
-  const { id } = useParams();
+  const { caseId = "" } = useParams();
   const navigate = useNavigate();
   const [detail, setDetail] = useState<FlightDetail | null>(null);
   const [error, setError] = useState<"none" | "missing" | "down">("none");
@@ -28,14 +28,14 @@ export default function CaseFile() {
     setError("none");
     setScrubIndex(null);
     setSim(null);
-    getFlight(Number(id), ctrl.signal)
+    getFlight(caseId, ctrl.signal)
       .then(setDetail)
       .catch((e) => {
         if (e?.name === "AbortError") return;
         setError(hasApiStatus(e, 404) ? "missing" : "down");
       });
     return () => ctrl.abort();
-  }, [id]);
+  }, [caseId]);
 
   // Esc returns to the queue (DESIGN.md keyboard nav).
   useEffect(() => {
@@ -130,13 +130,13 @@ export default function CaseFile() {
         </div>
         <div className="cf-neighbors" aria-label="Segments in this operation">
           {detail.operation_segments.map((segment) => {
-            const current = segment.id === detail.id;
+            const current = segment.case_id === detail.case_id;
             const segmentNumber = segment.segment_id.split("#")[1] ?? segment.segment_id;
             const content = <><b>{segment.case_ref}</b><span>{segmentNumber} · RE {segment.score.toFixed(2)} · {segment.label.replace("_", "-")}</span></>;
             return segment.has_case && !current ? (
-              <button key={segment.id} onClick={() => navigate(`/case/${segment.id}`)}>{content}</button>
+              <button key={segment.case_id} onClick={() => navigate(`/case/${segment.case_id}`)}>{content}</button>
             ) : (
-              <div key={segment.id} className={current ? "current" : ""} aria-current={current ? "page" : undefined}>{content}</div>
+              <div key={segment.case_id} className={current ? "current" : ""} aria-current={current ? "page" : undefined}>{content}</div>
             );
           })}
         </div>
@@ -268,7 +268,7 @@ export default function CaseFile() {
         <div className="card">
           <h2>Analyst what-if · perturb &amp; re-score (sandbox)</h2>
           <WhatIfPanel
-            flightId={detail.id}
+            caseId={detail.case_id}
             active={sim != null}
             onResult={setSim}
             onClear={() => setSim(null)}

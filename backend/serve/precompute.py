@@ -17,13 +17,18 @@ TEST fold (post-hoc audit population) ∪ the held-aside real-anomaly cases (go-
 emergency) so the queue has genuine anomalies to surface.
 
 Run:  cd backend && uv run python -m serve.precompute
-Out:  backend/models/sadar_demo/{queue.json, cases.json, manifest.json}
+Out:  backend/models/sadar_demo/releases/<release_id>/
 """
 from __future__ import annotations
 
+import argparse
+import importlib.metadata
 import json
+import subprocess
 import sys
+from collections.abc import Mapping
 from pathlib import Path
+from typing import Any
 
 import joblib
 import numpy as np
@@ -45,13 +50,30 @@ from backend.serve.scoring import (  # noqa: E402
     per_step_re,
     unscale_block,
 )
+from backend.serve.model_artifacts import (  # noqa: E402
+    ONLINE_INPUT_UNITS,
+    build_model_contract,
+    export_json_scaler,
+    export_tensor_state_dict,
+    weak_ecdf_percentile,
+    write_cohort_score_reference,
+    write_model_contract,
+)
 from backend.serve.operations import (  # noqa: E402
     annotate_segment_refs,
     build_operation_summaries,
+    case_identity,
     operation_ref,
     severity_band,
 )
-from backend.serve.quality import assess_segment  # noqa: E402
+from backend.serve.quality import assess_segment, is_terminal_window  # noqa: E402
+from backend.serve.release import (  # noqa: E402
+    RELEASE_SCHEMA_VERSION,
+    ReleaseStore,
+    sha256_file,
+    write_release_manifest,
+)
+from backend.serve.release_semantics import validate_release_semantics  # noqa: E402
 
 # per-step channels baked alongside each case so the case-file temporal panel can trace
 # any one over time (the attribution panel shows their aggregate contribution; this shows
@@ -59,11 +81,9 @@ from backend.serve.quality import assess_segment  # noqa: E402
 CHANNELS = ["baroaltitude", "velocity", "vertrate", "dist_to_runway_m"]
 
 M = REPO / "backend/models/phase6"
-BURN = M / "phase7_burn_results.json"
 OUT = REPO / "backend/models/sadar_demo"
 T = 260
 AE_THR = 0.222  # val-chosen operating point — frozen, never retuned here
-SEED = 42
 
 # Real-anomaly ROC/PR are the Phase-7 burn's printed head-to-head (held-aside cohort vs
 # 2020-test-normal); the saved burn JSON keeps only the synthetic headline + per-type, so the
@@ -79,6 +99,75 @@ REAL_RESULTS = {
 # case files cover all real anomalies + the most-anomalous normals + a typical sample.
 N_TOP_NORMAL = 40
 N_TYPICAL = 20
+
+ONLINE_INPUT_CONTRACT = {
+    "input_schema_version": "opensky_raw_v1",
+    "derivation_contract_version": "derivations_v1",
+    "preprocessing_contract_version": "preprocessing_v1",
+    "units": ONLINE_INPUT_UNITS,
+}
+
+
+def _git_commit() -> str:
+    """Return the source commit without introducing a volatile build field."""
+    try:
+        return subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=REPO,
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+    except (OSError, subprocess.CalledProcessError):
+        return "unknown"
+
+
+def _input_record(path: Path) -> dict[str, Any]:
+    digest, size = sha256_file(path)
+    return {"sha256": digest, "bytes": size}
+
+
+def _source_provenance(
+    model_dir: Path,
+    report_cache_path: Path,
+    *,
+    source_commit: str,
+) -> dict[str, Any]:
+    inputs = {
+        name: _input_record(model_dir / name)
+        for name in (
+            "clean_df.parquet",
+            "meta.parquet",
+            "split_ids.json",
+            "scaler.joblib",
+            "lstm_ae_best.pt",
+        )
+    }
+    burn_path = model_dir / "phase7_burn_results.json"
+    if burn_path.exists():
+        inputs[burn_path.name] = _input_record(burn_path)
+    if report_cache_path.exists():
+        inputs["reports_cache.json"] = _input_record(report_cache_path)
+    return {"commit": source_commit, "inputs": inputs}
+
+
+def _producing_versions() -> dict[str, str]:
+    packages = ("numpy", "pandas", "scikit-learn", "torch")
+    return {
+        "python": ".".join(map(str, sys.version_info[:3])),
+        **{package: importlib.metadata.version(package) for package in packages},
+    }
+
+
+def _report_binding_is_valid(case: Mapping[str, Any], threshold: float) -> bool:
+    """Re-run the deterministic report guard over the exact baked evidence."""
+    from backend.serve import report as rpt
+
+    report = case.get("report")
+    return (
+        isinstance(report, str)
+        and rpt.guard_cached_report(report, dict(case), threshold) == report
+    )
 
 
 def select_case_indices(
@@ -116,7 +205,112 @@ def valid_normal_step_scores(
     return np.concatenate(samples) if samples else np.array([], dtype=float)
 
 
-def main() -> None:
+def cohort_percentiles(scores: np.ndarray) -> np.ndarray:
+    """Apply the frozen inclusive weak-ECDF contract to one full-precision cohort."""
+    reference = tuple(sorted(float(score) for score in scores))
+    return np.asarray(
+        [weak_ecdf_percentile(reference, float(score)) for score in scores],
+        dtype="float64",
+    )
+
+
+def build_release_operation_summaries(queue: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Build summaries without reclassifying a rounded display percentile at a band edge."""
+    operations = build_operation_summaries(queue)
+    for operation in operations:
+        by_case_id = {row["case_id"]: row for row in operation["segments"]}
+        operation["worst_band"] = by_case_id[operation["worst_case_id"]]["band"]
+        behavioral_case_id = operation.get("behavioral_worst_case_id")
+        operation["behavioral_worst_band"] = (
+            by_case_id[behavioral_case_id]["band"] if behavioral_case_id is not None else None
+        )
+    return operations
+
+
+def _export_model_release_artifacts(
+    out: Path,
+    *,
+    model: Any,
+    scaler: Any,
+    scores: np.ndarray,
+    scoring_contract: Mapping[str, Any],
+) -> dict[str, Any]:
+    model_out = out / "model"
+    model_out.mkdir(parents=True)
+    tensor_metadata = export_tensor_state_dict(model, model_out / "state_dict.pt")
+    export_json_scaler(scaler, SCALER_FEATURES, model_out / "scaler.json")
+    cohort_reference = write_cohort_score_reference(
+        scores.astype("float64"), model_out / "cohort-score-reference.json"
+    )
+    model_contract = build_model_contract(
+        model_class="LSTMAutoencoder",
+        architecture=model.config,
+        features=AE_FEATURES,
+        scaler_features=SCALER_FEATURES,
+        tensors=tensor_metadata,
+        scoring_contract=scoring_contract,
+        cohort_reference={
+            key: cohort_reference[key]
+            for key in ("count", "digest", "formula_id", "tie_policy")
+        },
+        producing_versions=_producing_versions(),
+    )
+    write_model_contract(model_contract, model_out / "model-contract.json")
+    return model_contract
+
+
+def build_demo_release(
+    *,
+    model_dir: Path = M,
+    store_root: Path = OUT,
+    report_cache_path: Path | None = None,
+    source_commit: str | None = None,
+    keep_failed_staging: bool = False,
+) -> Path:
+    """Bake, semantically validate, and atomically promote one immutable release."""
+    model_dir = Path(model_dir)
+    store_root = Path(store_root)
+    report_cache_path = Path(report_cache_path or (store_root / "reports_cache.json"))
+    source_commit = source_commit or _git_commit()
+    validation_context: dict[str, Any] = {}
+
+    def write_staging(out: Path) -> None:
+        _write_release_staging(
+            out,
+            model_dir=model_dir,
+            report_cache_path=report_cache_path,
+            source_commit=source_commit,
+            validation_context=validation_context,
+        )
+
+    def validate_staging(staging: Path, manifest: Mapping[str, Any]) -> None:
+        validate_release_semantics(
+            staging,
+            manifest,
+            expected_online_contract=ONLINE_INPUT_CONTRACT,
+            training_scaler=validation_context["training_scaler"],
+            scaler_parity_vectors=validation_context["scaler_parity_vectors"],
+            recomputed_scores_by_case_id=validation_context["scores_by_case_id"],
+            report_validator=lambda case: _report_binding_is_valid(case, AE_THR),
+        )
+
+    release_path = ReleaseStore(store_root).build_release(
+        write_staging,
+        semantic_validator=validate_staging,
+        keep_failed_staging=keep_failed_staging,
+    )
+    print(f"saved -> {release_path}")
+    return release_path
+
+
+def _write_release_staging(
+    out: Path,
+    *,
+    model_dir: Path,
+    report_cache_path: Path,
+    source_commit: str,
+    validation_context: dict[str, Any],
+) -> None:
     # build-time only: load .env so report generation sees ANTHROPIC_API_KEY (the SERVE
     # never loads .env — reports are baked here and served static).
     try:
@@ -124,12 +318,13 @@ def main() -> None:
         load_dotenv(REPO / ".env")
     except Exception:
         pass
-    OUT.mkdir(parents=True, exist_ok=True)
-    clean = pd.read_parquet(M / "clean_df.parquet")
-    meta = pd.read_parquet(M / "meta.parquet")
-    ids = json.load(open(M / "split_ids.json"))
-    scaler = joblib.load(M / "scaler.joblib")
-    model = ae.load_checkpoint(str(M / "lstm_ae_best.pt"))
+    clean = pd.read_parquet(model_dir / "clean_df.parquet")
+    meta = pd.read_parquet(model_dir / "meta.parquet")
+    ids = json.loads((model_dir / "split_ids.json").read_text())
+    # Pickle-backed artifacts are trusted build inputs only. The promoted release contains
+    # a strict JSON scaler and tensor-only state dict, never these Python objects.
+    scaler = joblib.load(model_dir / "scaler.joblib")
+    model = ae.load_checkpoint(str(model_dir / "lstm_ae_best.pt"))
 
     # real-anomaly cases held aside from training (go-around ∪ emergency), per the burn
     g = meta.groupby("segment_id").agg(is_ga=("is_go_around", "max"),
@@ -159,25 +354,9 @@ def main() -> None:
     # fragment reads as the tail of a full approach rather than a lonely diagonal.
     clean["_traj"] = clean.segment_id.str.rsplit("#", n=1).str[0]
 
-    # "genuine LEMD terminal operation" flag: within the SCORED window (first T rows) is there
-    # a step that is both LOW and CLOSE to a LEMD runway (on final / on ground / low departure)?
-    # A single conjunctive test that unifies the gate-artifact classes the AE flags but that are
-    # NOT anomalous LEMD behaviour (D-014): truncated long arrivals (approach cut from the
-    # window), neighbour-field traffic (low+close to LECU/LEGT/LETO, not LEMD), and high-altitude
-    # overflights (close horizontally but never low — dist_to_runway is altitude-blind). The
-    # queue defaults to hiding non-terminal segments. NOT a model change — annotation only.
-    TERM_DIST_M, TERM_ALT_M = 5000.0, 1500.0
-
-    def _is_terminal(g: pd.DataFrame) -> bool:
-        g = g.sort_values("time").head(T)
-        d = g["dist_to_runway_m"].to_numpy()
-        a = g["baroaltitude"].to_numpy()
-        return bool(((d < TERM_DIST_M) & (a < TERM_ALT_M)).any())
-
-    # Keep this compatible with the project's pandas >=2.1 floor. The
-    # include_groups argument was only added in pandas 2.2.
+    # Use the same pure terminal-window classifier as upload evaluation.
     terminal_map = {
-        sid: _is_terminal(group)
+        sid: is_terminal_window(group, window_length=T)
         for sid, group in cdf.groupby("segment_id", sort=False)
     }
 
@@ -206,12 +385,9 @@ def main() -> None:
     step = per_step_re(recon, X, loss_mask)
     feat = per_feature_re(recon, X, loss_mask)
 
-    # percentile rank of each score among the whole cohort — turns a bare "1.94" into
-    # "98th pctile" so an analyst can read severity at a glance (design-review fix #3)
-    order_asc = np.argsort(scores)
-    ranks = np.empty(len(scores), dtype="float64")
-    ranks[order_asc] = np.arange(len(scores))
-    pct = ranks / max(len(scores) - 1, 1) * 100.0
+    # One inclusive weak-ECDF formula is shared by bake, What-If, and uploads. Preserve
+    # the full unrounded cohort for model artifacts; rounding is display-only below.
+    pct = cohort_percentiles(scores)
 
     def label_of(sid: str) -> str:
         if sid in anomaly_ids:
@@ -222,7 +398,6 @@ def main() -> None:
     order = np.argsort(-scores)
     queue = annotate_segment_refs([
         {
-            "id": int(i),
             "segment_id": seg_ids[i],
             "score": round(float(scores[i]), 6),
             "pct": round(float(pct[i]), 1),
@@ -236,8 +411,6 @@ def main() -> None:
         }
         for i in order
     ])
-    operations = build_operation_summaries(queue)
-
     # ── curated case files (heavy) ────────────────────────────────────────────────────────
     median = float(np.median(scores))
     pick = select_case_indices(seg_ids, scores, anomaly_ids)
@@ -246,6 +419,7 @@ def main() -> None:
     cases = {}
     for i in sorted(pick):
         sid = seg_ids[i]
+        case_id, case_ref = case_identity(sid)
         seg = segment_frames[sid]
         valid = int(loss_mask[i].sum())
         nrows = min(len(seg), T)
@@ -279,9 +453,9 @@ def main() -> None:
             for la, lo in zip(traj["lat"].iloc[::stride], traj["lon"].iloc[::stride])
         ]
         n_siblings = traj["segment_id"].nunique()
-        cases[str(i)] = {
-            "id": int(i),
-            "case_ref": f"CASE-{int(i):04d}",
+        cases[case_id] = {
+            "case_id": case_id,
+            "case_ref": case_ref,
             "operation_ref": operation_ref(sid),
             "segment_id": sid,
             "label": label_of(sid),
@@ -304,13 +478,19 @@ def main() -> None:
             "feature_attribution": {f: round(float(v), 6) for f, v in zip(AE_FEATURES, feat[i])},
         }
 
+    selected_case_ids = set(cases)
+    for row in queue:
+        row["has_case"] = row["case_id"] in selected_case_ids
+    operations = build_release_operation_summaries(queue)
+
     # per-step threshold from NORMAL cases (99th pctile of valid per-step RE) — the
     # "this step is surprising" line for the case-file timeline; from normal behaviour only
     normal_steps = valid_normal_step_scores(step, loss_mask, seg_ids, anomaly_ids)
     step_thr = float(np.percentile(normal_steps, 99)) if normal_steps.size else AE_THR
 
     # ── metrics panel (Phase-7 results, MetricRow[] shape) — bundle-self-contained ────────
-    burn = json.loads(BURN.read_text()) if BURN.exists() else {}
+    burn_path = model_dir / "phase7_burn_results.json"
+    burn = json.loads(burn_path.read_text()) if burn_path.exists() else {}
     head, per_type = burn.get("headline_auroc", {}), burn.get("per_type", {})
     metrics = {
         "selected_model": "AE",
@@ -331,7 +511,7 @@ def main() -> None:
         },
     }
 
-    manifest = {
+    summary = {
         "n_segments": len(seg_ids),
         "n_operations": len(operations),
         "n_test": len(ids["test"]),
@@ -366,8 +546,7 @@ def main() -> None:
     from backend.serve import report as rpt  # noqa: E402
 
     fp = rpt.prompt_fingerprint(rpt.SUBAGENT_LABEL)
-    cache_path = OUT / "reports_cache.json"
-    cache = json.loads(cache_path.read_text()) if cache_path.exists() else {}
+    cache = json.loads(report_cache_path.read_text()) if report_cache_path.exists() else {}
     baked = 0
     for case in cases.values():
         report = cache.get(f"{case['segment_id']}|{fp}")
@@ -382,17 +561,68 @@ def main() -> None:
     print(f"reports: {baked}/{len(cases)} baked from cache (fp {fp}); "
           f"{len(cases) - baked} missing — run the gen-reports workflow to fill")
 
-    (OUT / "queue.json").write_text(json.dumps(queue))
-    (OUT / "operations.json").write_text(json.dumps(operations))
-    (OUT / "cases.json").write_text(json.dumps(cases))
-    (OUT / "metrics.json").write_text(json.dumps(metrics, indent=2))
-    (OUT / "manifest.json").write_text(json.dumps(manifest, indent=2))
+    (out / "queue.json").write_text(json.dumps(queue, allow_nan=False, separators=(",", ":")))
+    (out / "operations.json").write_text(
+        json.dumps(operations, allow_nan=False, separators=(",", ":"))
+    )
+    (out / "cases.json").write_text(json.dumps(cases, allow_nan=False, separators=(",", ":")))
+    (out / "metrics.json").write_text(
+        json.dumps(metrics, allow_nan=False, separators=(",", ":"), sort_keys=True)
+    )
 
     # raw clean rows for the baked cases ONLY — the /api/simulate what-if re-injects + re-
     # scores these at serve time. Tiny (~2.5 MB for 250 segments) vs the 128 MB clean_df, so
     # the Docker image / HF Space stays lean (the full clean_df is never shipped).
     baked_sids = {c["segment_id"] for c in cases.values()}
-    clean[clean.segment_id.isin(baked_sids)].to_parquet(OUT / "cases_raw.parquet")
+    clean[clean.segment_id.isin(baked_sids)].to_parquet(out / "cases_raw.parquet", index=False)
+
+    # Safe serving artifacts: tensor-only weights, JSON scaler/contract, and the exact
+    # unrounded score population used by every live percentile calculation.
+    scoring_contract = {
+        "T": T,
+        "threshold": AE_THR,
+        "step_threshold": float(step_thr),
+        "feature_names": list(AE_FEATURES),
+    }
+    _export_model_release_artifacts(
+        out,
+        model=model,
+        scaler=scaler,
+        scores=scores,
+        scoring_contract=scoring_contract,
+    )
+
+    manifest_payload = {
+        "schema_version": RELEASE_SCHEMA_VERSION,
+        "source": _source_provenance(
+            model_dir, report_cache_path, source_commit=source_commit
+        ),
+        "prompt_fingerprint": fp,
+        "report_coverage_count": baked,
+        "scoring_contract": scoring_contract,
+        "online_input_contract": ONLINE_INPUT_CONTRACT,
+        **summary,
+    }
+    manifest = write_release_manifest(out, manifest_payload)
+
+    scaler_vectors = cdf.loc[:, SCALER_FEATURES]
+    finite_rows = np.isfinite(scaler_vectors.to_numpy(dtype="float64")).all(axis=1)
+    scaler_vectors = scaler_vectors.loc[finite_rows]
+    if len(scaler_vectors) == 0:
+        raise ValueError("cannot validate JSON scaler parity without finite cohort vectors")
+    if len(scaler_vectors) > 64:
+        scaler_vectors = scaler_vectors.iloc[
+            np.linspace(0, len(scaler_vectors) - 1, 64, dtype=int)
+        ]
+    scores_by_segment = dict(zip(seg_ids, map(float, scores), strict=True))
+    validation_context.update(
+        training_scaler=scaler,
+        scaler_parity_vectors=scaler_vectors,
+        scores_by_case_id={
+            row["case_id"]: scores_by_segment[row["segment_id"]]
+            for row in queue
+        },
+    )
 
     # ── verification (does the foundation reproduce Phase-7's signal?) ────────────────────
     an = np.array([scores[i] for i in range(len(seg_ids)) if seg_ids[i] in anomaly_ids])
@@ -403,13 +633,31 @@ def main() -> None:
     print("SADAR-merge precompute — foundation verification")
     print("=" * 64)
     print(f"cohort segments     : {len(seg_ids)}  (test {len(ids['test'])} + anomalies {len(anomaly_ids)})")
-    print(f"anomalous @ thr {AE_THR}: {manifest['n_anomalous_at_thr']}")
+    print(f"release             : {manifest['release_id']}")
+    print(f"anomalous @ thr {AE_THR}: {summary['n_anomalous_at_thr']}")
     print(f"median score        : {median:.4f}")
     print(f"real-anomaly score  : mean {an.mean():.4f}  median {np.median(an):.4f}")
     print(f"normal score        : mean {no.mean():.4f}  median {np.median(no):.4f}")
     print(f"anomalies in top-50 : {an_in_top}/{len(anomaly_ids)} real anomalies")
     print(f"case files baked    : {len(cases)}")
-    print(f"saved -> {OUT}")
+    print(f"staged files        : {out}")
+
+
+def main(argv: list[str] | None = None) -> Path:
+    parser = argparse.ArgumentParser(description="Bake an immutable SADAR demo release")
+    parser.add_argument("--model-dir", type=Path, default=M)
+    parser.add_argument("--output-root", type=Path, default=OUT)
+    parser.add_argument("--report-cache", type=Path)
+    parser.add_argument("--source-commit")
+    parser.add_argument("--keep-failed-staging", action="store_true")
+    args = parser.parse_args(argv)
+    return build_demo_release(
+        model_dir=args.model_dir,
+        store_root=args.output_root,
+        report_cache_path=args.report_cache,
+        source_commit=args.source_commit,
+        keep_failed_staging=args.keep_failed_staging,
+    )
 
 
 if __name__ == "__main__":

@@ -47,9 +47,9 @@ export default function Operation() {
     return <div className="op-state sans" aria-busy="true"><div className="big">Loading operation…</div></div>;
   }
 
-  const behavioralWorst = operation.behavioral_worst_segment_id_num == null
+  const behavioralWorst = operation.behavioral_worst_case_id == null
     ? null
-    : operation.segments.find((segment) => segment.id === operation.behavioral_worst_segment_id_num) ?? null;
+    : operation.segments.find((segment) => segment.case_id === operation.behavioral_worst_case_id) ?? null;
 
   return (
     <main className="op-page">
@@ -102,7 +102,7 @@ export default function Operation() {
             <thead><tr><th>Case</th><th>Segment</th><th>Model</th><th>Assessment</th><th>Percentile</th><th>Score</th><th>Label</th><th><span className="sr-only">Action</span></th></tr></thead>
             <tbody>
               {operation.segments.map((segment) => (
-                <tr key={segment.id} className={segment.case_ref === operation.worst_case_ref ? "worst" : ""}>
+                <tr key={segment.case_id} className={segment.case_ref === operation.worst_case_ref ? "worst" : ""}>
                   <td><b className="mono">{segment.case_ref}</b>{segment.case_ref === operation.worst_case_ref && <small>Worst segment</small>}</td>
                   <td><span className="mono">{segment.segment_id}</span><small>{parseEpoch(segment.segment_id)}</small></td>
                   <td><span className={segment.anomalous ? "op-flagged" : "op-below"}>{segment.anomalous ? "Flagged" : "Below threshold"}</span></td>
@@ -110,7 +110,7 @@ export default function Operation() {
                   <td style={{ color: pctColor(segment.pct) }}>{Math.round(segment.pct)}th</td>
                   <td className="op-score" style={{ color: scoreColor(segment.score) }}>{segment.score.toFixed(2)}</td>
                   <td><Stamp label={segment.label} /></td>
-                  <td className="op-action">{segment.has_case ? <button onClick={() => navigate(`/case/${segment.id}`)} aria-label={`Open ${segment.case_ref} segment case file`}>Open case</button> : <span>Evidence only</span>}</td>
+                  <td className="op-action">{segment.has_case ? <button onClick={() => navigate(`/case/${segment.case_id}`)} aria-label={`Open ${segment.case_ref} segment case file`}>Open case</button> : <span>Evidence only</span>}</td>
                 </tr>
               ))}
             </tbody>

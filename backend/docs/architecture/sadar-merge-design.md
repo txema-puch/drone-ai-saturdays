@@ -177,7 +177,8 @@ Product boundaries:
   never a case ID or durable route.
 - Results use neutral `above_threshold` / `below_threshold` status and never claim authorization,
   intent, incident, emergency, drone presence, or confirmed anomaly.
-- Processing is synchronous, bounded, and ephemeral: 10 MiB, 50,000 raw rows, 25 accepted
+- Processing is synchronous, bounded, and ephemeral: 10 MiB, 50,000 raw rows, 100,000 projected
+  ten-second grid rows, 100 preprocessing segments, and 25 accepted
   segments, one shared analysis slot, no server-side result history, cleanup in `finally`.
 - The public anonymous demo says not to upload confidential or proprietary data. Private analyst
   telemetry requires an authenticated deployment outside this release.

@@ -10,6 +10,7 @@ const BASE = "/api";
 export type Label = "normal" | "go_around" | "emergency";
 export type AssessmentState = "reviewable" | "data_quality_conflict" | "insufficient_data" | "coverage_limited";
 export type ReviewLane = "behavioral" | "data_quality" | "coverage";
+export type ModelState = "not_loaded" | "loading" | "failed" | "ready";
 
 export interface Health {
   status: string;
@@ -25,10 +26,16 @@ export interface Health {
   data_quality_conflicts: number;
   insufficient_data: number;
   coverage_limited: number;
+  evaluation_enabled?: boolean;
+  model_state?: ModelState;
+  model_retry_remaining?: number;
+  release_id?: string;
+  model_id?: string;
+  schema_version?: number;
 }
 
 export interface FlightSummary {
-  id: number;
+  case_id: string;
   case_ref: string;
   operation_ref: string;
   segment_id: string;
@@ -59,9 +66,9 @@ export interface OperationSummary {
   worst_score: number;
   worst_pct: number;
   worst_band: string;
+  worst_case_id: string;
   worst_case_ref: string;
   worst_segment_id: string;
-  worst_segment_id_num: number;
   worst_has_case: boolean;
   labels_seen: Label[];
   has_confirmed_event: boolean;
@@ -79,14 +86,14 @@ export interface OperationSummary {
   behavioral_worst_score: number | null;
   behavioral_worst_pct: number | null;
   behavioral_worst_band: string | null;
+  behavioral_worst_case_id: string | null;
   behavioral_worst_case_ref: string | null;
-  behavioral_worst_segment_id_num: number | null;
   segments: FlightSummary[];
 }
 
 export type OperationQueueSegment = Pick<
   FlightSummary,
-  "case_ref" | "segment_id" | "score" | "pct" | "label" | "anomalous" | "review_lane"
+  "case_id" | "case_ref" | "segment_id" | "score" | "pct" | "label" | "anomalous" | "review_lane"
 >;
 
 export interface OperationQueueSummary extends Omit<OperationSummary, "segments"> {
@@ -104,7 +111,7 @@ export interface PathPoint {
 export type Channels = Record<string, number[]>;
 
 export interface FlightDetail {
-  id: number;
+  case_id: string;
   case_ref: string;
   operation_ref: string;
   segment_id: string;
@@ -158,14 +165,14 @@ export interface Metrics {
 export type Order = "anomalous" | "normal" | "typical";
 
 export interface SimulationRequest {
-  id: number;
+  case_id: string;
   kind: string;
   intensity: number; // 0 = clean … 1 = the full §6 anomaly
   onset: number; // fraction of the scored segment where the anomaly begins
 }
 
 export interface SimulationResult {
-  id: number;
+  case_id: string;
   segment_id: string;
   kind: string;
   intensity: number;
@@ -186,9 +193,21 @@ export interface SimulationResult {
   step_seconds: number;
 }
 
+export interface ApiFieldIssue {
+  field: string;
+  message: string;
+  code?: string;
+}
+
 export class ApiError extends Error {
-  constructor(public readonly status: number) {
-    super(`request failed: ${status}`);
+  constructor(
+    public readonly status: number,
+    public readonly code = "request_failed",
+    message = `Request failed (${status})`,
+    public readonly fields: readonly ApiFieldIssue[] = [],
+    public readonly retryAfter: number | null = null,
+  ) {
+    super(message);
     this.name = "ApiError";
   }
 }
@@ -202,10 +221,104 @@ export function hasApiStatus(error: unknown, status: number): boolean {
   );
 }
 
-async function getJson<T>(path: string, signal?: AbortSignal): Promise<T> {
-  const response = await fetch(`${BASE}${path}`, { signal });
-  if (!response.ok) throw new ApiError(response.status);
+export function hasApiCode(error: unknown, code: string): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    (error as { code?: unknown }).code === code
+  );
+}
+
+function retryAfterSeconds(response: Response): number | null {
+  const value = response.headers?.get?.("Retry-After");
+  if (!value) return null;
+  const seconds = Number(value);
+  return Number.isFinite(seconds) && seconds >= 0 ? seconds : null;
+}
+
+function asFieldIssues(value: unknown): ApiFieldIssue[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item) => {
+    if (typeof item !== "object" || item === null) return [];
+    const field = "field" in item ? (item as { field?: unknown }).field : undefined;
+    const message = "message" in item ? (item as { message?: unknown }).message : undefined;
+    const code = "code" in item ? (item as { code?: unknown }).code : undefined;
+    if (typeof field !== "string" || typeof message !== "string") return [];
+    return [{ field, message, ...(typeof code === "string" ? { code } : {}) }];
+  });
+}
+
+const MAX_ERROR_BODY_BYTES = 64 * 1024;
+
+async function boundedErrorPayload(response: Response): Promise<unknown> {
+  const declared = Number(response.headers?.get?.("Content-Length"));
+  if (Number.isFinite(declared) && declared > MAX_ERROR_BODY_BYTES) {
+    await response.body?.cancel().catch(() => undefined);
+    return null;
+  }
+  const reader = response.body?.getReader?.();
+  if (!reader) {
+    try {
+      return await response.json();
+    } catch {
+      return null;
+    }
+  }
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      total += value.byteLength;
+      if (total > MAX_ERROR_BODY_BYTES) {
+        await reader.cancel();
+        return null;
+      }
+      chunks.push(value);
+    }
+    const bytes = new Uint8Array(total);
+    let offset = 0;
+    for (const chunk of chunks) {
+      bytes.set(chunk, offset);
+      offset += chunk.byteLength;
+    }
+    return JSON.parse(new TextDecoder().decode(bytes));
+  } catch {
+    return null;
+  } finally {
+    reader.releaseLock();
+  }
+}
+
+async function apiError(response: Response): Promise<ApiError> {
+  const payload = await boundedErrorPayload(response);
+  const root = typeof payload === "object" && payload !== null ? payload as Record<string, unknown> : {};
+  const detail = typeof root.detail === "object" && root.detail !== null
+    ? root.detail as Record<string, unknown>
+    : root;
+  const code = typeof detail.code === "string" ? detail.code : "request_failed";
+  const message = typeof detail.message === "string" && detail.message.trim()
+    ? detail.message
+    : `Request failed (${response.status})`;
+  return new ApiError(
+    response.status,
+    code,
+    message,
+    asFieldIssues(detail.fields),
+    retryAfterSeconds(response),
+  );
+}
+
+async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
+  const response = await fetch(`${BASE}${path}`, init);
+  if (!response.ok) throw await apiError(response);
   return response.json() as Promise<T>;
+}
+
+async function getJson<T>(path: string, signal?: AbortSignal): Promise<T> {
+  return requestJson(path, { signal });
 }
 
 export function getHealth(signal?: AbortSignal): Promise<Health> {
@@ -235,8 +348,8 @@ export function getOperation(
   return getJson(`/operations/${encodeURIComponent(operationRef)}`, signal);
 }
 
-export function getFlight(id: number, signal?: AbortSignal): Promise<FlightDetail> {
-  return getJson(`/flights/${id}`, signal);
+export function getFlight(caseId: string, signal?: AbortSignal): Promise<FlightDetail> {
+  return getJson(`/flights/${encodeURIComponent(caseId)}`, signal);
 }
 
 export function getMetrics(signal?: AbortSignal): Promise<Metrics> {
@@ -249,12 +362,75 @@ export async function simulate(
   request: SimulationRequest,
   signal?: AbortSignal,
 ): Promise<SimulationResult> {
-  const response = await fetch(`${BASE}/simulate`, {
+  return requestJson("/simulate", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(request),
     signal,
   });
-  if (!response.ok) throw new ApiError(response.status);
-  return response.json() as Promise<SimulationResult>;
+}
+
+export interface ModelPreparation {
+  model_state: ModelState;
+  model_retry_remaining: number;
+}
+
+export interface EvaluationRejection {
+  code: string;
+  message: string;
+  count: number;
+}
+
+/** Uploaded evidence is deliberately not a FlightDetail: it has no label, case,
+ * operation, report, or neighboring-operation fields. */
+export interface EvaluationResult {
+  evaluation_ref: string;
+  segment_id: string;
+  model_status: "above_threshold" | "below_threshold";
+  path: PathPoint[];
+  reconstructed: PathPoint[];
+  scores: number[];
+  window_score: number;
+  pct: number;
+  threshold: number;
+  step_threshold: number;
+  valid_steps: number;
+  n_steps: number;
+  assessment_state: AssessmentState;
+  behavioral_verdict: "reviewable" | "not_assessable";
+  review_lane: ReviewLane;
+  data_quality_flags: readonly string[];
+  observed_fraction: number;
+  max_altitude_jump_m: number;
+  max_implied_vertical_rate_mps: number;
+  max_implied_ground_speed_mps: number;
+  feature_attribution: Record<string, number>;
+  channels: Channels;
+  center: { lat: number; lon: number };
+  step_seconds: number;
+}
+
+export interface EvaluationResponse {
+  release_id: string;
+  model_id: string;
+  dataset_digest: string;
+  upload_sha256: string;
+  raw_rows: number;
+  derived_rows: number;
+  accepted_rows: number;
+  accepted_segments: number;
+  rejected_segments: number;
+  duplicate_rows_collapsed: number;
+  rejection_reasons: EvaluationRejection[];
+  results: EvaluationResult[];
+}
+
+export function prepareModel(signal?: AbortSignal): Promise<ModelPreparation> {
+  return requestJson("/model/prepare", { method: "POST", signal });
+}
+
+export function evaluateFile(file: File, signal?: AbortSignal): Promise<EvaluationResponse> {
+  const body = new FormData();
+  body.append("file", file);
+  return requestJson("/evaluations", { method: "POST", body, signal });
 }

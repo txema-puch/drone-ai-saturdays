@@ -31,7 +31,7 @@ const GRID = "110px 1fr 64px 132px 104px";
 
 interface SegmentRowData {
   rows: FlightSummary[];
-  open: (id: number) => void;
+  open: (caseId: string) => void;
 }
 
 function SegmentRow({ index, style, data }: ListChildComponentProps<SegmentRowData>) {
@@ -48,11 +48,11 @@ function SegmentRow({ index, style, data }: ListChildComponentProps<SegmentRowDa
           ? `Open case file for segment ${segment.segment_id}, percentile ${Math.round(segment.pct)}, score ${segment.score.toFixed(2)}, ${segment.label}`
           : undefined
       }
-      onClick={interactive ? () => data.open(segment.id) : undefined}
+      onClick={interactive ? () => data.open(segment.case_id) : undefined}
       onKeyDown={interactive ? (event) => {
         if (event.key === "Enter" || event.key === " ") {
           event.preventDefault();
-          data.open(segment.id);
+          data.open(segment.case_id);
         }
       } : undefined}
     >
@@ -229,7 +229,7 @@ export default function Queue() {
   const visibleCount = mode === "operations" ? operationRows.length : segmentRows.length;
   const totalCount = mode === "operations" ? operations?.length ?? 0 : segments?.length ?? 0;
   const rowHeight = mode === "operations" ? OPERATION_ROW_HEIGHT : SEGMENT_ROW_HEIGHT;
-  const openSegment = (id: number) => navigate(`/case/${id}`);
+  const openSegment = (caseId: string) => navigate(`/case/${caseId}`);
   const openOperation = (operationRef: string) => navigate(`/operation/${encodeURIComponent(operationRef)}`);
 
   return (

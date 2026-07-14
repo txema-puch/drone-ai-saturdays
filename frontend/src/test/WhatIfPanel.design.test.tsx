@@ -13,7 +13,7 @@ vi.mock("../api", async (importOriginal) => {
 });
 
 const RESULT = {
-  id: 3638,
+  case_id: "c_c2bwwjgaxbqg43kb",
   segment_id: "segment#1",
   kind: "sustained_loiter",
   intensity: 1,
@@ -46,7 +46,7 @@ describe("WhatIfPanel design recovery", () => {
 
     render(
       <WhatIfPanel
-        flightId={3638}
+        caseId={RESULT.case_id}
         active={false}
         onResult={vi.fn()}
         onClear={vi.fn()}
@@ -79,7 +79,7 @@ describe("WhatIfPanel design recovery", () => {
 
     render(
       <WhatIfPanel
-        flightId={RESULT.id}
+        caseId={RESULT.case_id}
         active={false}
         onResult={onResult}
         onClear={vi.fn()}
@@ -100,7 +100,7 @@ describe("WhatIfPanel design recovery", () => {
 
     render(
       <WhatIfPanel
-        flightId={RESULT.id}
+        caseId={RESULT.case_id}
         active={false}
         onResult={vi.fn()}
         onClear={vi.fn()}
@@ -129,21 +129,21 @@ describe("WhatIfPanel design recovery", () => {
       onResult,
       onClear: vi.fn(),
     };
-    const { rerender } = render(<WhatIfPanel {...props} flightId={RESULT.id} />);
+    const { rerender } = render(<WhatIfPanel {...props} caseId={RESULT.case_id} />);
     fireEvent.click(screen.getByRole("button", { name: /RE-SCORE PERTURBED SEGMENT/ }));
 
-    rerender(<WhatIfPanel {...props} flightId={RESULT.id + 1} />);
+    rerender(<WhatIfPanel {...props} caseId="c_26fr5zzkc52t2iax" />);
     await act(async () => resolveSimulation(RESULT));
 
     expect(onResult).not.toHaveBeenCalled();
   });
 
   it("shows a specific busy state when another server simulation is active", async () => {
-    vi.mocked(api.simulate).mockRejectedValue(new api.ApiError(409));
+    vi.mocked(api.simulate).mockRejectedValue(new api.ApiError(429, "analysis_busy"));
 
     render(
       <WhatIfPanel
-        flightId={RESULT.id}
+        caseId={RESULT.case_id}
         active={false}
         onResult={vi.fn()}
         onClear={vi.fn()}
@@ -155,11 +155,28 @@ describe("WhatIfPanel design recovery", () => {
     expect(screen.getByRole("button", { name: "RETRY RE-SCORE →" })).toBeEnabled();
   });
 
+  it("shows model preparation guidance on the first cold re-score", async () => {
+    vi.mocked(api.simulate).mockRejectedValue(new api.ApiError(503, "model_not_ready"));
+
+    render(
+      <WhatIfPanel
+        caseId={RESULT.case_id}
+        active={false}
+        onResult={vi.fn()}
+        onClear={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /RE-SCORE PERTURBED SEGMENT/ }));
+
+    expect(await screen.findByText(/frozen model is preparing/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "RETRY RE-SCORE →" })).toBeEnabled();
+  });
+
   it("clears a successful overlay when its parameters change", () => {
     const onClear = vi.fn();
     render(
       <WhatIfPanel
-        flightId={RESULT.id}
+        caseId={RESULT.case_id}
         active
         onResult={vi.fn()}
         onClear={onClear}
@@ -181,7 +198,7 @@ describe("WhatIfPanel design recovery", () => {
     const onResult = vi.fn();
     render(
       <WhatIfPanel
-        flightId={RESULT.id}
+        caseId={RESULT.case_id}
         active={false}
         onResult={onResult}
         onClear={vi.fn()}

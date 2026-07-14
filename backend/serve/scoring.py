@@ -21,12 +21,15 @@ from backend.core import lstm_ae as ae
 from backend.core.features import apply_segment_derivations
 from backend.core.inject import INJECTION_KINDS, inject_segment, onset_index
 from backend.core.preprocessing import (
+    AE_FEATURES,
     MASKED_FEATURES,
     SCALER_FEATURES,
     to_sequences,
     to_sequences_loss_mask,
 )
 from backend.serve.operations import severity_band
+from backend.serve.model_artifacts import weak_ecdf_percentile
+from backend.serve.quality import assess_segment, is_terminal_window
 
 # measured continuous channels the intensity knob interpolates (heading is a measured
 # handle but no §6 kind perturbs it; onground/*_missing are categorical → taken from
@@ -70,6 +73,119 @@ def unscale_block(scaled_6: np.ndarray, scaler) -> np.ndarray:
     """Inverse-transform the SCALER_FEATURES block `(*, 6)` back to physical units."""
     flat = scaled_6.reshape(-1, len(SCALER_FEATURES))
     return scaler.inverse_transform(flat).reshape(scaled_6.shape)
+
+
+def score_segments(
+    clean_df: pd.DataFrame,
+    *,
+    T: int,
+    scaler,
+    model,
+    batch_size: int = 256,
+) -> dict:
+    """Vectorized frozen-model inference for one or more preprocessed segments."""
+    X, _, info = to_sequences(clean_df, T, scaler)
+    loss_mask = to_sequences_loss_mask(clean_df, T)
+    if len(info) == 0:
+        return {
+            "segment_ids": [],
+            "scores": np.empty(0, dtype="float64"),
+            "reconstruction": np.empty_like(X),
+            "step_scores": np.empty((0, T), dtype="float32"),
+            "feature_scores": np.empty((0, len(AE_FEATURES)), dtype="float32"),
+            "loss_mask": loss_mask,
+        }
+    reconstruction = forward_batched(model, X, loss_mask, batch_size=batch_size)
+    step_scores = per_step_re(reconstruction, X, loss_mask)
+    scores = step_scores.sum(axis=1) / loss_mask.sum(axis=1).clip(min=1.0)
+    scores = np.nan_to_num(scores, nan=0.0, posinf=0.0, neginf=0.0).astype("float32")
+    return {
+        "segment_ids": info["segment_id"].astype(str).tolist(),
+        "scores": scores,
+        "reconstruction": reconstruction,
+        "step_scores": step_scores,
+        "feature_scores": per_feature_re(reconstruction, X, loss_mask),
+        "loss_mask": loss_mask,
+    }
+
+
+def assemble_segment_evidence(
+    segment: pd.DataFrame,
+    scored: dict,
+    index: int,
+    *,
+    evaluation_ref: str,
+    T: int,
+    scaler,
+    threshold: float,
+    step_threshold: float,
+    cohort_scores,
+    center: dict[str, float],
+    step_seconds: int,
+) -> dict:
+    """Build the upload-only evidence allowlist for one aligned scored segment."""
+    ordered = segment.sort_values("time")
+    window = ordered.head(T)
+    nrows = len(window)
+    score = float(scored["scores"][index])
+    valid_steps = int(scored["loss_mask"][index].sum())
+    truncated = len(ordered) > T
+    terminal = is_terminal_window(ordered, window_length=T)
+    assessment = assess_segment(
+        window,
+        valid_steps=valid_steps,
+        n_steps=len(ordered),
+        truncated=truncated,
+        terminal_op=terminal,
+    )
+    t0 = int(window["time"].iloc[0])
+    path = [
+        {"lat": float(lat), "lon": float(lon), "alt": float(alt), "t": int(time - t0)}
+        for lat, lon, alt, time in zip(
+            window["lat"], window["lon"], window["baroaltitude"], window["time"]
+        )
+    ]
+    scaler_indices = [AE_FEATURES.index(name) for name in SCALER_FEATURES]
+    physical = unscale_block(
+        scored["reconstruction"][index, :nrows][:, scaler_indices], scaler
+    )
+    lat_index = SCALER_FEATURES.index("lat")
+    lon_index = SCALER_FEATURES.index("lon")
+    altitude_index = SCALER_FEATURES.index("baroaltitude")
+    reconstructed = [
+        {
+            "lat": float(row[lat_index]),
+            "lon": float(row[lon_index]),
+            "alt": float(row[altitude_index]),
+        }
+        for row in physical
+    ]
+    percentile = weak_ecdf_percentile(cohort_scores, score)
+    return {
+        "evaluation_ref": evaluation_ref,
+        "segment_id": str(window["segment_id"].iloc[0]),
+        "model_status": "above_threshold" if score >= threshold else "below_threshold",
+        "path": path,
+        "reconstructed": reconstructed,
+        "scores": [round(float(value), 6) for value in scored["step_scores"][index, :nrows]],
+        "window_score": round(score, 6),
+        "pct": round(percentile, 1),
+        "threshold": float(threshold),
+        "step_threshold": float(step_threshold),
+        "valid_steps": valid_steps,
+        "n_steps": int(len(ordered)),
+        **assessment,
+        "feature_attribution": {
+            name: round(float(value), 6)
+            for name, value in zip(AE_FEATURES, scored["feature_scores"][index])
+        },
+        "channels": {
+            name: [round(float(value), 4) for value in window[name]]
+            for name in _CHANNEL_COLS
+        },
+        "center": {"lat": float(center["lat"]), "lon": float(center["lon"])},
+        "step_seconds": int(step_seconds),
+    }
 
 
 # ── single-segment scoring (the simulate path) ─────────────────────────────────────────────
@@ -153,7 +269,7 @@ def simulate_segment(
 
     scored = score_frame(perturbed, T, scaler, model)
     score = scored["window_score"]
-    pct = float((np.asarray(cohort_scores) <= score).mean() * 100.0)
+    pct = weak_ecdf_percentile(tuple(sorted(float(value) for value in cohort_scores)), score)
     return {
         "kind": kind,
         "intensity": round(intensity, 3),
