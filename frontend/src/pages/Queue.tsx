@@ -9,7 +9,8 @@ import {
   type FlightSummary,
   type Health,
   type Label,
-  type OperationSummary,
+  type OperationQueueSummary,
+  type OperationQueueSegment,
   type Order,
   type ReviewLane,
 } from "../api";
@@ -82,7 +83,7 @@ function SegmentRow({ index, style, data }: ListChildComponentProps<SegmentRowDa
 }
 
 interface OperationRowData {
-  rows: OperationSummary[];
+  rows: OperationQueueSummary[];
   open: (operationRef: string) => void;
   lane: LaneFilter;
 }
@@ -94,7 +95,7 @@ function OperationRow({ index, style, data }: ListChildComponentProps<OperationR
     : operation.segments.filter((segment) => segment.review_lane === data.lane);
   const worst = laneSegments.reduce(
     (current, segment) => !current || segment.score > current.score ? segment : current,
-    undefined as FlightSummary | undefined,
+    undefined as OperationQueueSegment | undefined,
   );
   const label: Label = worst?.label ?? "normal";
   const flaggedCount = laneSegments.filter((segment) => segment.anomalous).length;
@@ -143,8 +144,9 @@ export default function Queue() {
   const navigate = useNavigate();
   const [health, setHealth] = useState<Health | null>(null);
   const [segments, setSegments] = useState<FlightSummary[] | null>(null);
-  const [operations, setOperations] = useState<OperationSummary[] | null>(null);
+  const [operations, setOperations] = useState<OperationQueueSummary[] | null>(null);
   const [error, setError] = useState(false);
+  const [retryGeneration, setRetryGeneration] = useState(0);
   const [mode, setMode] = useState<QueueMode>("operations");
   const [order, setOrder] = useState<Order>("anomalous");
   const [category, setCategory] = useState<CategoryFilter>("all");
@@ -155,24 +157,24 @@ export default function Queue() {
 
   useEffect(() => {
     const ctrl = new AbortController();
-    setSegments(null);
-    setOperations(null);
     setError(false);
-    Promise.all([
-      getHealth(ctrl.signal),
-      getFlights(5000, order, ctrl.signal),
-      getOperations(5000, order, ctrl.signal),
-    ])
-      .then(([healthResponse, segmentResponse, operationResponse]) => {
-        setHealth(healthResponse);
-        setSegments(segmentResponse);
-        setOperations(operationResponse);
-      })
+    const request = mode === "operations"
+      ? Promise.all([getHealth(ctrl.signal), getOperations(5000, order, ctrl.signal)])
+          .then(([healthResponse, operationResponse]) => {
+            setHealth(healthResponse);
+            setOperations(operationResponse);
+          })
+      : Promise.all([getHealth(ctrl.signal), getFlights(5000, order, ctrl.signal)])
+          .then(([healthResponse, segmentResponse]) => {
+            setHealth(healthResponse);
+            setSegments(segmentResponse);
+          });
+    request
       .catch((responseError) => {
         if (responseError?.name !== "AbortError") setError(true);
       });
     return () => ctrl.abort();
-  }, [order]);
+  }, [mode, order, retryGeneration]);
 
   const segmentRows = useMemo(() => {
     if (!segments) return [];
@@ -205,7 +207,7 @@ export default function Queue() {
     });
     if (lane === "behavioral") return filtered;
 
-    const laneScore = (operation: OperationSummary) => Math.max(
+    const laneScore = (operation: OperationQueueSummary) => Math.max(
       ...operation.segments
         .filter((segment) => lane === "all" || segment.review_lane === lane)
         .map((segment) => segment.score),
@@ -223,7 +225,7 @@ export default function Queue() {
     });
   }, [operations, search, category, threshold, lane, order]);
 
-  const loaded = segments !== null && operations !== null;
+  const loaded = mode === "operations" ? operations !== null : segments !== null;
   const visibleCount = mode === "operations" ? operationRows.length : segmentRows.length;
   const totalCount = mode === "operations" ? operations?.length ?? 0 : segments?.length ?? 0;
   const rowHeight = mode === "operations" ? OPERATION_ROW_HEIGHT : SEGMENT_ROW_HEIGHT;
@@ -281,14 +283,14 @@ export default function Queue() {
         <div className="q-colhd sans" style={{ gridTemplateColumns: GRID }}>
           <span>{mode === "operations" ? "Operation" : "Case"}</span>
           <span>{mode === "operations" ? "Segment evidence" : "Segment"}</span>
-          <span className="r">Lane pctile</span>
+          <span className="r">Cohort pctile</span>
           <span className="r">{mode === "operations" ? "Lane score" : "Score"}</span>
           <span className="r">Category</span>
         </div>
 
         <div className="q-list" ref={listWrap}>
           {error ? (
-            <div className="q-empty sans"><div className="big">Cannot reach the audit service</div>The serve layer on :8077 is not responding.<div><button className="q-retry sans" onClick={() => setOrder((current) => current)}>Retry</button></div></div>
+            <div className="q-empty sans"><div className="big">Cannot reach the audit service</div>The audit service is not responding.<div><button className="q-retry sans" onClick={() => setRetryGeneration((current) => current + 1)}>Retry</button></div></div>
           ) : !loaded ? (
             <div aria-busy="true" aria-label="Loading queue">{Array.from({ length: 10 }).map((_, index) => <div key={index} className="q-skel" style={{ height: rowHeight }} />)}</div>
           ) : visibleCount === 0 ? (
@@ -301,7 +303,7 @@ export default function Queue() {
         </div>
 
         <div className="q-foot sans">
-          {loaded ? <>Showing {visibleCount.toLocaleString()} of {totalCount.toLocaleString()} {mode} · {lane.replace("_", " ")} lane · virtualized</> : "Connecting to :8077…"}
+          {loaded ? <>Showing {visibleCount.toLocaleString()} of {totalCount.toLocaleString()} {mode} · {lane.replace("_", " ")} lane · virtualized</> : "Connecting to the audit service…"}
         </div>
       </main>
     </div>

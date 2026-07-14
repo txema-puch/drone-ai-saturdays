@@ -72,7 +72,7 @@ beforeEach(() => {
 afterEach(() => vi.clearAllMocks());
 
 function renderQueue() {
-  return render(<MemoryRouter><Queue /></MemoryRouter>);
+  return render(<MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}><Queue /></MemoryRouter>);
 }
 
 describe("Queue", () => {
@@ -88,7 +88,7 @@ describe("Queue", () => {
     renderQueue();
     await screen.findByText("OP-502CE6-1543855510");
     await userEvent.click(screen.getByRole("button", { name: "Segments" }));
-    expect(screen.getByText("502ce6_1543855510#1")).toBeInTheDocument();
+    expect(await screen.findByText("502ce6_1543855510#1")).toBeInTheDocument();
     expect(screen.getByText("CASE-4238")).toBeInTheDocument();
   });
 
@@ -107,12 +107,12 @@ describe("Queue", () => {
     expect(screen.queryByText("OP-502CE6-1543855510")).not.toBeInTheDocument();
   });
 
-  it("refetches both queue levels with the chosen order", async () => {
+  it("only fetches the active queue level with the chosen order", async () => {
     renderQueue();
     await screen.findByText("OP-502CE6-1543855510");
     await userEvent.click(screen.getByRole("button", { name: "Typical" }));
     await waitFor(() => expect(vi.mocked(api.getOperations)).toHaveBeenCalledWith(5000, "typical", expect.anything()));
-    expect(vi.mocked(api.getFlights)).toHaveBeenCalledWith(5000, "typical", expect.anything());
+    expect(vi.mocked(api.getFlights)).not.toHaveBeenCalled();
   });
 
   it("opens every operation independently of baked case availability", async () => {
@@ -120,5 +120,13 @@ describe("Queue", () => {
     await screen.findByText("OP-502CE6-1543855510");
     expect(screen.getByRole("button", { name: "Open operation OP-502CE6-1543855510" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Open operation OP-ABCDEF-1580731000" })).toBeInTheDocument();
+  });
+
+  it("retries and recovers after a failed queue request", async () => {
+    vi.mocked(api.getHealth).mockRejectedValueOnce(new Error("503")).mockResolvedValue(HEALTH);
+    renderQueue();
+    await userEvent.click(await screen.findByRole("button", { name: "Retry" }));
+    expect(await screen.findByText("OP-502CE6-1543855510")).toBeInTheDocument();
+    expect(api.getHealth).toHaveBeenCalledTimes(2);
   });
 });

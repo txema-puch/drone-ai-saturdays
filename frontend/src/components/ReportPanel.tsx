@@ -15,9 +15,8 @@ export default function ReportPanel({ report, model }: Props) {
   if (!report) {
     return (
       <p className="rp-empty sans">
-        No analysis report for this case. Generate them with{" "}
-        <span className="mono">ANTHROPIC_API_KEY</span> set, then re-run{" "}
-        <span className="mono">serve.precompute</span>.
+        No analysis report was baked for this case. Run the report-generation workflow, then
+        rebuild the audit bundle.
       </p>
     );
   }

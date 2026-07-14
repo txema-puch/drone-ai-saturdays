@@ -144,7 +144,7 @@ afterEach(() => vi.clearAllMocks());
 
 function renderApp() {
   return render(
-    <MemoryRouter initialEntries={["/"]}>
+    <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }} initialEntries={["/"]}>
       <App />
     </MemoryRouter>,
   );

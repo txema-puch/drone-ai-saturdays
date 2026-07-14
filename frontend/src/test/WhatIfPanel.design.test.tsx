@@ -154,4 +154,45 @@ describe("WhatIfPanel design recovery", () => {
     expect(await screen.findByText(/still running on the demo server/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "RETRY RE-SCORE →" })).toBeEnabled();
   });
+
+  it("clears a successful overlay when its parameters change", () => {
+    const onClear = vi.fn();
+    render(
+      <WhatIfPanel
+        flightId={RESULT.id}
+        active
+        onResult={vi.fn()}
+        onClear={onClear}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText(/Intensity/), { target: { value: "25" } });
+
+    expect(onClear).toHaveBeenCalledOnce();
+  });
+
+  it("ignores an in-flight result after its parameters change", async () => {
+    let resolveSimulation: (result: api.SimulationResult) => void = () => {};
+    vi.mocked(api.simulate).mockReturnValue(
+      new Promise((resolve) => {
+        resolveSimulation = resolve;
+      }),
+    );
+    const onResult = vi.fn();
+    render(
+      <WhatIfPanel
+        flightId={RESULT.id}
+        active={false}
+        onResult={onResult}
+        onClear={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /RE-SCORE PERTURBED SEGMENT/ }));
+    fireEvent.change(screen.getByLabelText(/Intensity/), { target: { value: "25" } });
+
+    await act(async () => resolveSimulation(RESULT));
+
+    expect(onResult).not.toHaveBeenCalled();
+    expect(vi.mocked(api.simulate).mock.calls[0][1]?.aborted).toBe(true);
+  });
 });

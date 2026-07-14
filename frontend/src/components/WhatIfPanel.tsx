@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 
-import { ApiError, simulate, type SimulationResult } from "../api";
+import { hasApiStatus, simulate, type SimulationResult } from "../api";
 
 /** Our inject vocabulary (D-012). zone_violation is out-of-remit for the shipped
  *  detector but remains a valid sandbox injectable. */
@@ -50,6 +50,7 @@ export default function WhatIfPanel({ flightId, active, onResult, onClear }: Pro
   async function run() {
     const requestId = ++requestGeneration.current;
     activeController.current?.abort();
+    if (active) onClear();
     const controller = new AbortController();
     activeController.current = controller;
     setStatus("pending");
@@ -77,12 +78,20 @@ export default function WhatIfPanel({ flightId, active, onResult, onClear }: Pro
     } catch (error) {
       if (requestId !== requestGeneration.current) return;
       if (error === SIMULATION_TIMEOUT) setStatus("timeout");
-      else if (error instanceof ApiError && error.status === 409) setStatus("busy");
+      else if (hasApiStatus(error, 409)) setStatus("busy");
       else if (!(error instanceof DOMException && error.name === "AbortError")) setStatus("error");
     } finally {
       if (timeoutId != null) window.clearTimeout(timeoutId);
       if (requestId === requestGeneration.current) activeController.current = null;
     }
+  }
+
+  function invalidateResult() {
+    requestGeneration.current += 1;
+    activeController.current?.abort();
+    activeController.current = null;
+    if (active) onClear();
+    setStatus("idle");
   }
 
   return (
@@ -91,7 +100,10 @@ export default function WhatIfPanel({ flightId, active, onResult, onClear }: Pro
         <span style={{ color: "var(--ink)" }}>Anomaly type</span>
         <select
           value={kind}
-          onChange={(e) => setKind(e.target.value)}
+          onChange={(e) => {
+            invalidateResult();
+            setKind(e.target.value);
+          }}
           style={{
             background: "var(--panel2)",
             color: "var(--ink)",
@@ -114,7 +126,10 @@ export default function WhatIfPanel({ flightId, active, onResult, onClear }: Pro
           <span>Intensity</span>
           <span className="mono">{intensity}%</span>
         </span>
-        <input type="range" min={0} max={100} value={intensity} onChange={(e) => setIntensity(Number(e.target.value))} style={{ width: "100%", accentColor: "var(--accent)" }} />
+        <input type="range" min={0} max={100} value={intensity} onChange={(e) => {
+          invalidateResult();
+          setIntensity(Number(e.target.value));
+        }} style={{ width: "100%", accentColor: "var(--accent)" }} />
       </label>
 
       <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -122,7 +137,10 @@ export default function WhatIfPanel({ flightId, active, onResult, onClear }: Pro
           <span>Onset</span>
           <span className="mono">{onset}%</span>
         </span>
-        <input type="range" min={0} max={100} value={onset} onChange={(e) => setOnset(Number(e.target.value))} style={{ width: "100%", accentColor: "var(--accent)" }} />
+        <input type="range" min={0} max={100} value={onset} onChange={(e) => {
+          invalidateResult();
+          setOnset(Number(e.target.value));
+        }} style={{ width: "100%", accentColor: "var(--accent)" }} />
       </label>
 
       <div style={{ display: "flex", gap: 8 }}>

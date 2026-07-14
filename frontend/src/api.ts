@@ -84,6 +84,15 @@ export interface OperationSummary {
   segments: FlightSummary[];
 }
 
+export type OperationQueueSegment = Pick<
+  FlightSummary,
+  "case_ref" | "segment_id" | "score" | "pct" | "label" | "anomalous" | "review_lane"
+>;
+
+export interface OperationQueueSummary extends Omit<OperationSummary, "segments"> {
+  segments: OperationQueueSegment[];
+}
+
 export interface PathPoint {
   lat: number;
   lon: number;
@@ -184,9 +193,18 @@ export class ApiError extends Error {
   }
 }
 
+export function hasApiStatus(error: unknown, status: number): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "status" in error &&
+    (error as { status?: unknown }).status === status
+  );
+}
+
 async function getJson<T>(path: string, signal?: AbortSignal): Promise<T> {
   const response = await fetch(`${BASE}${path}`, { signal });
-  if (!response.ok) throw new Error(`request failed: ${response.status}`);
+  if (!response.ok) throw new ApiError(response.status);
   return response.json() as Promise<T>;
 }
 
@@ -206,7 +224,7 @@ export function getOperations(
   limit = 5000,
   order: Order = "anomalous",
   signal?: AbortSignal,
-): Promise<OperationSummary[]> {
+): Promise<OperationQueueSummary[]> {
   return getJson(`/operations?limit=${limit}&order=${order}`, signal);
 }
 

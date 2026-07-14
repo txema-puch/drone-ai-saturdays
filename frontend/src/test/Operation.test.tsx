@@ -5,7 +5,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as api from "../api";
 import Operation from "../pages/Operation";
 
-vi.mock("../api");
+vi.mock("../api", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../api")>();
+  return { ...actual, getOperation: vi.fn() };
+});
 
 const SEGMENTS: api.FlightSummary[] = [
   { id: 4238, case_ref: "CASE-4238", operation_ref: "OP-502CE6-1543855510", segment_id: "502ce6_1543855510#1", score: 1.5, pct: 99, band: "highly anomalous", anomalous: true, label: "go_around", has_case: true, n_steps: 238, truncated: false, terminal_op: true, assessment_state: "reviewable", behavioral_verdict: "reviewable", review_lane: "behavioral", data_quality_flags: [], valid_steps: 238, observed_fraction: 1, max_altitude_jump_m: 100, max_implied_vertical_rate_mps: 10, max_implied_ground_speed_mps: 100 },
@@ -32,7 +35,7 @@ afterEach(() => vi.clearAllMocks());
 
 function renderOperation() {
   return render(
-    <MemoryRouter initialEntries={["/operation/OP-502CE6-1543855510"]}>
+    <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }} initialEntries={["/operation/OP-502CE6-1543855510"]}>
       <Routes>
         <Route path="/" element={<div>QUEUE LANDING</div>} />
         <Route path="/case/:id" element={<div>CASE LANDING</div>} />
@@ -67,7 +70,7 @@ describe("Operation", () => {
   });
 
   it("shows a missing-operation state", async () => {
-    vi.mocked(api.getOperation).mockRejectedValueOnce(new Error("request failed: 404"));
+    vi.mocked(api.getOperation).mockRejectedValueOnce(new api.ApiError(404));
     renderOperation();
     expect(await screen.findByText("Operation not found")).toBeInTheDocument();
   });

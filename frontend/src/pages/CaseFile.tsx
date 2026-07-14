@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
-import { getFlight, type FlightDetail, type SimulationResult } from "../api";
+import { getFlight, hasApiStatus, type FlightDetail, type SimulationResult } from "../api";
 import Attribution from "../components/Attribution";
 import ReportPanel from "../components/ReportPanel";
 import Stamp from "../components/Stamp";
@@ -32,7 +32,7 @@ export default function CaseFile() {
       .then(setDetail)
       .catch((e) => {
         if (e?.name === "AbortError") return;
-        setError(String(e?.message).includes("404") ? "missing" : "down");
+        setError(hasApiStatus(e, 404) ? "missing" : "down");
       });
     return () => ctrl.abort();
   }, [id]);
@@ -57,7 +57,7 @@ export default function CaseFile() {
         <p>
           {error === "missing"
             ? "This segment is in the docket but no detailed case file was baked for it. Open a flagged, typical, or held-aside case from the queue."
-            : "The serve layer on :8077 is not responding."}
+            : "The audit service is not responding."}
         </p>
         <button className="cf-back-btn sans" onClick={back}>
           ‹ Back to the audit queue

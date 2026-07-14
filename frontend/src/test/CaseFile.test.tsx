@@ -6,7 +6,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as api from "../api";
 import CaseFile from "../pages/CaseFile";
 
-vi.mock("../api");
+vi.mock("../api", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../api")>();
+  return { ...actual, getFlight: vi.fn(), simulate: vi.fn() };
+});
 
 const DETAIL: api.FlightDetail = {
   id: 4238,
@@ -102,7 +105,7 @@ afterEach(() => vi.clearAllMocks());
 
 function renderCase() {
   return render(
-    <MemoryRouter initialEntries={["/case/4238"]}>
+    <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }} initialEntries={["/case/4238"]}>
       <Routes>
         <Route path="/" element={<div>QUEUE LANDING</div>} />
         <Route path="/case/:id" element={<CaseFile />} />
@@ -225,7 +228,7 @@ describe("CaseFile", () => {
 
   it("shows the empty state when no report was generated", async () => {
     renderCase();
-    expect(await screen.findByText(/No analysis report for this case/)).toBeInTheDocument();
+    expect(await screen.findByText(/No analysis report was baked for this case/)).toBeInTheDocument();
   });
 
   it("returns to the queue on Escape", async () => {
@@ -236,7 +239,7 @@ describe("CaseFile", () => {
   });
 
   it("shows a graceful missing-case state on 404", async () => {
-    vi.mocked(api.getFlight).mockRejectedValueOnce(new Error("request failed: 404"));
+    vi.mocked(api.getFlight).mockRejectedValueOnce(new api.ApiError(404));
     renderCase();
     expect(await screen.findByText("No case file for this segment")).toBeInTheDocument();
   });

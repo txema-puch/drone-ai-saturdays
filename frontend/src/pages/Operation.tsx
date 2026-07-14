@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
-import { getOperation, type OperationSummary } from "../api";
+import { getOperation, hasApiStatus, type OperationSummary } from "../api";
 import Stamp from "../components/Stamp";
 import { aircraftOf, parseEpoch, pctColor, scoreColor } from "../lib/format";
 import "./operation.css";
@@ -20,7 +20,7 @@ export default function Operation() {
       .then(setOperation)
       .catch((responseError) => {
         if (responseError?.name === "AbortError") return;
-        setError(String(responseError?.message).includes("404") ? "missing" : "down");
+        setError(hasApiStatus(responseError, 404) ? "missing" : "down");
       });
     return () => ctrl.abort();
   }, [operationRef]);
@@ -37,7 +37,7 @@ export default function Operation() {
     return (
       <div className="op-state sans">
         <div className="big">{error === "missing" ? "Operation not found" : "Cannot reach the audit service"}</div>
-        <p>{error === "missing" ? "This operation reference is not in the current audit bundle." : "The serve layer on :8077 is not responding."}</p>
+        <p>{error === "missing" ? "This operation reference is not in the current audit bundle." : "The audit service is not responding."}</p>
         <button onClick={() => navigate("/")}>Back to operation queue</button>
       </div>
     );
