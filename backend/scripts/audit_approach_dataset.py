@@ -32,12 +32,14 @@ def _counts(values) -> dict[str, int]:
     return dict(sorted(Counter(values).items()))
 
 
-def audit_dataset(path: Path, *, reference: dict[str, Any]) -> dict[str, Any]:
-    digest = file_sha256(path)
-    if digest in SEALED_HOLDOUT_SHA256:
-        raise ValueError("refusing to read sealed 2026 holdout before the final burn")
+def summarize_frame(
+    frame: pd.DataFrame,
+    *,
+    input_sha256: str,
+    reference: dict[str, Any],
+) -> dict[str, Any]:
+    """Summarize an already-authorized frame without changing assessment thresholds."""
     validate_reference(reference)
-    frame = pd.read_parquet(path)
     required = {"flight_id", "time", "lat", "lon"}
     missing = required - set(frame.columns)
     if missing:
@@ -51,7 +53,7 @@ def audit_dataset(path: Path, *, reference: dict[str, Any]) -> dict[str, Any]:
     criteria = [criterion for item in attempts for criterion in item.get("criteria", [])]
     return {
         "schema_version": "approach_dataset_audit_v1",
-        "input_sha256": digest,
+        "input_sha256": input_sha256,
         "reference_sha256": reference["artifact_sha256"],
         "rows": len(frame),
         "operations": int(frame["flight_id"].nunique()),
@@ -83,6 +85,17 @@ def audit_dataset(path: Path, *, reference: dict[str, Any]) -> dict[str, Any]:
             for name in sorted({item["name"] for item in criteria})
         },
     }
+
+
+def audit_dataset(path: Path, *, reference: dict[str, Any]) -> dict[str, Any]:
+    digest = file_sha256(path)
+    if digest in SEALED_HOLDOUT_SHA256:
+        raise ValueError("refusing to read sealed 2026 holdout before the final burn")
+    return summarize_frame(
+        pd.read_parquet(path),
+        input_sha256=digest,
+        reference=reference,
+    )
 
 
 def main() -> None:
