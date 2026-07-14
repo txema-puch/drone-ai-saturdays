@@ -217,6 +217,36 @@ Demo
   Threshold slider: adjustable in real time so audience sees precision/recall tradeoff
 ```
 
+### Current application serving boundary (2026-07-14 addendum)
+
+The original demo concept above described an animated/Streamlit presentation. The implemented
+Direction C application is instead an honest **post-hoc conformance-audit product** over completed
+segments. It has three inference surfaces, all bound to one immutable release contract:
+
+1. **Baked audit:** ranked operations and case files precomputed from the frozen evaluation cohort.
+2. **Analyst What-If:** deterministic perturbation and re-scoring of one baked case.
+3. **Evaluate new data:** bounded CSV/Parquet upload, exact derivation/preprocessing, and ephemeral
+   scoring of analyst-supplied completed observations.
+
+The third surface is required for the model to be usable rather than merely displayed. It does
+not retrain, tune, or persist data. Uploaded observations use the release's tensor-only model,
+JSON scaler, versioned derivation/preprocessing contracts, threshold, and full-precision reference
+cohort. Results expose model score, frozen-cohort percentile, reconstruction/attribution evidence,
+and assessability/data-quality diagnostics.
+
+Claims are deliberately narrower than this document's original unauthorized-drone framing. The
+application cannot infer authorization, identity, intent, incident status, or whether a trajectory
+belongs to a drone. Uploaded results are therefore `above threshold`, `below threshold`, or `not
+assessable`; they are never labeled unauthorized, hostile, emergency, or confirmed anomalous.
+Layer 1 remains conceptual/future integration unless an actual registry or flight-plan source is
+wired into the deployed product.
+
+The public course deployment is anonymous and has no server-side history. Evaluation is disabled
+by default, accepts at most 10 MiB / 50,000 rows / 25 accepted segments, serializes heavyweight
+analysis with What-If, deletes temporary bytes, and warns users not to upload confidential or
+proprietary data. See `/DESIGN.md` for interaction/state rules and
+`backend/docs/designs/31-task-sadar-release-hardening.md` for the release/API/test contract.
+
 ### Stretch Goals (attempt only if Week 4 demo is complete and working)
 
 ```
@@ -370,7 +400,7 @@ Shared (all 4 people, Week 5)
    or calibration data before committing to Option B. Candidates: M3OT, USC GRAD-STDDB.
    If no calibrated dataset exists, default to Option A (simulated non-ADS-B).
 
-## Success Criteria
+## Original course success criteria (historical)
 
 - AUROC > 0.85 on held-out injected anomalies
   (sanity check: rule-based geofence baseline must score < 0.80 on same test set,
@@ -384,7 +414,22 @@ Shared (all 4 people, Week 5)
 - Writeup explains in plain language why identity-based and behavior-based detection
   are complementary, and why neither alone is sufficient
 
-## Distribution Plan
+## Current application success criteria
+
+- The frozen model is available as a first-class analyst feature through `/evaluate`, not only as
+  a scorer behind baked cases and What-If.
+- A synthetic sample completes upload → validation → scoring → evidence → client-side export from
+  a clean production image without repository access.
+- Baked, simulated, and uploaded versions of the same segment produce the same model evidence,
+  inclusive weak-ECDF percentile, threshold status, and quality assessment.
+- Invalid, oversized, slow, busy, or incompatible uploads fail with bounded actionable states and
+  leave no temporary file or server-side result.
+- Uploaded results never contain ground-truth labels, case/operation/report fields, or claims about
+  authorization, intent, incidents, emergencies, or drone detection.
+- The baked audit remains available while the model is cold, loading, failed, busy, or evaluation
+  is disabled.
+
+## Original distribution plan (historical)
 
 Deliverable is model weights + code + demo, not a production service.
 
@@ -396,6 +441,11 @@ Deliverable is model weights + code + demo, not a production service.
   exceeds 2 hours on a laptop, use Google Colab free tier (T4 GPU reduces training to ~15 min).
 - Demo: self-contained Folium HTML or local Streamlit app, no server required
 - Course: Jupyter notebook walkthrough + animated map for presentation
+
+The current distribution design supersedes that launch path: one digest-pinned multi-stage Docker
+image serves the React SPA and FastAPI from a clean checkout, fetches a hash-verified immutable
+release from a pinned public Hugging Face revision, runs as UID 1000 on `linux/amd64`, and deploys
+to a Hugging Face Docker Space. Model binaries remain outside Git.
 
 ## Next Steps
 
