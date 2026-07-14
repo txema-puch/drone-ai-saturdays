@@ -24,10 +24,11 @@
   --visited: #aa9168;  /* subdued bronze — previously visited navigation */
   --amber: #e0a93b;    /* severity: elevated / go-around */
   --red: #e0564f;      /* severity: high / emergency */
-  --blue: #6f8fb5;     /* model reconstruction line + altitude trace */
-  --green: #7e9a86;    /* normal-range / below threshold */
-  --actual: #ff6a5f;   /* actual trajectory line */
-  --inject: #d96bd9;   /* what-if perturbed overlay (magenta — clearly hypothetical) */
+  --blue: #6f8fb5;     /* observed trajectory evidence */
+  --status-review: #e0564f;
+  --status-partial: #e0a93b;
+  --status-observed: #e7e3d8;
+  --status-unavailable: #8b8e98;
 
   /* type */
   --serif: "Newsreader", Georgia, "Times New Roman", serif;
@@ -142,6 +143,53 @@ button {
   cursor: pointer;
 }
 
+button,
+select,
+input[type="file"]::file-selector-button {
+  min-height: 44px;
+}
+
+button,
+input[type="file"]::file-selector-button {
+  padding: 10px 14px;
+  border: 1px solid var(--accent);
+  border-radius: 3px;
+  background: transparent;
+  color: var(--ink);
+  font-weight: 600;
+}
+
+button:hover,
+input[type="file"]::file-selector-button:hover {
+  background: rgba(201, 162, 90, .09);
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: .5;
+}
+
+select {
+  padding: 9px 34px 9px 10px;
+  border: 1px solid var(--control-edge);
+  border-radius: 3px;
+  background: var(--panel2);
+  color: var(--ink);
+  font: inherit;
+  text-transform: none;
+}
+
+.secondary-button,
+.text-button {
+  border-color: var(--control-edge);
+}
+
+.text-button {
+  padding-inline: 8px;
+  border-color: transparent;
+  color: var(--accent);
+}
+
 /* focus ring — keyboard nav (DESIGN.md a11y) */
 :focus-visible {
   outline: 2px solid var(--accent);
@@ -209,4 +257,16 @@ button {
   color: var(--red);
   border-color: rgba(224, 86, 79, 0.55);
   background: rgba(224, 86, 79, 0.07);
+}
+
+@media (max-width: 767px) {
+  .app-nav {
+    height: auto;
+    min-height: 64px;
+    padding: 0 16px;
+  }
+  .app-brand span { display: none; }
+  .app-nav nav { gap: 14px; }
+  .app-nav nav a { min-height: 54px; font-size: 12px; }
+  .app-content { min-height: calc(100vh - 64px); }
 }

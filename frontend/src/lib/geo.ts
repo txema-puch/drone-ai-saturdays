@@ -6,7 +6,7 @@
  * all share one coordinate transform.
  */
 
-import type { PathPoint } from "../api";
+import type { ApproachPathPoint } from "../api";
 
 export interface XY {
   x: number;
@@ -69,7 +69,7 @@ export function toPoints(points: { lat: number; lon: number }[], proj: Projector
 
 /** Legacy multi-track projector (SADAR-compatible), kept for reuse/tests. */
 export function projectTracks(
-  tracks: PathPoint[][],
+  tracks: ApproachPathPoint[][],
   width: number,
   height: number,
   pad = 28,

@@ -1,196 +1,124 @@
-/*
- * Typed client for the post-hoc audit serve layer (backend/serve/app.py on
- * :8077 in dev, proxied at /api). Response shapes extend SADAR's original
- * api.ts contract (FlightSummary / FlightDetail / PathPoint / MetricRow) with
- * the fields our serve adds: segment_id, label, pct, band, feature_attribution.
- */
-
 const BASE = "/api";
+const MAX_ERROR_BODY_BYTES = 64 * 1024;
 
-export type Label = "normal" | "go_around" | "emergency";
-export type AssessmentState = "reviewable" | "data_quality_conflict" | "insufficient_data" | "coverage_limited";
-export type ReviewLane = "behavioral" | "data_quality" | "coverage";
-export type ModelState = "not_loaded" | "loading" | "failed" | "ready";
+export type ApproachStatus =
+  | "review_required"
+  | "partial_observation"
+  | "criteria_observed"
+  | "not_assessable";
+
+export type ApproachCriterionStatus = "review_required" | "within_limit" | "not_observed";
 
 export interface Health {
   status: string;
   mode: string;
-  segments: number;
-  operations: number;
-  real_anomalies: number;
-  anomalous_at_threshold: number;
-  threshold: number;
-  step_threshold: number;
-  cases_available: number;
-  reviewable: number;
-  data_quality_conflicts: number;
-  insufficient_data: number;
-  coverage_limited: number;
-  evaluation_enabled?: boolean;
-  model_state?: ModelState;
-  model_retry_remaining?: number;
   release_id?: string;
-  model_id?: string;
-  schema_version?: number;
+  schema_version?: number | string;
+  attempts?: number;
+  operations?: number;
+  evaluation_enabled?: boolean;
+  status_counts?: Partial<Record<ApproachStatus, number>>;
+  reference?: {
+    status?: string;
+    id?: string;
+    artifact_sha256?: string;
+  } | null;
 }
 
-export interface FlightSummary {
-  case_id: string;
-  case_ref: string;
-  operation_ref: string;
-  segment_id: string;
-  score: number;
-  pct: number;
-  band: string;
-  anomalous: boolean;
-  label: Label;
-  has_case: boolean;
-  n_steps: number;
-  truncated: boolean; // segment longer than the T=260 window → terminal phase not scored
-  terminal_op: boolean; // genuine LEMD terminal operation (low+close in the scored window)
-  assessment_state: AssessmentState;
-  behavioral_verdict: "reviewable" | "not_assessable";
-  review_lane: ReviewLane;
-  data_quality_flags: readonly string[];
-  valid_steps: number;
-  observed_fraction: number;
-  max_altitude_jump_m: number;
-  max_implied_vertical_rate_mps: number;
-  max_implied_ground_speed_mps: number;
+export interface ApproachCoverage {
+  observed_samples?: number;
+  expected_samples?: number;
+  observed_fraction?: number;
+  [key: string]: number | string | boolean | null | undefined;
 }
 
-export interface OperationSummary {
-  operation_ref: string;
-  segment_count: number;
-  flagged_segment_count: number;
-  worst_score: number;
-  worst_pct: number;
-  worst_band: string;
-  worst_case_id: string;
-  worst_case_ref: string;
-  worst_segment_id: string;
-  worst_has_case: boolean;
-  labels_seen: Label[];
-  has_confirmed_event: boolean;
-  has_model_flag_unlabeled: boolean;
-  terminal_segment_count: number;
-  truncated_segment_count: number;
-  data_quality_summary: "mostly terminal" | "mixed" | "likely artifact";
-  assessment_summary: "reviewable" | "mixed evidence" | "not assessable";
-  behavioral_assessment: "reviewable" | "not_assessable";
-  behavioral_flagged_segment_count: number;
-  reviewable_segment_count: number;
-  not_assessable_segment_count: number;
-  data_quality_segment_count: number;
-  coverage_limited_segment_count: number;
-  behavioral_worst_score: number | null;
-  behavioral_worst_pct: number | null;
-  behavioral_worst_band: string | null;
-  behavioral_worst_case_id: string | null;
-  behavioral_worst_case_ref: string | null;
-  segments: FlightSummary[];
+export interface ApproachEvidenceSpan {
+  start_index?: number;
+  end_index?: number;
+  start_time: number;
+  end_time: number;
+  worst_index?: number;
+  worst_time?: number;
+  value?: number;
+  limit?: number;
+  unit?: string;
+  along_track_m?: number;
+  [key: string]: number | string | boolean | null | undefined;
 }
 
-export type OperationQueueSegment = Pick<
-  FlightSummary,
-  "case_id" | "case_ref" | "segment_id" | "score" | "pct" | "label" | "anomalous" | "review_lane"
->;
-
-export interface OperationQueueSummary extends Omit<OperationSummary, "segments"> {
-  segments: OperationQueueSegment[];
+export interface ApproachCriterion {
+  name: string;
+  status: ApproachCriterionStatus;
+  severity?: "low" | "medium" | "high";
+  observed_samples?: number;
+  evidence: ApproachEvidenceSpan[];
+  reason?: string;
+  reference_source?: string;
+  altitude_bias_source?: string;
 }
 
-export interface PathPoint {
+export interface ApproachPathPoint {
   lat: number;
   lon: number;
-  alt: number;
-  t?: number;
+  alt?: number;
+  time?: number;
+  along_track_m?: number;
+  cross_track_m?: number;
+  observed?: boolean;
 }
 
-/** Per-step measured channels (physical units), keyed by feature name. */
-export type Channels = Record<string, number[]>;
-
-export interface FlightDetail {
-  case_id: string;
-  case_ref: string;
+export interface ApproachSummary {
+  attempt_id: string;
   operation_ref: string;
-  segment_id: string;
-  label: Label;
-  path: PathPoint[];
-  reconstructed: PathPoint[];
-  context_path: { lat: number; lon: number }[]; // full trajectory (all sibling segments)
-  n_siblings: number;
-  scores: number[];
-  window_score: number;
-  pct: number;
-  band: string;
-  anomalous: boolean;
-  threshold: number;
-  step_threshold: number;
-  valid_steps: number;
-  n_steps: number;
-  truncated: boolean;
-  terminal_op: boolean;
-  assessment_state: AssessmentState;
-  behavioral_verdict: "reviewable" | "not_assessable";
-  review_lane: ReviewLane;
-  data_quality_flags: readonly string[];
-  observed_fraction: number;
-  max_altitude_jump_m: number;
-  max_implied_vertical_rate_mps: number;
-  max_implied_ground_speed_mps: number;
-  feature_attribution: Record<string, number>;
-  channels: Channels;
-  report: string | null; // pre-generated LLM analysis (build-time), or null if not generated
-  report_model: string | null;
-  center: { lat: number; lon: number };
-  step_seconds: number;
-  operation_segments: FlightSummary[];
+  status: ApproachStatus;
+  direction?: string | null;
+  runway?: string | null;
+  failed_criteria: string[];
+  outcome?: string | null;
+  observed_samples?: number;
+  coverage?: number | ApproachCoverage | null;
+  start_time?: number | null;
+  end_time?: number | null;
+  reasons?: string[];
+  quality_flags?: string[];
 }
 
-export interface MetricRow {
-  model: string;
-  real_roc_auc: number;
-  real_pr_auc: number | null;
-  synthetic_mean_roc_auc: number | null;
-  synthetic_per_type: Record<string, number>;
+export interface ApproachResearchBenchmark {
+  status?: string;
+  model_id?: string;
+  segment_id?: string;
+  score?: number;
+  percentile?: number;
+  coverage?: string | ApproachCoverage;
+  note?: string;
 }
 
-export interface Metrics {
-  selected_model: string | null;
-  results: MetricRow[];
-  notes?: Record<string, string>;
+export interface ApproachDetail extends ApproachSummary {
+  path: ApproachPathPoint[];
+  criteria: ApproachCriterion[];
+  quality?: Record<string, unknown> | null;
+  altitude_reference?: Record<string, unknown> | null;
+  maneuvers?: Array<Record<string, unknown>>;
+  provenance?: Record<string, unknown> | null;
+  geometry?: Record<string, unknown> | null;
+  reference?: Record<string, unknown> | null;
+  schema_version?: string;
+  engine_version?: string;
+  research_benchmark?: ApproachResearchBenchmark | null;
 }
 
-export type Order = "anomalous" | "normal" | "typical";
-
-export interface SimulationRequest {
-  case_id: string;
-  kind: string;
-  intensity: number; // 0 = clean … 1 = the full §6 anomaly
-  onset: number; // fraction of the scored segment where the anomaly begins
+export interface ApproachOperation {
+  operation_ref: string;
+  attempts: ApproachSummary[];
 }
 
-export interface SimulationResult {
-  case_id: string;
-  segment_id: string;
-  kind: string;
-  intensity: number;
-  onset: number;
-  onset_index: number;
-  path: PathPoint[];
-  channels: Channels;
-  scores: number[];
-  window_score: number;
-  original_score: number;
-  pct: number;
-  band: string;
-  anomalous: boolean;
-  threshold: number;
-  step_threshold: number;
-  valid_steps: number;
-  center: { lat: number; lon: number };
-  step_seconds: number;
+export interface ApproachFilters {
+  limit?: number;
+  status?: string;
+  direction?: string;
+  criterion?: string;
+  outcome?: string;
+  quality?: string;
 }
 
 export interface ApiFieldIssue {
@@ -213,21 +141,8 @@ export class ApiError extends Error {
 }
 
 export function hasApiStatus(error: unknown, status: number): boolean {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    "status" in error &&
-    (error as { status?: unknown }).status === status
-  );
-}
-
-export function hasApiCode(error: unknown, code: string): boolean {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    "code" in error &&
-    (error as { code?: unknown }).code === code
-  );
+  return typeof error === "object" && error !== null && "status" in error
+    && (error as { status?: unknown }).status === status;
 }
 
 function retryAfterSeconds(response: Response): number | null {
@@ -248,8 +163,6 @@ function asFieldIssues(value: unknown): ApiFieldIssue[] {
     return [{ field, message, ...(typeof code === "string" ? { code } : {}) }];
   });
 }
-
-const MAX_ERROR_BODY_BYTES = 64 * 1024;
 
 async function boundedErrorPayload(response: Response): Promise<unknown> {
   const declared = Number(response.headers?.get?.("Content-Length"));
@@ -298,14 +211,12 @@ async function apiError(response: Response): Promise<ApiError> {
   const detail = typeof root.detail === "object" && root.detail !== null
     ? root.detail as Record<string, unknown>
     : root;
-  const code = typeof detail.code === "string" ? detail.code : "request_failed";
-  const message = typeof detail.message === "string" && detail.message.trim()
-    ? detail.message
-    : `Request failed (${response.status})`;
   return new ApiError(
     response.status,
-    code,
-    message,
+    typeof detail.code === "string" ? detail.code : "request_failed",
+    typeof detail.message === "string" && detail.message.trim()
+      ? detail.message
+      : `Request failed (${response.status})`,
     asFieldIssues(detail.fields),
     retryAfterSeconds(response),
   );
@@ -317,7 +228,7 @@ async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
   return response.json() as Promise<T>;
 }
 
-async function getJson<T>(path: string, signal?: AbortSignal): Promise<T> {
+function getJson<T>(path: string, signal?: AbortSignal): Promise<T> {
   return requestJson(path, { signal });
 }
 
@@ -325,112 +236,157 @@ export function getHealth(signal?: AbortSignal): Promise<Health> {
   return getJson("/health", signal);
 }
 
-export function getFlights(
-  limit = 80,
-  order: Order = "anomalous",
-  signal?: AbortSignal,
-): Promise<FlightSummary[]> {
-  return getJson(`/flights?limit=${limit}&order=${order}`, signal);
+function approachQuery(filters: ApproachFilters): string {
+  const params = new URLSearchParams();
+  params.set("limit", String(filters.limit ?? 500));
+  for (const key of ["status", "direction", "criterion", "outcome"] as const) {
+    const value = filters[key];
+    if (value && value !== "all") params.set(key, value);
+  }
+  return params.toString();
 }
 
-export function getOperations(
-  limit = 5000,
-  order: Order = "anomalous",
+export async function getApproaches(
+  filters: ApproachFilters = {},
   signal?: AbortSignal,
-): Promise<OperationQueueSummary[]> {
-  return getJson(`/operations?limit=${limit}&order=${order}`, signal);
+): Promise<ApproachSummary[]> {
+  const payload = await getJson<ApproachSummary[] | { items: ApproachSummary[] }>(
+    `/approaches?${approachQuery(filters)}`,
+    signal,
+  );
+  return Array.isArray(payload) ? payload : payload.items;
 }
 
-export function getOperation(
+export function getApproach(attemptId: string, signal?: AbortSignal): Promise<ApproachDetail> {
+  return getJson(`/approaches/${encodeURIComponent(attemptId)}`, signal);
+}
+
+export function getApproachOperation(
   operationRef: string,
   signal?: AbortSignal,
-): Promise<OperationSummary> {
-  return getJson(`/operations/${encodeURIComponent(operationRef)}`, signal);
+): Promise<ApproachOperation> {
+  return getJson(`/approach-operations/${encodeURIComponent(operationRef)}`, signal);
 }
 
-export function getFlight(caseId: string, signal?: AbortSignal): Promise<FlightDetail> {
-  return getJson(`/flights/${encodeURIComponent(caseId)}`, signal);
-}
-
-export function getMetrics(signal?: AbortSignal): Promise<Metrics> {
-  return getJson("/metrics", signal);
-}
-
-/** Analyst what-if: inject a synthetic anomaly into the real segment and re-score it
- *  against the same frozen model. Returns the perturbed segment for overlay. */
-export async function simulate(
-  request: SimulationRequest,
-  signal?: AbortSignal,
-): Promise<SimulationResult> {
-  return requestJson("/simulate", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(request),
-    signal,
-  });
-}
-
-export interface ModelPreparation {
-  model_state: ModelState;
-  model_retry_remaining: number;
-}
-
-export interface EvaluationRejection {
+export interface ApproachEvaluationRejection {
   code: string;
   message: string;
-  count: number;
+  count?: number;
+  field?: string;
 }
 
-/** Uploaded evidence is deliberately not a FlightDetail: it has no label, case,
- * operation, report, or neighboring-operation fields. */
-export interface EvaluationResult {
-  evaluation_ref: string;
-  segment_id: string;
-  model_status: "above_threshold" | "below_threshold";
-  path: PathPoint[];
-  reconstructed: PathPoint[];
-  scores: number[];
-  window_score: number;
-  pct: number;
-  threshold: number;
-  step_threshold: number;
-  valid_steps: number;
-  n_steps: number;
-  assessment_state: AssessmentState;
-  behavioral_verdict: "reviewable" | "not_assessable";
-  review_lane: ReviewLane;
-  data_quality_flags: readonly string[];
-  observed_fraction: number;
-  max_altitude_jump_m: number;
-  max_implied_vertical_rate_mps: number;
-  max_implied_ground_speed_mps: number;
-  feature_attribution: Record<string, number>;
-  channels: Channels;
-  center: { lat: number; lon: number };
-  step_seconds: number;
-}
-
-export interface EvaluationResponse {
+export interface ApproachUploadResponse {
+  schema_version?: string;
   release_id: string;
-  model_id: string;
-  dataset_digest: string;
-  upload_sha256: string;
-  raw_rows: number;
-  derived_rows: number;
-  accepted_rows: number;
-  accepted_segments: number;
-  rejected_segments: number;
-  duplicate_rows_collapsed: number;
-  rejection_reasons: EvaluationRejection[];
-  results: EvaluationResult[];
+  reference_sha256?: string;
+  dataset_digest?: string;
+  upload_sha256?: string;
+  raw_rows?: number;
+  canonical_rows?: number;
+  accepted_rows?: number;
+  duplicate_rows_collapsed?: number;
+  operation_count?: number;
+  attempt_count?: number;
+  rejected_operations?: number;
+  status_counts?: Partial<Record<ApproachStatus, number>>;
+  rejection_reasons?: ApproachEvaluationRejection[];
+  attempts: ApproachUploadAttempt[];
 }
 
-export function prepareModel(signal?: AbortSignal): Promise<ModelPreparation> {
-  return requestJson("/model/prepare", { method: "POST", signal });
+export interface ApproachUploadAttempt extends ApproachSummary {
+  criteria?: ApproachCriterion[];
+  quality?: Record<string, unknown> | null;
+  maneuvers?: Array<Record<string, unknown>>;
+  provenance?: Record<string, unknown> | null;
+  path?: ApproachPathPoint[];
 }
 
-export function evaluateFile(file: File, signal?: AbortSignal): Promise<EvaluationResponse> {
+interface NativeApproachEvaluationResult {
+  evaluation_ref: string;
+  operation_id: string;
+  attempt_index: number;
+  status: ApproachStatus;
+  attempt: {
+    start_time?: number;
+    end_time?: number;
+    outcome?: string;
+    observed_samples?: number;
+    [key: string]: unknown;
+  };
+  runway?: { designator?: string; direction?: string } | null;
+  failed_criteria?: string[];
+  reasons?: string[];
+  criteria?: ApproachCriterion[];
+  maneuvers?: Array<Record<string, unknown>>;
+  provenance?: Record<string, unknown> | null;
+  trajectory?: { points?: ApproachPathPoint[]; [key: string]: unknown } | null;
+  quality?: {
+    fatal_reasons?: string[];
+    observed_samples?: number;
+    [key: string]: unknown;
+  } | null;
+}
+
+interface NativeApproachUploadResponse {
+  schema_version?: string;
+  release_id: string;
+  reference_sha256?: string;
+  dataset_digest?: string;
+  upload_sha256?: string;
+  raw_rows?: number;
+  canonical_rows?: number;
+  duplicate_rows_collapsed?: number;
+  operations?: number;
+  attempts?: number;
+  status_counts?: Partial<Record<ApproachStatus, number>>;
+  results: NativeApproachEvaluationResult[];
+}
+
+export async function evaluateApproachFile(
+  file: File,
+  signal?: AbortSignal,
+): Promise<ApproachUploadResponse> {
   const body = new FormData();
   body.append("file", file);
-  return requestJson("/evaluations", { method: "POST", body, signal });
+  const payload = await requestJson<NativeApproachUploadResponse>("/evaluations", {
+    method: "POST",
+    body,
+    signal,
+  });
+  return {
+    schema_version: payload.schema_version,
+    release_id: payload.release_id,
+    reference_sha256: payload.reference_sha256,
+    dataset_digest: payload.dataset_digest,
+    upload_sha256: payload.upload_sha256,
+    raw_rows: payload.raw_rows,
+    canonical_rows: payload.canonical_rows,
+    accepted_rows: payload.canonical_rows,
+    duplicate_rows_collapsed: payload.duplicate_rows_collapsed,
+    operation_count: payload.operations,
+    attempt_count: payload.attempts,
+    status_counts: payload.status_counts,
+    attempts: payload.results.map((result) => ({
+      attempt_id: result.evaluation_ref,
+      operation_ref: result.operation_id,
+      status: result.status,
+      direction: result.runway?.direction ?? null,
+      runway: result.runway?.designator ?? null,
+      failed_criteria: result.failed_criteria ?? [],
+      outcome: result.attempt.outcome ?? null,
+      observed_samples: result.attempt.observed_samples ?? result.quality?.observed_samples,
+      coverage: result.attempt.observed_samples == null ? null : {
+        observed_samples: result.attempt.observed_samples,
+      },
+      start_time: result.attempt.start_time ?? null,
+      end_time: result.attempt.end_time ?? null,
+      reasons: result.reasons ?? [],
+      quality_flags: result.quality?.fatal_reasons ?? [],
+      criteria: result.criteria ?? [],
+      quality: result.quality ?? null,
+      maneuvers: result.maneuvers ?? [],
+      provenance: result.provenance ?? null,
+      path: result.trajectory?.points ?? [],
+    })),
+  };
 }

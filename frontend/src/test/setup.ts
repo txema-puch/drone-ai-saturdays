@@ -4,7 +4,7 @@ import { cleanup } from "@testing-library/react";
 
 afterEach(() => cleanup());
 
-// jsdom has no ResizeObserver — components use it via useElementHeight / charts.
+// jsdom has no ResizeObserver; keep a stable stub for responsive evidence views.
 class ResizeObserverStub {
   observe() {}
   unobserve() {}

@@ -1,311 +1,241 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { FixedSizeList as List, type ListChildComponentProps } from "react-window";
+import { Link, useSearchParams } from "react-router-dom";
 
 import {
-  getFlights,
+  getApproaches,
   getHealth,
-  getOperations,
-  type FlightSummary,
+  type ApproachFilters,
+  type ApproachStatus as ApproachStatusValue,
+  type ApproachSummary,
   type Health,
-  type Label,
-  type OperationQueueSummary,
-  type OperationQueueSegment,
-  type Order,
-  type ReviewLane,
 } from "../api";
-import Sparkbar from "../components/Sparkbar";
-import Stamp from "../components/Stamp";
-import { aircraftOf, parseEpoch, pctColor, scoreColor } from "../lib/format";
-import { useElementHeight } from "../lib/useElementSize";
-import "./queue.css";
+import ApproachStatus from "../components/ApproachStatus";
+import { formatCoverage, formatTime, humanize, STATUS_ORDER } from "../lib/approach";
 
-type CategoryFilter = "all" | "go_around" | "emergency";
-type ThresholdFilter = "above" | "all";
-type LaneFilter = ReviewLane | "all";
-type QueueMode = "operations" | "segments";
+const FILTERS = ["status", "direction", "criterion", "outcome", "quality"] as const;
+type FilterName = typeof FILTERS[number];
 
-const SEGMENT_ROW_HEIGHT = 56;
-const OPERATION_ROW_HEIGHT = 72;
-const GRID = "170px 1fr 64px 132px 104px";
+const STATUS_OPTIONS: ApproachStatusValue[] = [
+  "review_required",
+  "partial_observation",
+  "criteria_observed",
+  "not_assessable",
+];
 
-interface SegmentRowData {
-  rows: FlightSummary[];
-  open: (caseId: string) => void;
-}
-
-function SegmentRow({ index, style, data }: ListChildComponentProps<SegmentRowData>) {
-  const segment = data.rows[index];
-  const interactive = segment.has_case;
+function AttemptRow({ attempt }: { attempt: ApproachSummary }) {
+  const failed = attempt.failed_criteria ?? [];
+  const runway = attempt.runway || attempt.direction || "Unknown";
   return (
-    <div
-      style={{ ...style, gridTemplateColumns: GRID }}
-      className={`q-row${interactive ? " q-row--open" : ""}`}
-      role={interactive ? "button" : undefined}
-      tabIndex={interactive ? 0 : undefined}
-      aria-label={
-        interactive
-          ? `Open case file for segment ${segment.segment_id}, percentile ${Math.round(segment.pct)}, score ${segment.score.toFixed(2)}, ${segment.label}`
-          : undefined
-      }
-      onClick={interactive ? () => data.open(segment.case_id) : undefined}
-      onKeyDown={interactive ? (event) => {
-        if (event.key === "Enter" || event.key === " ") {
-          event.preventDefault();
-          data.open(segment.case_id);
-        }
-      } : undefined}
-    >
-      <div className="q-cno">
-        {segment.case_ref}
-        <small>{parseEpoch(segment.segment_id)}</small>
-      </div>
-      <div>
-        <div className="q-sid mono">{segment.segment_id}</div>
-        <small className="q-sub sans">
-          aircraft {aircraftOf(segment.segment_id)} · scored segment
-          {!interactive && " · no case file"}
-        </small>
-      </div>
-      <div className="q-pct sans" style={{ color: pctColor(segment.pct) }}>
-        {Math.round(segment.pct)}
-        <small style={{ color: "var(--mut)", fontWeight: 400 }}>th</small>
-      </div>
-      <div className="q-scorebox">
-        <div className="q-sv" style={{ color: scoreColor(segment.score) }}>
-          {segment.score.toFixed(2)}
-        </div>
-        <Sparkbar score={segment.score} />
-      </div>
-      <Stamp label={segment.label} style={{ justifySelf: "end" }} />
-    </div>
-  );
-}
-
-interface OperationRowData {
-  rows: OperationQueueSummary[];
-  open: (operationRef: string) => void;
-  lane: LaneFilter;
-}
-
-function OperationRow({ index, style, data }: ListChildComponentProps<OperationRowData>) {
-  const operation = data.rows[index];
-  const laneSegments = data.lane === "all"
-    ? operation.segments
-    : operation.segments.filter((segment) => segment.review_lane === data.lane);
-  const worst = laneSegments.reduce(
-    (current, segment) => !current || segment.score > current.score ? segment : current,
-    undefined as OperationQueueSegment | undefined,
-  );
-  const label: Label = worst?.label ?? "normal";
-  const flaggedCount = laneSegments.filter((segment) => segment.anomalous).length;
-  const flaggedCopy = `${flaggedCount} flagged ${flaggedCount === 1 ? "segment" : "segments"} in this ${data.lane === "all" ? "operation" : data.lane.replace("_", " ") + " lane"}`;
-  return (
-    <div
-      style={{ ...style, gridTemplateColumns: GRID }}
-      className="q-row q-row--operation q-row--open"
-      role="button"
-      tabIndex={0}
-      aria-label={`Open operation ${operation.operation_ref}`}
-      onClick={() => data.open(operation.operation_ref)}
-      onKeyDown={(event) => {
-        if (event.key === "Enter" || event.key === " ") {
-          event.preventDefault();
-          data.open(operation.operation_ref);
-        }
-      }}
-    >
-      <div className="q-cno">
-        {operation.operation_ref}
-        <small>{operation.segment_count} total segments</small>
-      </div>
-      <div>
-        <div className="q-sid sans">{flaggedCopy}</div>
-        <small className="q-sub sans">
-          {worst ? `Lane evidence: ${worst.case_ref}` : "No evidence in this lane"} · Labels: {operation.labels_seen.join(", ")} · Assessment: {operation.assessment_summary}
-        </small>
-      </div>
-      <div className="q-pct sans" style={{ color: pctColor(worst?.pct ?? 0) }}>
-        {Math.round(worst?.pct ?? 0)}
-        <small style={{ color: "var(--mut)", fontWeight: 400 }}>th</small>
-      </div>
-      <div className="q-scorebox">
-        <div className="q-sv" style={{ color: scoreColor(worst?.score ?? 0) }}>
-          {(worst?.score ?? 0).toFixed(2)}
-        </div>
-        <Sparkbar score={worst?.score ?? 0} />
-      </div>
-      <Stamp label={label} style={{ justifySelf: "end" }} />
-    </div>
+    <li className={`attempt-record attempt-record--${attempt.status}`}>
+      <Link
+        className="attempt-record__link"
+        to={`/approaches/${encodeURIComponent(attempt.attempt_id)}`}
+        aria-label={`Open approach attempt ${attempt.attempt_id}: ${humanize(attempt.status)}, runway ${runway}`}
+      >
+        <span className="attempt-record__cell attempt-record__status" data-label="Status">
+          <ApproachStatus status={attempt.status} compact />
+          <small className="mono">{attempt.attempt_id}</small>
+        </span>
+        <span className="attempt-record__cell" data-label="Runway">
+          <b className="mono">{runway}</b>
+          <small>{humanize(attempt.outcome)}</small>
+        </span>
+        <span className="attempt-record__cell attempt-record__evidence" data-label="Failed criteria">
+          <b>{failed.length ? failed.map(humanize).join(", ") : "No persistent crossing"}</b>
+          <small>{attempt.reasons?.length ? attempt.reasons.map(humanize).join(", ") : "Evidence gate complete"}</small>
+        </span>
+        <span className="attempt-record__cell" data-label="Coverage">
+          <b>{formatCoverage(attempt.coverage, attempt.observed_samples)}</b>
+          <small>{attempt.quality_flags?.length ? `${attempt.quality_flags.length} quality flags` : "No fatal quality flag"}</small>
+        </span>
+        <span className="attempt-record__cell" data-label="Time">
+          <b>{formatTime(attempt.start_time)}</b>
+          <small className="mono">{attempt.operation_ref}</small>
+        </span>
+      </Link>
+    </li>
   );
 }
 
 export default function Queue() {
-  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const query = searchParams.toString();
+  const [attempts, setAttempts] = useState<ApproachSummary[] | null>(null);
   const [health, setHealth] = useState<Health | null>(null);
-  const [segments, setSegments] = useState<FlightSummary[] | null>(null);
-  const [operations, setOperations] = useState<OperationQueueSummary[] | null>(null);
-  const [error, setError] = useState(false);
-  const [retryGeneration, setRetryGeneration] = useState(0);
-  const [mode, setMode] = useState<QueueMode>("operations");
-  const [order, setOrder] = useState<Order>("anomalous");
-  const [category, setCategory] = useState<CategoryFilter>("all");
-  const [threshold, setThreshold] = useState<ThresholdFilter>("all");
-  const [lane, setLane] = useState<LaneFilter>("behavioral");
-  const [search, setSearch] = useState("");
-  const { ref: listWrap, height: listHeight } = useElementHeight<HTMLDivElement>(640);
+  const [error, setError] = useState<string | null>(null);
+  const [retry, setRetry] = useState(0);
+
+  const filters = useMemo<ApproachFilters>(() => ({
+    limit: 500,
+    status: searchParams.get("status") ?? undefined,
+    direction: searchParams.get("direction") ?? undefined,
+    criterion: searchParams.get("criterion") ?? undefined,
+    outcome: searchParams.get("outcome") ?? undefined,
+    quality: searchParams.get("quality") ?? undefined,
+  }), [query]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    const ctrl = new AbortController();
-    setError(false);
-    const request = mode === "operations"
-      ? Promise.all([getHealth(ctrl.signal), getOperations(5000, order, ctrl.signal)])
-          .then(([healthResponse, operationResponse]) => {
-            setHealth(healthResponse);
-            setOperations(operationResponse);
-          })
-      : Promise.all([getHealth(ctrl.signal), getFlights(5000, order, ctrl.signal)])
-          .then(([healthResponse, segmentResponse]) => {
-            setHealth(healthResponse);
-            setSegments(segmentResponse);
-          });
-    request
-      .catch((responseError) => {
-        if (responseError?.name !== "AbortError") setError(true);
-      });
-    return () => ctrl.abort();
-  }, [mode, order, retryGeneration]);
-
-  const segmentRows = useMemo(() => {
-    if (!segments) return [];
-    const query = search.trim().toLowerCase();
-    return segments.filter((segment) => {
-      if (query && ![segment.segment_id, segment.case_ref, segment.operation_ref].some((value) => value.toLowerCase().includes(query))) return false;
-      if (category !== "all" && segment.label !== category) return false;
-      if (threshold === "above" && !segment.anomalous) return false;
-      if (lane !== "all" && segment.review_lane !== lane) return false;
-      return true;
+    const controller = new AbortController();
+    setAttempts(null);
+    setError(null);
+    Promise.all([
+      getApproaches(filters, controller.signal),
+      getHealth(controller.signal).catch(() => null),
+    ]).then(([items, healthResult]) => {
+      setAttempts(items);
+      setHealth(healthResult);
+    }).catch((reason: unknown) => {
+      if (reason instanceof DOMException && reason.name === "AbortError") return;
+      setError(reason instanceof Error ? reason.message : "The approach service did not respond.");
     });
-  }, [segments, search, category, threshold, lane]);
+    return () => controller.abort();
+  }, [filters, retry]);
 
-  const operationRows = useMemo(() => {
-    if (!operations) return [];
-    const query = search.trim().toLowerCase();
-    const filtered = operations.filter((operation) => {
-      const laneSegments = lane === "all"
-        ? operation.segments
-        : operation.segments.filter((segment) => segment.review_lane === lane);
-      const matchesSearch = [operation.operation_ref, operation.worst_case_ref, ...operation.segments.map((segment) => segment.segment_id)]
-        .some((value) => value.toLowerCase().includes(query));
-      if (query && !matchesSearch) return false;
-      if (category !== "all" && !operation.labels_seen.includes(category)) return false;
-      if (threshold === "above" && !laneSegments.some((segment) => segment.anomalous)) return false;
-      if (lane === "behavioral" && operation.reviewable_segment_count === 0) return false;
-      if (lane === "data_quality" && operation.data_quality_segment_count === 0) return false;
-      if (lane === "coverage" && operation.coverage_limited_segment_count === 0) return false;
-      return true;
+  const visibleAttempts = useMemo(() => {
+    const quality = filters.quality;
+    const filtered = !quality || quality === "all"
+      ? attempts ?? []
+      : (attempts ?? []).filter((attempt) => {
+          const flags = attempt.quality_flags ?? attempt.reasons ?? [];
+          return quality === "limited" ? flags.length > 0 : flags.length === 0;
+        });
+    return [...filtered].sort((a, b) => {
+      const status = STATUS_ORDER.indexOf(a.status) - STATUS_ORDER.indexOf(b.status);
+      if (status) return status;
+      const failures = (b.failed_criteria?.length ?? 0) - (a.failed_criteria?.length ?? 0);
+      return failures || (b.start_time ?? 0) - (a.start_time ?? 0);
     });
-    if (lane === "behavioral") return filtered;
+  }, [attempts, filters.quality]);
 
-    const laneScore = (operation: OperationQueueSummary) => Math.max(
-      ...operation.segments
-        .filter((segment) => lane === "all" || segment.review_lane === lane)
-        .map((segment) => segment.score),
-    );
-    const scores = filtered.map(laneScore).sort((a, b) => a - b);
-    const median = scores.length ? scores[Math.floor(scores.length / 2)] : 0;
-    return [...filtered].sort((left, right) => {
-      const leftScore = laneScore(left);
-      const rightScore = laneScore(right);
-      if (order === "normal") return leftScore - rightScore;
-      if (order === "typical") {
-        return Math.abs(leftScore - median) - Math.abs(rightScore - median);
-      }
-      return rightScore - leftScore;
-    });
-  }, [operations, search, category, threshold, lane, order]);
+  function setFilter(name: FilterName, value: string) {
+    const next = new URLSearchParams(searchParams);
+    if (!value || value === "all") next.delete(name);
+    else next.set(name, value);
+    setSearchParams(next, { replace: true });
+  }
 
-  const loaded = mode === "operations" ? operations !== null : segments !== null;
-  const visibleCount = mode === "operations" ? operationRows.length : segmentRows.length;
-  const totalCount = mode === "operations" ? operations?.length ?? 0 : segments?.length ?? 0;
-  const rowHeight = mode === "operations" ? OPERATION_ROW_HEIGHT : SEGMENT_ROW_HEIGHT;
-  const openSegment = (caseId: string) => navigate(`/case/${caseId}`);
-  const openOperation = (operationRef: string) => navigate(`/operation/${encodeURIComponent(operationRef)}`);
+  function clearFilters() {
+    setSearchParams({}, { replace: true });
+  }
+
+  const hasFilters = FILTERS.some((name) => searchParams.has(name));
+  const statusCounts = health?.status_counts ?? {};
 
   return (
-    <div className="q-wrap">
-      <aside className="q-meta">
-        <fieldset className="q-grp">
-          <legend className="microlabel">View</legend>
-          <div className="q-mode" role="group" aria-label="Queue level">
-            <button className={`q-mode-btn sans${mode === "operations" ? " on" : ""}`} aria-pressed={mode === "operations"} onClick={() => setMode("operations")}>Operations</button>
-            <button className={`q-mode-btn sans${mode === "segments" ? " on" : ""}`} aria-pressed={mode === "segments"} onClick={() => setMode("segments")}>Segments</button>
+    <main className="workspace queue-workspace">
+      <header className="workspace-header">
+        <div>
+          <p className="eyebrow">LEMD · post-flight screening</p>
+          <h1>Approach attempts</h1>
+          <p className="workspace-subtitle sans">
+            Screens ADS-B-observable approach criteria. It does not detect emergencies or certify operational safety.
+          </p>
+        </div>
+        <div className="cohort-summary sans" aria-label="Loaded cohort">
+          <span>Loaded cohort</span>
+          <b>{health?.attempts ?? attempts?.length ?? "—"} attempts</b>
+          <small>{health?.release_id ? `release ${health.release_id}` : "Release metadata unavailable"}</small>
+        </div>
+      </header>
+
+      <div className="queue-layout">
+        <section className="queue-main" aria-labelledby="attempt-list-title">
+          <form className="attempt-filters sans" aria-label="Filter approach attempts" onSubmit={(event) => event.preventDefault()}>
+            <label>Status
+              <select value={filters.status ?? "all"} onChange={(event) => setFilter("status", event.target.value)}>
+                <option value="all">All statuses</option>
+                {STATUS_OPTIONS.map((status) => <option key={status} value={status}>{humanize(status)}</option>)}
+              </select>
+            </label>
+            <label>Direction
+              <select value={filters.direction ?? "all"} onChange={(event) => setFilter("direction", event.target.value)}>
+                <option value="all">All directions</option>
+                <option value="18">18 arrivals</option>
+                <option value="32">32 arrivals</option>
+              </select>
+            </label>
+            <label>Criterion
+              <select value={filters.criterion ?? "all"} onChange={(event) => setFilter("criterion", event.target.value)}>
+                <option value="all">All criteria</option>
+                <option value="lateral_path_proxy">Lateral path</option>
+                <option value="barometric_path_proxy">Barometric path</option>
+                <option value="observed_descent_rate">Descent rate</option>
+                <option value="observed_ground_speed_envelope">Ground speed</option>
+                <option value="late_track_correction">Late track correction</option>
+              </select>
+            </label>
+            <label>Outcome
+              <select value={filters.outcome ?? "all"} onChange={(event) => setFilter("outcome", event.target.value)}>
+                <option value="all">All outcomes</option>
+                <option value="landing_observed">Landing observed</option>
+                <option value="go_around">Go-around pattern</option>
+                <option value="final_gate_observed">Final gate observed</option>
+                <option value="incomplete">Incomplete record</option>
+              </select>
+            </label>
+            <label>Quality
+              <select value={filters.quality ?? "all"} onChange={(event) => setFilter("quality", event.target.value)}>
+                <option value="all">All quality states</option>
+                <option value="complete">No fatal flag</option>
+                <option value="limited">Quality limited</option>
+              </select>
+            </label>
+            {hasFilters && <button className="text-button" type="button" onClick={clearFilters}>Clear filters</button>}
+          </form>
+
+          <div className="attempt-list-header sans">
+            <h2 id="attempt-list-title">{attempts ? `${visibleAttempts.length.toLocaleString()} attempts` : "Loading attempts"}</h2>
+            <span>Prioritized by status, failed criteria, then time</span>
           </div>
-        </fieldset>
-        <div className="q-grp">
-          <h2 className="microlabel">Search</h2>
-          <input className="q-search mono" placeholder="ref or segment id…" value={search} onChange={(event) => setSearch(event.target.value)} aria-label="Search queue" />
-        </div>
-        <fieldset className="q-grp">
-          <legend className="microlabel">Order</legend>
-          {([["anomalous", "Most anomalous"], ["typical", "Typical"], ["normal", "Least"]] as const).map(([value, label]) => (
-            <button key={value} className={`q-opt sans${order === value ? " on" : ""}`} aria-pressed={order === value} onClick={() => setOrder(value)}>{label}</button>
-          ))}
-        </fieldset>
-        <fieldset className="q-grp">
-          <legend className="microlabel">Category</legend>
-          {([["all", "All"], ["go_around", "Go-around"], ["emergency", "Emergency"]] as const).map(([value, label]) => (
-            <button key={value} className={`q-opt sans${category === value ? " on" : ""}`} aria-pressed={category === value} onClick={() => setCategory(value)}>{label}</button>
-          ))}
-        </fieldset>
-        <fieldset className="q-grp">
-          <legend className="microlabel">Filter</legend>
-          {([["above", "Above threshold"], ["all", "All segments"]] as const).map(([value, label]) => (
-            <button key={value} className={`q-opt sans${threshold === value ? " on" : ""}`} aria-pressed={threshold === value} onClick={() => setThreshold(value)}>{label}</button>
-          ))}
-        </fieldset>
-        <fieldset className="q-grp">
-          <legend className="microlabel">Review lane</legend>
-          {([["behavioral", "Behavioral review"], ["data_quality", "Data quality"], ["coverage", "Coverage limited"], ["all", "All evidence"]] as const).map(([value, label]) => (
-            <button key={value} className={`q-opt sans${lane === value ? " on" : ""}`} aria-pressed={lane === value} onClick={() => setLane(value)}>{label}</button>
-          ))}
-        </fieldset>
-      </aside>
 
-      <main className="q-main">
-        <div className="q-hd">
-          <h1>Conformance Audit — LEMD</h1>
-          <div className="q-docket sans">
-            {health ? <><b>{health.operations.toLocaleString()}</b> operations · <b>{health.segments.toLocaleString()}</b> scored segments · <b>{health.reviewable.toLocaleString()}</b> reviewable · <b>{health.data_quality_conflicts + health.insufficient_data}</b> data-quality review · <b>{health.coverage_limited}</b> coverage-limited</> : "Loading audit summary…"}
-          </div>
-        </div>
-
-        <div className="q-colhd sans" style={{ gridTemplateColumns: GRID }}>
-          <span>{mode === "operations" ? "Operation" : "Case"}</span>
-          <span>{mode === "operations" ? "Segment evidence" : "Segment"}</span>
-          <span className="r">Cohort pctile</span>
-          <span className="r">{mode === "operations" ? "Lane score" : "Score"}</span>
-          <span className="r">Category</span>
-        </div>
-
-        <div className="q-list" ref={listWrap}>
-          {error ? (
-            <div className="q-empty sans"><div className="big">Cannot reach the audit service</div>The audit service is not responding.<div><button className="q-retry sans" onClick={() => setRetryGeneration((current) => current + 1)}>Retry</button></div></div>
-          ) : !loaded ? (
-            <div aria-busy="true" aria-label="Loading queue">{Array.from({ length: 10 }).map((_, index) => <div key={index} className="q-skel" style={{ height: rowHeight }} />)}</div>
-          ) : visibleCount === 0 ? (
-            <div className="q-empty sans"><div className="big">No matching {mode}</div>No {mode} match this search and filter. Clear the search or widen the filter to see the full docket.</div>
-          ) : mode === "operations" ? (
-            <List height={listHeight} itemCount={operationRows.length} itemSize={OPERATION_ROW_HEIGHT} width="100%" itemData={{ rows: operationRows, open: openOperation, lane }} overscanCount={8}>{OperationRow}</List>
-          ) : (
-            <List height={listHeight} itemCount={segmentRows.length} itemSize={SEGMENT_ROW_HEIGHT} width="100%" itemData={{ rows: segmentRows, open: openSegment }} overscanCount={8}>{SegmentRow}</List>
+          {error && (
+            <div className="state-panel" role="alert">
+              <h2>Attempt list unavailable</h2>
+              <p>{error}</p>
+              <button type="button" onClick={() => setRetry((value) => value + 1)}>Retry with these filters</button>
+            </div>
           )}
-        </div>
 
-        <div className="q-foot sans">
-          {loaded ? <>Showing {visibleCount.toLocaleString()} of {totalCount.toLocaleString()} {mode} · {lane.replace("_", " ")} lane · virtualized</> : "Connecting to the audit service…"}
-        </div>
-      </main>
-    </div>
+          {!error && attempts === null && (
+            <div className="attempt-skeleton" aria-busy="true" aria-label="Loading approach attempts">
+              {Array.from({ length: 6 }, (_, index) => <span key={index} />)}
+            </div>
+          )}
+
+          {!error && attempts !== null && visibleAttempts.length === 0 && (
+            <div className="state-panel">
+              <h2>No attempts match this view</h2>
+              <p>The cohort loaded successfully. Remove a filter to return to assessable evidence.</p>
+              <button type="button" onClick={clearFilters}>Clear all filters</button>
+            </div>
+          )}
+
+          {!error && visibleAttempts.length > 0 && (
+            <>
+              <div className="attempt-columns sans" aria-hidden="true">
+                <span>Status / attempt</span><span>Runway / outcome</span><span>Failed criteria</span><span>Coverage</span><span>Time / operation</span>
+              </div>
+              <ol className="attempt-list">
+                {visibleAttempts.map((attempt) => <AttemptRow attempt={attempt} key={attempt.attempt_id} />)}
+              </ol>
+            </>
+          )}
+        </section>
+
+        <aside className="context-rail sans" aria-label="Cohort status summary">
+          <h2>Status scope</h2>
+          {STATUS_OPTIONS.map((status) => (
+            <button key={status} onClick={() => setFilter("status", status)} aria-pressed={filters.status === status}>
+              <ApproachStatus status={status} compact />
+              <b>{statusCounts[status] ?? (attempts ?? []).filter((item) => item.status === status).length}</b>
+            </button>
+          ))}
+          <div className="context-rail__note">
+            <b>How to read this queue</b>
+            <p>Review status comes from observed rule evidence. Missing coverage stays visible instead of being scored as normal.</p>
+          </div>
+        </aside>
+      </div>
+    </main>
   );
 }
