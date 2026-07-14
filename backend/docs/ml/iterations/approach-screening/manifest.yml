@@ -1,12 +1,14 @@
 iteration: "approach-screening-v1"
 opened_at: "2026-07-14"
-current_phase: "eval"
+current_phase: "deploy_blocked"
 problem_type: "rules_first_screening_with_empirical_reference"
 historical_iteration: "backend/docs/ml/manifest.yml"
 fresh_holdout:
   path: "data/raw/lemd_20260310_to_20260314__snapshot_2026-05-11.parquet"
   sha256: "16f1bd2cbdbd519ce7bde6fbbc8df5012b188b54c5598bffc310cef34b0c6899"
-  status: "sealed_candidate_not_burned"
+  status: "burned_once_failed_qualification"
+  burned_at: "2026-07-14"
+  source_commit: "7e52fc05eae72159c5d4616f4b2538ff8e5341e7"
 gates:
   problem:
     status: "passed"
@@ -32,8 +34,18 @@ gates:
     status: "passed"
     passed_at: "2026-07-14"
     artifact: "backend/docs/ml/iterations/approach-screening/06-train.md"
-  eval: {status: "pending", artifact: null}
-  deploy: {status: "pending", artifact: null}
+  eval:
+    status: "failed"
+    evaluated_at: "2026-07-14"
+    artifact: "backend/docs/ml/iterations/approach-screening/07-eval.md"
+    report: "backend/docs/ml/iterations/approach-screening/artifacts/2026-holdout-burn.json"
+    retention: 0.6313
+    retention_target: 0.65
+    precision: "unknown_no_independent_labels"
+  deploy:
+    status: "blocked"
+    reason: "phase_1_retention_target_missed_and_precision_not_measured"
+    artifact: null
 model_gate:
   deterministic_baseline: "required"
   empirical_reference: "selected_approach_reference_v1"
