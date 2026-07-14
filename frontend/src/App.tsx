@@ -21,7 +21,7 @@ export default function App() {
   return (
     <div className="app-shell">
       <header className="app-nav sans">
-        <NavLink className="app-brand" to="/">SADAR <span>/ LEMD CONFORMANCE</span></NavLink>
+        <NavLink className="app-brand" to="/">SADAR <span>/ ANALYST CONSOLE</span></NavLink>
         <nav aria-label="Primary navigation">
           <NavLink to="/" end>Audit queue</NavLink>
           {evaluationEnabled && <NavLink to="/evaluate">Evaluate data</NavLink>}

@@ -1,7 +1,7 @@
-# DESIGN.md — LEMD Conformance Audit & Evaluation (post-hoc analyst tool)
+# DESIGN.md — SADAR Analyst Console
 
 Design system for the trajectory-anomaly **audit and frozen-model evaluation** UI (the
-SADAR-merge frontend, Direction C "Forensic Dossier"). Locked via `/design-shotgun` +
+SADAR Analyst Console, formerly the SADAR-merge Direction C "Forensic Dossier"). Locked via `/design-shotgun` +
 `/plan-design-review` 2026-06-03 and extended for analyst evaluation 2026-07-14. The visual
 reference prototypes live at `~/.gstack/projects/txema-puch-drone-ai-saturdays/designs/ranked-queue-20260603/`
 (`variant-C.html` = queue, `case-C.html` = case file). This file is the token source of truth for
@@ -76,7 +76,7 @@ Operating threshold (frozen, never retuned): **RE ≥ 0.222** = flagged. Served 
 Persistent navigation separates the two evidence sources before the analyst sees a score:
 
 ```text
-SADAR / LEMD CONFORMANCE
+SADAR / ANALYST CONSOLE
 ├── Audit queue                 release-baked, labeled retrospective evidence
 │   └── Operation
 │       └── Case file
@@ -100,8 +100,9 @@ rail, not a dashboard-card mosaic.
 First-screen hierarchy:
 
 1. **Orientation:** `Evaluate new data` plus frozen release/model identity.
-2. **Trust boundary:** compact, always-visible notice that processing is ephemeral, the public
-   demo is unauthenticated, and confidential/proprietary uploads are prohibited.
+2. **Trust boundary:** compact, always-visible notice that the application keeps no upload
+   history, Fly may snapshot runtime memory during suspension, the public demo is unauthenticated,
+   and confidential/proprietary uploads are prohibited.
 3. **Action:** one visible file selector/drop target with CSV/Parquet, 10 MiB, 50,000-raw-row,
    100,000-resampled-row, and
    25-segment limits; adjacent links download the exact schema and synthetic sample.
@@ -113,10 +114,10 @@ assessment; trajectory and temporal evidence; feature attribution; `Export JSON`
 
 ```text
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│ SADAR / LEMD CONFORMANCE       Audit queue  |  Evaluate data               │
+│ SADAR / ANALYST CONSOLE        Audit queue  |  Evaluate data               │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │ Evaluate new data                         release + model status            │
-│ Public demo · ephemeral · do not upload confidential/proprietary data      │
+│ Public demo · no app history · host may snapshot suspended runtime memory  │
 │ ┌ Select or drop CSV/Parquet ─────────┐  Schema  Sample  Limits            │
 │ └──────────────────────────────────────┘                                    │
 ├───────────────────────┬─────────────────────────────────────────────────────┤

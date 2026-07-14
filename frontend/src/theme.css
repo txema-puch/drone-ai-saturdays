@@ -1,5 +1,5 @@
 /*
- * LEMD Conformance Audit — Direction C "Forensic Dossier".
+ * SADAR Analyst Console — Direction C "Forensic Dossier".
  * Token source of truth: /DESIGN.md (repo root). This file is the React
  * implementation of those tokens. Real font faces (deferred a11y TODO from
  * DESIGN.md) are bundled via @fontsource imports in main.tsx — no external CDN.

@@ -121,6 +121,10 @@ describe("evaluate data", () => {
 
     renderEvaluate();
     expect(await screen.findByLabelText("Select or drop CSV/Parquet")).toBeEnabled();
+    const privacy = screen.getByRole("note");
+    expect(privacy).toHaveTextContent(/keeps no upload history/i);
+    expect(privacy).toHaveTextContent(/snapshot runtime memory/i);
+    expect(privacy).toHaveTextContent(/do not upload confidential or proprietary data/i);
     expect(screen.getByRole("link", { name: "Download schema template" })).toHaveAttribute("download");
     expect(screen.getByRole("link", { name: "Download synthetic sample" })).toHaveAttribute("download");
   });

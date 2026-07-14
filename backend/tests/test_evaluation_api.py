@@ -23,6 +23,13 @@ class ReadyRuntime:
         yield object()
 
 
+def test_openapi_identity_matches_public_product():
+    assert serve_app.app.title == "SADAR Analyst Console"
+    assert serve_app.app.description == (
+        "Post-hoc LEMD trajectory-anomaly audit and frozen-model evaluation."
+    )
+
+
 def response_stub(*_args, **_kwargs):
     return {
         "release_id": "release",
@@ -69,6 +76,11 @@ def test_not_ready_and_busy_are_bounded(monkeypatch):
             yield
 
     monkeypatch.setattr(serve_app, "MODEL_RUNTIME", BusyRuntime())
+
+    async def unexpected_multipart_parse(*_args, **_kwargs):
+        raise AssertionError("busy uploads must be rejected before multipart parsing")
+
+    monkeypatch.setattr(serve_app.Request, "form", unexpected_multipart_parse)
     response = client.post(
         "/api/evaluations",
         files={"file": ("sample.csv", b"time\n1\n", "text/csv")},

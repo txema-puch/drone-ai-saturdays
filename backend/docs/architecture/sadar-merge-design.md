@@ -1,9 +1,11 @@
-# SADAR merge — design & scoping
+# SADAR Analyst Console — design & scoping
 
-**Status:** ACTIVE DESIGN — Direction C is implemented locally; release hardening and analyst
-upload evaluation are planned before deployment.
-**Date:** 2026-06-03; application boundary updated 2026-07-14.
-**Owner:** Txema. **Coordination with:** devrup404 — **no message until C is built + deployed** (Txema's call: message him once it's done so he can decide if he wants B — his Space on our model). C needs no permission anyway (his frontend is MIT; we deploy our own Space + keep his attribution). His consent gates **only the optional B / dual-view stretch**.
+**Status:** RELEASE CANDIDATE — Direction C and analyst upload evaluation are implemented;
+deployment targets the public `sadar-analyst-console.fly.dev` Fly.io application.
+**Date:** 2026-06-03; product identity and application boundary updated 2026-07-14.
+**Owner:** Txema. **Relationship to devrup404's project:** independent model and deployment;
+his MIT frontend remains credited for the reused project shape, API interfaces, and projection
+helper. Any future cross-deployment would be a separate, opt-in collaboration.
 **Inputs read:** `external/sadar/` (vendored, gitignored) full serve + data + model contract; our `backend/core/` contract + frozen Phase-6 artifacts.
 **Related:** [[project_sadar_merge_next]], [[project_sadar_parallel]], [[project_ml_lifecycle]]; `backend/docs/ml/07-eval.md`.
 
@@ -11,11 +13,22 @@ upload evaluation are planned before deployment.
 
 ## 1. The goal in one line
 
-Two parallel Saturdays.AI projects on identical OpenSky-LEMD data should converge into one deliverable: **his vis** (his MIT React radar demo + the serve skeleton) **brought into OUR repo, around our pipeline + model** (the better-on-real-anomalies LSTM-AE, clean Phase 1–7 lifecycle) — giving our rigorous lifecycle the deployable face we never built, in the repo that already owns everything that matters.
+**Public product identity:** **SADAR Analyst Console**. SADAR is the shared project lineage, not
+a claim that the two parallel implementations serve the same model. The team explored the same
+trajectory-anomaly problem and then developed independent model implementations and product
+directions. This console is Txema's post-hoc analyst workflow around this repository's frozen
+LSTM autoencoder.
+
+Turn this repository's independently developed model and lifecycle into a complete analyst
+product, adapting the useful MIT-licensed frontend patterns from a teammate's parallel project
+without presenting the two implementations as one shared model or deployment.
 
 Phase 7 result that motivates this: on the held-aside real-anomaly cohort our AE scored **ROC 0.667** vs his VAE-LSTM **0.659** (a dead heat, slight edge to us); our pipeline carries the eval discipline (firewall split, five-layer credibility stack, per-type table). His repo carries the reusable frontend. Merge = take the best of each.
 
-**Direction (decided 2026-06-03):** **C primary** — his vis → our repo, we own the build + deploy our own Space. **B is an optional downstream** — once C exists, the *same* serve rewrite can be offered to devrup as a PR so his Space also runs our model. See §4. (The earlier framing had B primary; reading the contracts + the HF-Space/LFS/packaging facts flipped it — §4.0.)
+**Direction (decided 2026-06-03):** **C primary** — adapt the reusable visual patterns in
+our repo, own the complete build, and deploy an independent Fly application. The earlier B direction
+(serving our model through devrup404's Space) remains historical scoping, not part of this
+release and not part of the public product narrative. See §4.
 
 **Critical honest flag:** this merge is a **deployment/productisation change, not a model change.**
 The shipped detector stays our Phase-6 LSTM-AE (`small/mean`, thr 0.222). Phase-7 numbers and
@@ -28,9 +41,8 @@ of those paths retrains or retunes the model.
 ## 2. His runtime contract (what SADAR actually is)
 
 **Key discovery: his serve layer was a STATIC demo over a pre-computed test set, not a live
-monitor.** The current branch preserves that read-only audit cohort and adds live What-If scoring
-for baked cases. It still has no way for an analyst to supply new observations; §4.6 makes that
-missing model-as-product boundary part of the release.
+monitor.** This branch preserves a read-only audit cohort, adds What-If scoring for baked cases,
+and closes the model-as-product gap with the bounded, ephemeral analyst-upload workflow in §4.6.
 
 `ConformanceService` (`serve/inference.py`) loads at boot:
 - `data/processed/{test,val}.npy` — scaled window arrays (shape `(N, 60, 7)`),
@@ -93,7 +105,7 @@ What we take from SADAR is the genuinely reusable artifact — **his MIT-license
 
 ### 4.0 C primary, B optional — and what "both" means
 
-- **C (the build, source of truth):** vendor his `frontend/` + a `Dockerfile` into **our** repo (e.g. `backend/serve/` + `frontend/`); write a **fresh FastAPI serve** that imports `backend.core` natively; deploy **our own** HF Space. Our repo owns the whole stack; the writeup links here.
+- **C (the build, source of truth):** vendor his `frontend/` + a `Dockerfile` into **our** repo (e.g. `backend/serve/` + `frontend/`); write a **fresh FastAPI serve** that imports `backend.core` natively; deploy **our own** Fly application. Our repo owns the whole stack; the writeup links here.
 - **B (optional downstream, his call):** because the serve rewrite is the same code, it can later be **offered to devrup as a PR** so his Space also runs our model. This is the only sane "do both" — *build once in C, offer B*; it is **not** a second, separately-engineered integration.
 
 **Sequencing rule:** **C first, always.** Never do B in parallel or B-first — that re-incurs the packaging + LFS + cross-account-PR friction for a redundant second deploy. B is take-it-or-leave-it for devrup, after C works.
@@ -122,7 +134,7 @@ ground-truth label, operation context, case ID, cached report, or neighbor-case 
 ### Docker (in our repo)
 - Adapt his two-stage Dockerfile (Node frontend build → Python backend). Bake our scene artifacts + `lstm_ae_best.pt` + `scaler.joblib` instead of his `data/processed/*.npy`.
 - Backend deps are our `backend/pyproject.toml` (`torch`, `scikit-learn`, `pandas`, `pyproj` already present; add `joblib`, `fastapi`/`uvicorn` already present). No `optuna` (training-only).
-- Deploy as **our** HF Space (same container, new Space under our account — no push to his).
+- Deploy as **our** Fly application (same container, personal Fly account — no push to his).
 
 ---
 
@@ -149,7 +161,7 @@ The analyst-triage IA (queue → case-file) is new design, not a relabel, so it 
 
 - **Explore** — `/design-shotgun` (or `/design-consultation` for a fuller system + a `DESIGN.md` source of truth): generate variants of the two core screens (ranked queue, case file) and compare. Decide how much of his SADAR dark-ops radar aesthetic to keep vs restyle — his visual language already suits an ops/analyst tool, so this is likely *reskin the IA, keep the palette*, but the shotgun makes that an evidenced choice, not an assumption.
 - **Lock** — `/plan-design-review`: rate the chosen direction dimension-by-dimension, fix the plan to a 10 before building. **Done 2026-06-03: 6/10 → 8/10.** Four build-changing fixes applied to the prototypes + serve data: (1) score **percentile + band** (precompute bakes it; served on queue + case), (2) **altitude profile** stacked over the RE timeline in the case file, (3) **linked scrub** playhead (timeline → trajectory marker), (4) queue **density + percentile column + segment-id search + loading/empty states**. Tokens formalized in **`/DESIGN.md`** (repo root) = the React token source of truth. Deferred to the React build (in DESIGN.md): list virtualization, WCAG-AA contrast verify, chart screen-reader fallbacks, keyboard nav, a real sans typeface.
-- **QA (post-deploy)** — `/design-review`: visual audit on the live Space with before/after screenshots.
+- **QA (post-deploy)** — `/design-review`: visual audit on the live application with before/after screenshots.
 
 Only after Explore + Lock does the frontend IA rebuild (§6 step 6) begin. The precompute (§6 step 3, **done**) already fixes the data the screens render, so the design stage works against a real contract, not a guess.
 
@@ -180,6 +192,9 @@ Product boundaries:
 - Processing is synchronous, bounded, and ephemeral: 10 MiB, 50,000 raw rows, 100,000 projected
   ten-second grid rows, 100 preprocessing segments, and 25 accepted
   segments, one shared analysis slot, no server-side result history, cleanup in `finally`.
+- Ephemeral means the application intentionally retains no file or result. Fly autosuspend
+  snapshots VM memory to provider-managed storage, so uploaded bytes may remain in a disposable
+  runtime snapshot until Fly discards it; the demo is not appropriate for private data.
 - The public anonymous demo says not to upload confidential or proprietary data. Private analyst
   telemetry requires an authenticated deployment outside this release.
 - `SADAR_ENABLE_EVALUATION=false` is the fail-closed default. Health advertises capability;
@@ -206,7 +221,9 @@ The genuinely-both end state: serve **both** models, each in its honest mode —
 2. **Variable-length timelines.** His per-step arrays are fixed length 60; ours vary (≤260, masked). The case-file score-timeline + onset slider must trim to valid length. Mechanical.
 3. **Frontend is an IA rebuild (C's main cost).** Not just a Node/pnpm + Vite frontend into a previously pure-Python repo — we rebuild the information architecture into queue → case-file (§4.5) on top of his reused components. Bigger than a relabel, but self-contained under `frontend/` + `backend/serve/`, and still far smaller than B's packaging + LFS friction.
 4. **Attribution.** His frontend is MIT — reuse is granted; keep his licence/attribution in the vendored `frontend/`. Courtesy: give devrup a heads-up before vendoring (he'll almost certainly be glad his vis gets used).
-5. **No CI on either repo.** Tests pass locally only (our 84 tests). Integration is verified by hand + the Space health check.
+5. **Delivery CI is now implemented in this repo.** The clean-checkout workflow builds and
+   smoke-tests the container; live integration is verified against the Fly health endpoint and
+   analyst flow after deployment.
 6. **B is devrup's call.** If we later offer B, it is a PR *he* reviews/merges into *his* Space — never a push from us, and never overwriting his own SADAR work.
 
 ---
@@ -219,20 +236,22 @@ Normal per-phase pattern on our side (issue + branch + PR to `develop`). **C is 
 1. **No message to devrup yet** — Txema messages him only once C is built + deployed, so he can decide whether he wants B (his Space on our model). Keep his MIT licence/attribution in the vendored frontend regardless.
 2. **Vendor his frontend** ✅ **DONE** — `frontend/` at repo root, standardized on **npm** (local had no pnpm/corepack; we own the build now). Reused his `api.ts` response contract + `geo.ts` projection; kept MIT attribution (`frontend/ATTRIBUTION.md` + `LICENSE.SADAR`). `external/` is gitignored. His radar-`index.css` + Monitor/RadarScope IA dropped.
 3. **Triage precompute script** ✅ **DONE** — `backend/serve/precompute.py`: `phase6/clean_df.parquet` → 2020-test ∪ held-aside real anomalies (4480 segs) → frozen-contract scoring (T=260, masked mean RE, thr 0.222) → `models/sadar_demo/{queue.json, cases.json, manifest.json}` (ranked queue + per-flight path / reconstructed path / per-step RE timeline / feature attribution). Verified: anomaly mean 0.186 vs normal 0.114 — reproduces the Phase-7 signal.
-4. **Write `backend/serve/` API** ✅ **DONE** — fresh FastAPI app (`backend/serve/app.py`) reusing his route shapes + `api.ts` interfaces, serving the precompute bundle. `/api/flights` (ranked queue) + `/api/flights/{id}` (case file) + `/api/metrics` (Phase-7) live; `/api/simulate` is a 501 stub until step 7.
+4. **Write `backend/serve/` API** ✅ **DONE** — fresh FastAPI app (`backend/serve/app.py`) reusing his route shapes + `api.ts` interfaces, serving the precompute bundle. `/api/flights` (ranked queue) + `/api/flights/{id}` (case file) + `/api/metrics` (Phase-7) are live; `/api/simulate` now shares the frozen scorer and analysis admission described in step 6b.
 5. **UI DESIGN STAGE (gstack, §4.5.2)** ✅ **DONE** — `/design-shotgun` → direction C "Forensic Dossier" locked; `/plan-design-review` 6→8; tokens in `/DESIGN.md`; HTML prototypes are the React reference.
 6. **Frontend IA rebuild (§4.5)** ✅ **DONE** (`task-sadar-merge-c`, eng-reviewed via `/plan-eng-review`) — React+Vite+TS in `frontend/`. Ranked queue (dense docket, search + order/category/threshold filters, **react-window** virtualization of all 4,480 rows, loading/empty/error states) as the landing flow; case file (`TrajectoryMap` actual-vs-reconstruction + amber deviation dots + scrub marker; `TemporalPanel` altitude-over-RE shared-x with **linked scrub** playhead + keyboard arrow scrub; `Attribution`; verdict score+pct+band; demoted `WhatIfPanel`) as detail. a11y carried into React: bundled Inter/Newsreader/IBM Plex Mono (`@fontsource`, no CDN), `--mut` contrast verified ≈5.5:1, chart screen-reader data-table fallback, keyboard nav (rows focusable → Enter opens, Esc back). **29 vitest+RTL tests pass** (helpers, geo, api, Queue, CaseFile, queue→case flow); typecheck + `vite build` clean; queue→case verified by hand against :8077.
 6b. **What-if + channel selector** ✅ **DONE 2026-06-04** (brought forward from step 7). `POST /api/simulate` wired → `backend/core/inject.inject_segment` (+ `features.apply_segment_derivations` replay) through a shared `serve/scoring.py` (the same frozen contract precompute uses — no drift). `intensity` 0→1 interpolates clean → the full §6 anomaly; deterministic per (segment, kind); torch lazy-loaded on first call (read endpoints stay cold-start-fast). Precompute now also bakes `cases_raw.parquet` (250 segs, ~2.5 MB — the full 128 MB clean_df is never shipped) + per-step `channels` (altitude/velocity/vertrate/dist). Frontend: the case-file temporal panel gets a **channel selector** (trace any measured channel over time, not just altitude) and the what-if **overlays the perturbed path + perturbed RE + onset marker in magenta** with a score delta + a Clear/undo. Verified honest: `sustained_loiter` flags a normal flight (0.08→0.39, 96th) while `altitude_high` barely moves it — the overlay reproduces the model's real per-type sensitivity (Phase-7 loiter ROC 0.97 vs altitude 0.56). 84 backend + 31 frontend tests pass.
-6c. **LLM analysis report (explainer)** ✅ **DONE 2026-06-04** (plan-eng-review + codex outside-voice). A per-case forensic note on *what drove the score*, grounded in the structured facts (attribution, channels, band) + the D-014 data-quality flags so it says plainly when an "anomaly" is a gate/data artifact, never asserts drone/intent/identity. **Scannable plain-text format** (verdict header · RE-vs-threshold · bulleted drivers · one-line Reading). **Generated OFFLINE by Claude Code subagents** (free on the CC plan, NOT the metered API — Txema's call): a 250-agent Workflow (`gen-reports`, model sonnet) reads per-case `contexts/{i}.json` and writes `reports_out/{i}.txt`; an assembly step keys them into `reports_cache.json` by `segment_id|prompt-fingerprint`. `precompute.py` **bakes from that cache** into `cases.json` (no key / no API / no cost ever) and is **served static** — codex flipped it from a runtime endpoint (no key/cost/abuse/latency on the public Space). Generation artifacts (`contexts/`, `reports_out/`, `idx2sid.json`, `reports_cache.json`) live under `backend/models/` (gitignored); a prompt edit changes the fingerprint → re-run the workflow to regenerate. Frontend `ReportPanel` (in the attribution card) reveals the baked text on click, plain-text render, labelled "explanatory, not scoring"; graceful "no report" state. Tests: `tests/test_report.py` (classify + bounded build_context + fingerprint, 6 pure) + frontend reveal/empty. `report.py` keeps an API path (`make_client`/`generate_report`) + `report_eval.py` for an optional live prompt check, but the shipped path is subagents. **250/250 baked, verified in UI.** NOT a detector change — Phase-7 untouched.
-6d. **Analyst upload evaluation** — **PLANNED 2026-07-14** (§4.6, Issue #31 release plan).
-Add the fail-closed `/evaluate` workflow, bounded CSV/Parquet parsing, exact shared frozen-model
-pipeline, upload-only evidence DTO, sample/schema onboarding, ephemeral cleanup, and neutral
-result language. No uploaded result receives an LLM report or joins the baked audit queue.
+6c. **LLM analysis report (explainer)** ✅ **DONE 2026-06-04** (plan-eng-review + codex outside-voice). A per-case forensic note on *what drove the score*, grounded in the structured facts (attribution, channels, band) + the D-014 data-quality flags so it says plainly when an "anomaly" is a gate/data artifact, never asserts drone/intent/identity. **Scannable plain-text format** (verdict header · RE-vs-threshold · bulleted drivers · one-line Reading). **Generated OFFLINE by Claude Code subagents** (free on the CC plan, NOT the metered API — Txema's call): a 250-agent Workflow (`gen-reports`, model sonnet) reads per-case `contexts/{i}.json` and writes `reports_out/{i}.txt`; an assembly step keys them into `reports_cache.json` by `segment_id|prompt-fingerprint`. `precompute.py` **bakes from that cache** into `cases.json` (no key / no API / no cost ever) and is **served static** — codex flipped it from a runtime endpoint (no key/cost/abuse/latency on the public deployment). Generation artifacts (`contexts/`, `reports_out/`, `idx2sid.json`, `reports_cache.json`) live under `backend/models/` (gitignored); a prompt edit changes the fingerprint → re-run the workflow to regenerate. Frontend `ReportPanel` (in the attribution card) reveals the baked text on click, plain-text render, labelled "explanatory, not scoring"; graceful "no report" state. Tests: `tests/test_report.py` (classify + bounded build_context + fingerprint, 6 pure) + frontend reveal/empty. `report.py` keeps an API path (`make_client`/`generate_report`) + `report_eval.py` for an optional live prompt check, but the shipped path is subagents. **250/250 baked, verified in UI.** NOT a detector change — Phase-7 untouched.
+6d. **Analyst upload evaluation** ✅ **DONE 2026-07-14** (§4.6, Issue #31 release plan).
+The fail-closed `/evaluate` workflow now provides bounded CSV/Parquet parsing, the exact shared
+frozen-model pipeline, an upload-only evidence DTO, sample/schema onboarding, ephemeral cleanup,
+and neutral result language. No uploaded result receives an LLM report or joins the baked audit
+queue.
 7. **Docker** — adapt his two-stage build (→ npm), fetch one immutable release containing the
 verified baked cohort plus tensor-only model and JSON scaler artifacts, drop optuna; **deploy our
-own HF Space**; verify `/api/health`, queue→case→what-if, and sample upload→evaluation→export;
-run `/design-review` on the live Space. (No `ANTHROPIC_API_KEY` on the Space — reports are pre-baked.)
-8. **Writeup** — add a "deployment" section pointing at our live Space, framed as a **post-hoc conformance-audit tool**; credit his sliding-window design as the more streaming-ready; **ch.11 numbers unchanged** (merge ≠ model change).
+own Fly application** with suspend/autostart and zero warm Machines; verify `/api/health`,
+queue→case→what-if, and sample upload→evaluation→export; run `/design-review` on the live app.
+(No `ANTHROPIC_API_KEY` in Fly — reports are pre-baked.)
+8. **Writeup** — add a "deployment" section pointing at our live application, framed as a **post-hoc conformance-audit tool**; credit his sliding-window design as the more streaming-ready; **ch.11 numbers unchanged** (merge ≠ model change).
 
 **STRETCH — dual-model / dual-view (§4.5.1), evaluate only after C ships:**
 9. Add his streaming VAE-LSTM as a second "live monitoring" mode beside our audit view. This is the gate where **B** (offering his Space our model, or co-deploying the dual tool) comes back — a credit/coordination conversation with devrup, decided then, not now.

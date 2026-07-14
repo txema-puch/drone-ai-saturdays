@@ -1,4 +1,25 @@
-# Drone AI — Saturdays.AI
+# SADAR Analyst Console
+
+Post-hoc trajectory-anomaly analysis around Madrid-Barajas Airport (LEMD). Analysts can review
+the frozen release cohort, upload bounded OpenSky-style CSV or Parquet observations, apply the
+immutable release model, and inspect trajectory, temporal, attribution, and data-quality evidence.
+
+SADAR began as a collaborative exploration of trajectory-anomaly detection around
+Madrid-Barajas Airport. From that shared foundation, team members developed independent model
+implementations and approaches to productizing the concept. **SADAR Analyst Console** is Txema
+Puch's implementation, focused on the analyst workflow: evaluating operational data and
+investigating trajectory-anomaly evidence.
+
+- **Deployment target:** <https://sadar-analyst-console.fly.dev>
+- **Immutable model release:** <https://huggingface.co/Txemapuch/sadar-demo-release>
+- **Source:** <https://github.com/txema-puch/drone-ai-saturdays>
+
+The model output is investigative evidence, not an authorization, identity, incident, intent, or
+safety verdict. The application does not intentionally retain uploaded files or results, but Fly
+may snapshot Machine memory during idle suspension. Do not upload confidential or proprietary
+data.
+
+## Course project
 
 Collaborative project for Saturdays.AI Madrid Deep Learning course.
 
@@ -9,7 +30,7 @@ Collaborative project for Saturdays.AI Madrid Deep Learning course.
 - Txema Puch
   
 
-## Project
+## Original project scope
 
 Unauthorized drone detection system anchored to Madrid-Barajas Airport (LEMD), built for the Saturdays.AI Madrid Deep Learning course.
 
@@ -17,11 +38,30 @@ Unauthorized drone detection system anchored to Madrid-Barajas Airport (LEMD), b
 1. **Identity gate** — checks ICAO24 transponder codes against the OpenSky aircraft registry and U-Space flight plans. Known aircraft pass instantly. Unknown transponders go to Layer 2.
 2. **LSTM Autoencoder anomaly scorer** — trained on months of normal ADS-B trajectories around LEMD. Flags trajectories whose reconstruction error exceeds the 95th percentile of the validation set. Anomaly score is per-trajectory MSE.
 
-The system takes live ADS-B data from OpenSky Network and outputs a risk score + identity gate status for each track. A Streamlit demo (`demo.py`) visualizes trajectories on a Folium map with green/yellow/red color coding.
+The initial scope proposed live ADS-B ingestion, an identity gate, and anomaly scoring. The
+Analyst Console release deliberately serves the completed Phase-6 LSTM autoencoder as a
+post-hoc audit tool instead: it scores complete trajectory segments and does not claim live
+monitoring or an implemented U-Space authorization decision.
 
 **What we're NOT doing:** visual/camera-based detection (cut for timeline) and Android Remote ID (stretch goal only after Week 4).
 
-Full design: [`docs/architecture/design-trajectory-anomaly-detection.md`](docs/architecture/design-trajectory-anomaly-detection.md)
+Full design: [`backend/docs/architecture/design-trajectory-anomaly-detection.md`](backend/docs/architecture/design-trajectory-anomaly-detection.md)
+
+## Run the analyst console
+
+The production image is the Docker target configured for Fly.io. Evaluation remains
+fail-closed unless the deployment explicitly enables it.
+
+```bash
+docker build --platform linux/amd64 -t sadar-analyst-console .
+docker run --rm -p 7860:7860 -e SADAR_ENABLE_EVALUATION=true sadar-analyst-console
+```
+
+Open <http://localhost:7860>. The tracked [`fly.toml`](fly.toml) enables evaluation for the
+public demo and suspends its single 2 GiB Machine while idle. Incoming requests automatically
+resume it without keeping an always-running instance. Autostart is not a spending cap: continuous
+traffic can keep the Machine active, with a current full-month compute ceiling of about $10.70
+plus root-filesystem storage and network usage ([Fly pricing, checked 2026-07-14](https://fly.io/docs/about/pricing/)).
 
 ## Setup
 

@@ -232,8 +232,9 @@ export default function Evaluate() {
       </header>
 
       <section className="ev-privacy sans" role="note">
-        <b>Public anonymous demo.</b> Processing is ephemeral and there is no server-side history.
-        Do not upload confidential or proprietary data.
+        <b>Public anonymous demo.</b> The application keeps no upload history, but its host may
+        snapshot runtime memory while the Machine is suspended. Do not upload confidential or
+        proprietary data.
       </section>
 
       {!desktop ? (

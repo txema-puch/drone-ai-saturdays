@@ -179,3 +179,18 @@ Key routing rules:
 - Architecture review → invoke plan-eng-review
 - Save progress, checkpoint, resume → invoke checkpoint
 - Code quality, health check → invoke health
+
+## Deploy Configuration (configured by /setup-deploy)
+- Platform: Fly.io
+- Production URL: https://sadar-analyst-console.fly.dev
+- Deploy workflow: `scripts/deploy-fly.sh`
+- Deploy status command: `fly status --app sadar-analyst-console`
+- Merge method: merge commit
+- Project type: web app + API
+- Post-deploy health check: https://sadar-analyst-console.fly.dev/api/health
+
+### Custom deploy hooks
+- Pre-merge: `uv run --project backend python scripts/check-delivery-contract.py && uv run --project backend pytest && npm --prefix frontend test -- --run && npm --prefix frontend run build`
+- Deploy trigger: `scripts/deploy-fly.sh`
+- Deploy status: `fly status --app sadar-analyst-console`
+- Health check: `curl -fsS https://sadar-analyst-console.fly.dev/api/health`

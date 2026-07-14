@@ -6,7 +6,7 @@ interface Props {
 }
 
 /** Analysis report panel. The report is pre-generated at build time (offline LLM) and baked
- *  into the case, so clicking just reveals it — instant, no API call, no key on the Space.
+ *  into the case, so clicking just reveals it — instant, no API call, no key in deployment.
  *  Rendered as PLAIN TEXT (white-space: pre-wrap, never dangerouslySetInnerHTML) so model
  *  output can't inject markup. Explanatory only — labelled so it's never mistaken for scoring. */
 export default function ReportPanel({ report, model }: Props) {

@@ -2,7 +2,7 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 
-// Bundled font faces (no external CDN — the HF Space is self-contained).
+// Bundled font faces keep the deployed container self-contained without an external CDN.
 import "@fontsource/newsreader/latin-400.css";
 import "@fontsource/newsreader/latin-500.css";
 import "@fontsource/newsreader/latin-600.css";

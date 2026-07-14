@@ -161,6 +161,7 @@ describe("queue → operation → case flow", () => {
       model_id: "lstm-ae",
     });
     renderApp();
+    expect(screen.getByRole("link", { name: "SADAR / ANALYST CONSOLE" })).toBeInTheDocument();
     const link = await screen.findByRole("link", { name: "Evaluate data" });
     await userEvent.click(link);
     expect(await screen.findByRole("heading", { name: "Evaluate new data" })).toBeInTheDocument();

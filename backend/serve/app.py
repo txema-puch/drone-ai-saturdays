@@ -4,7 +4,7 @@ Serves the precompute bundle (`serve/precompute.py` → `models/sadar_demo/`) ov
 route shapes + response interfaces as SADAR's `serve/app.py` + `frontend/src/api.ts`, so
 the vendored React frontend works against it unchanged. Difference from his serve: this is a
 RETROSPECTIVE AUDIT surface (ranked queue → case file), not a live monitor (design doc §4.5).
-Read endpoints are bundle-backed — no torch at boot, fast cold start for an HF Space.
+Read endpoints are bundle-backed — no torch at boot, keeping suspended-container cold starts fast.
 
   GET  /api/health            liveness + bundle summary
   GET  /api/flights           the ranked segment queue (FlightSummary[] + our `label`)
@@ -221,7 +221,10 @@ class EvaluationBodyLimitMiddleware:
         await self.app(scope, bounded_receive, send)
 
 
-app = FastAPI(title="LEMD Conformance Audit — post-hoc trajectory anomaly triage")
+app = FastAPI(
+    title="SADAR Analyst Console",
+    description="Post-hoc LEMD trajectory-anomaly audit and frozen-model evaluation.",
+)
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 from backend.serve.evaluation import MAX_MULTIPART_BYTES  # noqa: E402
 app.add_middleware(
@@ -321,35 +324,42 @@ async def evaluate_upload(request: Request) -> dict:
     from backend.serve.evaluation import EvaluationError, UploadEvaluationService
 
     try:
-        async with request.form(
-            max_files=1,
-            max_fields=0,
-            max_part_size=MAX_MULTIPART_BYTES,
-        ) as form:
-            files = form.getlist("file")
-            if len(files) != 1 or not isinstance(files[0], UploadFile):
-                _api_error(422, "invalid_multipart", "Provide exactly one multipart file field named 'file'.")
-            upload = files[0]
-            data = await upload.read(MAX_MULTIPART_BYTES + 1)
-            if len(data) > MAX_MULTIPART_BYTES:
-                _api_error(413, "request_too_large", "The upload exceeds the 10 MiB limit.")
-            filename = upload.filename or ""
-            media_type = upload.content_type or ""
-    except UploadBodyTooLarge:
-        _api_error(413, "request_too_large", "The upload exceeds the 10 MiB limit.")
-    except UploadBodyTimeout:
-        _api_error(408, "upload_timeout", "The upload body timed out.")
-    except HTTPException:
-        raise
-    except Exception as exc:
-        # Multipart parser details may echo boundary/body content; keep the response bounded.
-        raise HTTPException(
-            status_code=422,
-            detail={"code": "invalid_multipart", "message": "The multipart upload is malformed."},
-        ) from exc
-
-    try:
         with MODEL_RUNTIME.analysis() as loaded:
+            try:
+                async with request.form(
+                    max_files=1,
+                    max_fields=0,
+                    max_part_size=MAX_MULTIPART_BYTES,
+                ) as form:
+                    files = form.getlist("file")
+                    if len(files) != 1 or not isinstance(files[0], UploadFile):
+                        _api_error(
+                            422,
+                            "invalid_multipart",
+                            "Provide exactly one multipart file field named 'file'.",
+                        )
+                    upload = files[0]
+                    data = await upload.read(MAX_MULTIPART_BYTES + 1)
+                    if len(data) > MAX_MULTIPART_BYTES:
+                        _api_error(413, "request_too_large", "The upload exceeds the 10 MiB limit.")
+                    filename = upload.filename or ""
+                    media_type = upload.content_type or ""
+            except UploadBodyTooLarge:
+                _api_error(413, "request_too_large", "The upload exceeds the 10 MiB limit.")
+            except UploadBodyTimeout:
+                _api_error(408, "upload_timeout", "The upload body timed out.")
+            except HTTPException:
+                raise
+            except Exception as exc:
+                # Multipart parser details may echo body content; keep the response bounded.
+                raise HTTPException(
+                    status_code=422,
+                    detail={
+                        "code": "invalid_multipart",
+                        "message": "The multipart upload is malformed.",
+                    },
+                ) from exc
+
             service = UploadEvaluationService(release_id=RELEASE_ID, model_id=MODEL_ID)
             try:
                 return await run_in_threadpool(

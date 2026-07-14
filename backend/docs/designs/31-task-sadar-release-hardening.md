@@ -1,9 +1,18 @@
-# Issue #31 — SADAR application release hardening
+# Issue #31 — SADAR Analyst Console release hardening
 
-**Status:** implementation complete through the pre-publication gate; external publication and deployment pending
+**Status:** release artifact published; Fly.io deployment configured and pending live verification
 **Date:** 2026-07-14
 **Branch:** `task-sadar-merge-c`
 **Scope:** close the release blockers and make frozen-model evaluation a first-class analyst workflow
+
+**Deployment decision (2026-07-14):** Hugging Face rejected the attempted public Docker Space on
+`cpu-basic` with HTTP 402 and a response stating that free Docker/Gradio compute requires PRO.
+The user selected the existing personal Fly.io account instead. The tracked target is
+`sadar-analyst-console.fly.dev`: one
+shared CPU, 2 GiB RAM, `auto_stop_machines = "suspend"`, automatic resume, and zero always-running
+Machines. Autostart is not a hard spend cap: continuous traffic can keep the sole Machine active,
+whose current full-month compute price is about $10.70 plus root-filesystem storage and egress.
+The immutable release remains in the public Hugging Face model repository.
 
 ## Goal
 
@@ -17,9 +26,9 @@ it through the exact frozen derivation, preprocessing, quality, and model-scorin
 by the baked cohort. Upload evaluation is ephemeral and bounded: it produces an inspectable,
 downloadable result without mutating the release, queue, cases, reports, or model.
 
-This is a course-demo deployment, not a production counter-drone system. The target is one
-Docker image on Hugging Face Spaces, one immutable release artifact, and one reproducible
-smoke-test path.
+This is a course-demo deployment, not a production counter-drone system. The target is the
+public **SADAR Analyst Console** at `sadar-analyst-console.fly.dev`: one Docker image on Fly.io,
+one immutable Hugging Face release artifact, and one reproducible smoke-test path.
 
 ## Scope challenge
 
@@ -32,7 +41,7 @@ The release findings plus the analyst-product correction reduce to four implemen
 3. **Upload and evaluate** — accept bounded raw trajectory files, reuse the frozen online
    preprocessing/scoring contract, and return an ephemeral analyst dossier.
 4. **Clean-checkout delivery** — fetch the pinned artifact, build the React and FastAPI image,
-   and smoke-test the exact container that will run on the Space.
+   and smoke-test the exact container that will run on Fly.io.
 
 Packaging and atomic promotion are one boundary, not separate systems. Upload evaluation reuses
 the existing leaf derivations, preprocessing, quality guardrails, scorer, and dossier
@@ -50,7 +59,7 @@ not require compatibility with the ignored legacy bundle.
 | 1. Identity | Schema-v2 fixtures and backend/frontend identity tests pass | Revert the identity commit; no public URL exists yet |
 | 2. Release | One locally verified immutable schema-v2 release | Select the prior local release directory; no lock file changes |
 | 3. Evaluate | One bounded CSV/Parquet upload produces an ephemeral multi-segment result with frozen-model provenance | Disable the evaluation route/page; baked dossier and What-If remain intact |
-| 4. Delivery | One committed lock and one verified Space revision | Revert the lock/image commit or redeploy the prior Space revision |
+| 4. Delivery | One committed lock and one verified Fly release | Revert the lock/image commit or redeploy the prior Fly image |
 
 ## What already exists
 
@@ -67,7 +76,7 @@ not require compatibility with the ignored legacy bundle.
 | `TrajectoryMap`, `TemporalPanel`, and `Attribution` | Reuse them in the evaluation result view; do not fork chart implementations. |
 | `frontend/` | Keep the current Vite build and relative `/api` client; add one `/evaluate` workflow. |
 | `backend/models/phase6/lstm_ae_best.pt` and `scaler.joblib` | Treat these as trusted bake inputs; export tensor-only weights and a JSON scaler into the release. Do not ship the 138 MB training frames or either pickle. |
-| Hugging Face Spaces target | Use a public pinned artifact URL plus Docker Space; no new registry vendor. |
+| Fly.io deployment target | Use the public pinned Hugging Face artifact in one suspended/autostart Docker Machine. |
 
 Primary-documentation check:
 
@@ -77,8 +86,8 @@ Primary-documentation check:
   build stages and copying only final artifacts into the runtime image.
 - [uv locking and syncing](https://docs.astral.sh/uv/concepts/projects/sync/) supports locked
   execution, lock checks, exports, and partial installs for Docker caching.
-- [Hugging Face Docker Spaces](https://huggingface.co/docs/hub/spaces-sdks-docker) documents port
-  7860, build/runtime secret separation, and UID 1000 file-ownership requirements.
+- [Fly autostop/autostart](https://fly.io/docs/launch/autostop-autostart/) documents idle
+  suspension, request-triggered resume, and zero always-running Machines.
 
 ## Architecture
 
@@ -120,7 +129,7 @@ Node build -> frontend/dist     verified release directory
                        |
              /api/* + SPA route fallback
                        |
-                 HF Docker Space
+              Fly.io Docker Machine
 
 ANALYST EVALUATION
 
@@ -318,8 +327,8 @@ Add an analyst page at `/evaluate` and two model-facing endpoints:
   returns `429` when another simulation/evaluation owns the slot, `503` when the model is not
   ready, and never queues work in process memory.
 
-Both are fail-closed behind `SADAR_ENABLE_EVALUATION`. The setting defaults to `false`; the final
-Space deployment enables it explicitly after the upload smoke/security gates pass.
+Both are fail-closed behind `SADAR_ENABLE_EVALUATION`. The setting defaults to `false`; the tracked
+Fly configuration enables it explicitly after the upload smoke/security gates pass.
 `/api/health` exposes `evaluation_enabled`, disabled endpoints return a bounded 404, and frontend
 navigation follows the capability instead of hard-coding the route. This is the rollback/abuse
 kill switch for Actuation 3 without removing the baked dossier or What-If.
@@ -596,7 +605,7 @@ result works without repository access. Invalid, slow, or oversized inputs are a
 bounded; no upload survives the request or changes baked evidence; UI/export copy says trajectory
 conformance/anomaly evidence and never claims authorization or drone detection.
 
-### Actuation 4 — Clean-checkout image and Space deployment (P1)
+### Actuation 4 — Clean-checkout image and Fly deployment (P1)
 
 1. Add one transactional publish command: require a clean Git tree, package deterministically,
    upload to a public Hugging Face model repository, obtain the immutable revision, redownload
@@ -604,7 +613,7 @@ conformance/anomaly evidence and never claims authorization or drone detection.
    leaves the existing lock untouched. The lock contains URL, revision, archive SHA-256,
    release ID, schema version, and publication timestamp. Do not commit model binaries or the
    generated bundle to this repository. `HF_TOKEN` is accepted only by this local/CI publish
-   command; it is never a Docker build argument, Space variable, archive member, or runtime secret.
+   command; it is never a Docker build argument, Fly variable, archive member, or runtime secret.
 2. Add a standard-library fetch script that downloads the locked archive, verifies SHA-256,
    reads the bounded manifest member without extracting, accepts only that manifest's exact
    allowlist of bounded regular files, rejects absolute or parent paths, links, devices,
@@ -626,10 +635,11 @@ conformance/anomaly evidence and never claims authorization or drone detection.
    intensity simulation. It also prepares the model, uploads the synthetic sample, verifies one
    evaluation result, and proves no temporary upload remains. Regenerate the serving lock in a
    clean Linux resolver and fail if the committed lock differs.
-6. Pin Node/Python/uv base images by digest and target `linux/amd64`, the Hugging Face runtime
-   platform. CI and Hugging Face rebuild the same Dockerfile from the same locked inputs; do not
+6. Pin Node/Python/uv base images by digest and target `linux/amd64`, the Fly Machine runtime
+   platform. CI and Fly's remote builder rebuild the same Dockerfile from the same locked inputs; do not
    claim they run the same image digest.
-7. Deploy that image definition to the Hugging Face Docker Space. Record the Space URL
+7. Deploy that image definition to Fly.io with one shared CPU, 2 GiB RAM, idle suspension,
+   automatic resume, and zero warm Machines. Record the application URL
    and release ID in the write-up, then run desktop visual QA and send the requested `devrup`
    message.
 8. Wire the shared `ModelRuntime` lifecycle into health, What-If, and evaluation. Return 429 +
@@ -872,7 +882,7 @@ each finding below.
 | **P1, confidence 9/10:** Actuation 3 had no independent rollback mechanism | The gate promised route/page disablement but specified no capability flag. | Add fail-closed `SADAR_ENABLE_EVALUATION`, health capability, conditional navigation, and disabled-mode tests. |
 | **P1, confidence 10/10:** uploaded evidence cannot reuse the ground-truth case DTO | `frontend/src/api.ts:106-142` requires labels/case/operation/report fields; `CaseFile.tsx:94-149` renders them as facts. | Add a separate `EvaluationResult` and reuse neutral evidence components only. |
 | **P1, confidence 10/10:** upload scoring does not complete unauthorized-drone detection | `backend/serve/app.py:100` correctly identifies the current system as post-hoc trajectory anomaly triage; no identity/U-Space gate exists. | UI/export claims only trajectory conformance/anomaly evidence, never authorization or drone/incident verdicts. |
-| **P1, confidence 10/10:** deployment security/runtime constraints were incomplete | `backend/Dockerfile:4`: `FROM python:3.11-slim`; no `USER`; Hugging Face Docker docs specify port 7860 and UID 1000. | Digest-pinned `linux/amd64`, UID 1000, port 7860, and publish-token separation. |
+| **P1, confidence 10/10:** deployment security/runtime constraints were incomplete | `backend/Dockerfile:4`: `FROM python:3.11-slim`; no `USER`; the public container needed an explicit least-privilege user and port contract. | Digest-pinned `linux/amd64`, UID 1000 as least privilege, port 7860 matched by `fly.toml`, and publish-token separation. |
 | **P2, confidence 10/10:** wildcard CORS is unnecessary for same-origin production | `backend/serve/app.py:102`: `allow_origins=["*"]` | Remove CORS and preserve JSON 404 precedence for `/api/*`. |
 
 ### Code quality
@@ -934,7 +944,7 @@ each finding below.
 | Evidence changed but cached report did not | Report cache key includes canonical evidence digest, prompt digest, and generator version. | Stale prose is omitted rather than attached to new evidence. |
 | Malicious pickle replaces model/scaler | Runtime accepts tensor-only `weights_only` state and JSON scaler only; hashes and contracts are checked first. | Container startup or lazy model load fails before object construction. |
 | Runtime release is copied to a fixed path | Runtime validates manifest identity, not the directory basename; producer paths still enforce content naming. | Docker can use one stable environment path without weakening release identity. |
-| Publish token leaks into build | Publisher is separate; Docker performs public unauthenticated download and token-absence CI scans image/env/history. | Public Space contains no release credential. |
+| Publish token leaks into build | Publisher is separate; Docker performs public unauthenticated download and token-absence CI scans image/env/history. | Public deployment contains no release credential. |
 | Public model work is spammed | Shared non-blocking analysis admission returns 429 instead of queueing simulation/evaluation work. | Read endpoints stay responsive; callers receive a retry signal. |
 | Oversized body lies about `Content-Length` | ASGI receive wrapper counts actual streamed bytes and aborts above 10 MiB before multipart materialization. | Analyst sees 413; memory/disk use stays bounded. |
 | Slow client holds the shared admission slot | Five-second idle and 60-second total body-read deadlines return 408 and clean the spool. | Other model work is delayed for a bounded interval, never indefinitely. |
@@ -954,7 +964,7 @@ each finding below.
 - Current serve data is about 24 MB; model + scaler add under 100 KB. The 128 MB clean frame
   and 10 MB metadata frame are build inputs and must not enter the image.
 - Keep JSON gzip enabled. The immutable release is loaded once per worker; run one worker on
-  the free Space to avoid duplicating the in-memory queue/cases payload.
+  the 2 GiB Fly Machine to avoid duplicating the in-memory queue/cases payload.
 - Archive download happens at image build, not on every process start.
 - Generate the dedicated hashed `requirements-linux-x86_64.lock` from the minimal serving input
   in a Linux resolver. The repository-wide `uv.lock` remains intentionally uncommitted per team
@@ -982,7 +992,7 @@ Performance gates, measured inside the final `linux/amd64` container:
 
 Record cold model-load time separately rather than hiding it in startup. `model/prepare` starts
 it in the background only when an analyst enters a model feature. If it exceeds three minutes in
-the final Space, profile import, parquet, checkpoint, and scaler phases independently before
+the final Fly Machine, profile import, parquet, checkpoint, and scaler phases independently before
 changing the lazy contract; never block FastAPI startup or the baked dossier on model readiness.
 If the 50,000-row/25-segment synchronous gate misses 30 seconds, lower the published row/segment
 limits to the largest measured boundary that passes; do not ship limits the one-process product
@@ -997,7 +1007,7 @@ cannot honor.
 | C. Evaluation backend + shared scorer | `backend/core/`, `backend/serve/`, `backend/tests/` | Model/release interfaces from B |
 | D. Evaluation UI | `frontend/src/`, frontend tests/fixtures | API/error contract from C |
 | E. Publisher + container skeleton | root container files, `.github/`, `backend/scripts/` | Manifest interface from B; serving lock includes C dependencies |
-| F. Deployment verification | `.github/`, Space repo/config, `backend/docs/` | B + C + D + E |
+| F. Deployment verification | `.github/`, `fly.toml`, `backend/docs/` | B + C + D + E |
 
 Lane A runs first because every downstream artifact encodes its schema. Lane B follows within
 `backend/serve/`. Once B freezes model/release interfaces, Lane C builds the shared runtime and
@@ -1035,7 +1045,7 @@ Conflict flags:
   exists; a changed canonical segment is deliberately a new case.
 - Production aviation claims, live ADS-B ingestion, continuous monitoring, and operational
   alerting: file evaluation is post-hoc analyst tooling, not a surveillance feed.
-- Multi-architecture images: Hugging Face runs `linux/amd64`; adding arm64 doubles artifact and
+- Multi-architecture images: the Fly target runs `linux/amd64`; adding arm64 doubles artifact and
   wheel validation without helping the deployment target.
 - Artifact signing infrastructure: the committed Git lock, immutable Hub revision, and SHA-256
   verification are the trust boundary for this public course demo. Revisit signing only if artifacts
@@ -1115,11 +1125,11 @@ Conflict flags:
   - Verify: every path in the 100+ coverage diagram plus the eleven performance/size gates.
   - Status 2026-07-14: CI, smoke, latency, response-size, RSS, compressed-image, and cleanup
     gates are implemented; final `linux/amd64` execution awaits T5 and a Docker runner.
-- [ ] **T11 (P1, human: ~0.5 day / CC: ~30 min)** — Release — deploy the pinned inputs to the
-  Space, run live desktop visual QA, record rollback evidence, reconcile Issue #31, and notify
+- [ ] **T11 (P1, human: ~0.5 day / CC: ~30 min)** — Release — deploy the pinned inputs to Fly,
+  run live desktop visual QA, record rollback evidence, reconcile Issue #31, and notify
   `devrup`.
   - Surfaced by: distribution — code is incomplete until the exact public artifact is running.
-  - Files: Space config/repo, `backend/docs/writeup/`, Issue #31 checklist.
+  - Files: `fly.toml`, `backend/docs/writeup/`, Issue #31 checklist.
   - Verify: live release ID, deep links, sample upload/evaluation/export, read-only case during
     model warming, cleanup evidence, and prior-revision rollback.
 
@@ -1156,9 +1166,10 @@ Conflict flags:
 - [x] `EvaluationResult` and its serializer contain no ground-truth label, case/operation/report
   fields, or non-allowlisted raw payload; UI/export make no authorization/drone/incident claim.
 - [x] Public-demo copy rejects the expectation of private handling and warns not to upload
-  confidential/proprietary data; evaluation is fail-closed behind its deployment capability.
+  confidential/proprietary data; it discloses that Fly may snapshot suspended runtime memory;
+  evaluation is fail-closed behind its deployment capability.
 - [ ] Eleven performance/size gates pass in the final `linux/amd64` image.
-- [ ] Hugging Face Space is live and visually approved on desktop.
+- [ ] Fly application is live and visually approved on desktop.
 - [ ] Deployment URL and release ID are recorded in project documentation.
 - [ ] Issue #31 checklist is reconciled and `devrup` is notified.
 
