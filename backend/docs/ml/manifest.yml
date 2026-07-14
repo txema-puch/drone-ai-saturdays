@@ -17,6 +17,21 @@ pending_work:
   review_before_next_iteration: true
   summary: "Eight deferred findings (PW-001..PW-008). Phase-7 provenance is reconciled; secure a fresh holdout before any redesigned-pipeline performance claim."
 
+next_iteration:
+  status: "problem_defined"
+  opened_at: "2026-07-14"
+  name: "LEMD whole-arrival approach screening"
+  design: "backend/docs/designs/33-approach-conformance-reframe.md"
+  decision: "backend/docs/ml/decisions/D-015-rules-first-approach-screening.md"
+  model_unit: "flight_id reconstructed as one completed arrival with explicit gaps"
+  baseline: "deterministic observable criteria + train-only empirical reference envelopes"
+  historical_model_role: "research benchmark only; no verdict or priority effect"
+  fresh_holdout:
+    candidate: "lemd_20260310_to_20260314__snapshot_2026-05-11"
+    sha256: "16f1bd2cbdbd519ce7bde6fbbc8df5012b188b54c5598bffc310cef34b0c6899"
+    status: "candidate_to_seal_before_first_evaluation"
+  supervised_model_gate: "independent labels + agreement + incremental value over rules"
+
 # Gate ledger — append, never rewrite.
 gates:
   problem:
@@ -359,3 +374,8 @@ decisions:
     decided_at: 2026-06-04
     title: "Gate/data artifacts surface as top anomalies (deployment-merge finding): 4 classes — first-T truncation of long arrivals, neighbour-field traffic (LECU/LEGT/LETO clip the 10km gate), altitude-blind overflights, and >1500m altitude glitches (no relative-jump cleaning rule). All depress (not inflate) the real-anomaly ROC — 0.666→0.673 cleaned — so Phase-7/ch.11 stand. Demo mitigation: unified 'LEMD operations only' terminal_op filter + case banner + map distance-rings/airfield-markers. RECOMMENDATION: future cycle redo the model (conjunctive Filter D + rate-of-change cleaning + approach-anchored window → retrain+re-eval)."
     path: backend/docs/ml/decisions/D-014-window-truncation-of-long-arrivals.md
+  - id: D-015
+    phase: problem
+    decided_at: 2026-07-14
+    title: "Rules-first whole-arrival approach screening; empirical reference baseline; supervised ML gated on labels and incremental value"
+    path: backend/docs/ml/decisions/D-015-rules-first-approach-screening.md
