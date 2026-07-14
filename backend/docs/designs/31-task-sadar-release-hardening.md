@@ -1068,13 +1068,15 @@ Conflict flags:
   - Surfaced by: architecture — a report must prove it belongs to the shipped evidence.
   - Files: `backend/serve/report.py`, precompute, report tests.
   - Verify: matching retention, three mismatch omissions, deterministic abstention.
-- [ ] **T5 (P1, human: ~0.5 day / CC: ~30 min)** — Publication — publish transactionally,
+- [x] **T5 (P1, human: ~0.5 day / CC: ~30 min)** — Publication — publish transactionally,
   redownload/verify, and atomically replace the immutable lock without leaking `HF_TOKEN`.
   - Surfaced by: distribution — ignored serving data is unavailable to a clean checkout.
   - Files: `backend/scripts/`, `backend/serve/demo_bundle.lock.json`, publisher tests.
   - Verify: dirty tree, failed upload/redownload, immutable revision, unchanged prior lock.
-  - Status 2026-07-14: publisher/fetcher and transaction tests are complete; the real public
-    artifact has not been uploaded and `demo_bundle.lock.json` is intentionally absent.
+  - Completed 2026-07-14: release `fb116d628a274309a387` was published publicly to
+    `Txemapuch/sadar-demo-release` at immutable revision
+    `11f998c76434bbaf443401e51e2070d105be7bdf`, redownload-verified, and pinned in
+    `backend/serve/demo_bundle.lock.json`.
 - [x] **T6 (P1, human: ~1 day / CC: ~60 min)** — Delivery — replace the legacy Dockerfile
   with a digest-pinned, non-root `linux/amd64` multi-stage image and tracked serving-only lock.
   - Surfaced by: architecture/performance — current image starts `main:app` and ships no SPA.
