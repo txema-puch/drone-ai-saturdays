@@ -1,0 +1,40 @@
+iteration: "approach-screening-v1"
+opened_at: "2026-07-14"
+current_phase: "eval"
+problem_type: "rules_first_screening_with_empirical_reference"
+historical_iteration: "backend/docs/ml/manifest.yml"
+fresh_holdout:
+  path: "data/raw/lemd_20260310_to_20260314__snapshot_2026-05-11.parquet"
+  sha256: "16f1bd2cbdbd519ce7bde6fbbc8df5012b188b54c5598bffc310cef34b0c6899"
+  status: "sealed_candidate_not_burned"
+gates:
+  problem:
+    status: "passed"
+    passed_at: "2026-07-14"
+    artifact: "backend/docs/ml/iterations/approach-screening/01-problem.md"
+  data:
+    status: "passed"
+    passed_at: "2026-07-14"
+    artifact: "backend/docs/ml/iterations/approach-screening/02-data.md"
+  preprocess:
+    status: "passed"
+    passed_at: "2026-07-14"
+    artifact: "backend/docs/ml/iterations/approach-screening/03-preprocess.md"
+  eda:
+    status: "passed"
+    passed_at: "2026-07-14"
+    artifact: "backend/docs/ml/iterations/approach-screening/04-eda.md"
+  features:
+    status: "passed"
+    passed_at: "2026-07-14"
+    artifact: "backend/docs/ml/iterations/approach-screening/05-features.md"
+  train:
+    status: "passed"
+    passed_at: "2026-07-14"
+    artifact: "backend/docs/ml/iterations/approach-screening/06-train.md"
+  eval: {status: "pending", artifact: null}
+  deploy: {status: "pending", artifact: null}
+model_gate:
+  deterministic_baseline: "required"
+  empirical_reference: "selected_approach_reference_v1"
+  supervised_model: "blocked_on_independent_labels_and_incremental_value"

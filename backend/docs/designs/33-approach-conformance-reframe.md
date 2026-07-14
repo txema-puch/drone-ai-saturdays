@@ -1,7 +1,7 @@
 # SADAR approach-conformance reframe
 
-**Status:** approved for implementation  
-**Date:** 2026-07-14  
+**Status:** approved for implementation
+**Date:** 2026-07-14
 **Branch:** `feature/approach-conformance-reframe`
 
 ## Decision
@@ -12,7 +12,7 @@ The product must answer which observable approach criteria failed, where they fa
 
 ## Product boundary
 
-- Completed post-flight records containing one or more LEMD approach attempts; no live-control
+- Post-flight records containing one or more LEMD approach attempts; no live-control
   claim. A landing, low pass, go-around, diversion, and incomplete record are distinct outcomes.
 - Observable inputs: position, barometric altitude, ground speed, vertical rate, heading, on-ground state, fixed runway geometry.
 - Missing context: wind, indicated airspeed, aircraft configuration and mass, ATC clearance, weather category, authoritative runway assignment.
@@ -60,18 +60,19 @@ not_assessable | criteria_observed | review_required
 criterion evidence + separate maneuver/context + research benchmark
 ```
 
-An **eligible attempt** must enter the approach gate and end in an explicit outcome. An
+An **eligible attempt** must enter the approach gate and end in an explicit observed outcome. An
 **assessable attempt** must additionally:
 
-- contain at least 20 observed approach samples (about three minutes at the source cadence) and at least 70% observed values in required
-  channels after the final-approach gate;
-- enter within 20 km along-track of a LEMD threshold below 2,500 m above the airport reference;
-- reach either the terminal gate (within 1.5 km and below 250 m above reference), a detected
-  go-around after entering 5 km, or an on-ground observation near a threshold. This proves an
-  approach attempt, not necessarily a completed LEMD landing;
-- have no physical-rate conflict and no approach gap longer than 60 seconds;
-- resolve at least a runway direction. Parallel-runway ambiguity may return `14_pair`,
-  `18_pair`, `32_pair`, or `36_pair`; failure to resolve a direction returns a nullable runway
+- contain at least 20 observed approach samples spanning at least 90 seconds;
+- enter within 20 km along-track of a LEMD threshold below a provisional 3,000 m barometric
+  proxy above threshold elevation;
+- reach the analysis gate within 6 km (approximately the nominal 1,000 ft point on a 3° path),
+  a detected go-around after entering 5 km, or an on-ground observation near a threshold. This
+  proves observed final-approach coverage, not a completed LEMD landing;
+- have no position-rate conflict and no approach gap longer than 60 seconds. An altitude-rate
+  conflict suppresses barometric-path evidence without discarding independent geometry/speed;
+- resolve at least a landing-runway direction. Under the current AIP, parallel-runway ambiguity
+  may return `18_pair` or `32_pair`; failure to resolve a direction returns a nullable runway
   and `not_assessable`.
 
 `ApproachAssessment` is schema-versioned and contains:
@@ -80,7 +81,8 @@ An **eligible attempt** must enter the approach gate and end in an explicit outc
   assessment status and reasons;
 - runway candidate, specificity (`exact`, `direction`, `unknown`), confidence, score margin,
   geometry version and supporting observations;
-- approach-window bounds, outcome (`landing_observed`, `closest_approach`, `go_around`),
+- approach-window bounds, outcome (`landing_observed`, `final_gate_observed`, `go_around`,
+  `incomplete`),
   coverage and quality diagnostics;
 - ordered `CriterionAssessment` records with `not_observed`, `within_limit`, or
   `review_required` status plus configured severity;
@@ -97,7 +99,7 @@ For every candidate arrival:
 
 1. Infer the runway through a transparent hierarchy: exact threshold when geometry separates
    parallel runways, runway direction/pair when only alignment is supported, otherwise abstain.
-2. Extract a runway-relative final-approach window ending at touchdown, closest approach, or
+2. Extract a runway-relative final-approach window ending at touchdown, the final analysis gate, or
    go-around initiation plus bounded post-event context.
 3. Evaluate telemetry quality and coverage before behavioral criteria.
 4. Evaluate provisional ADS-B-observable criteria:
@@ -105,7 +107,7 @@ For every candidate arrival:
    - barometric/geometric path-proxy deviation, never claimed as glide-slope compliance;
    - excessive or unstable observed vertical rate;
    - unusual observed ground-speed level or variation relative to a train-fitted cohort;
-   - persistent late track corrections using wrap-safe smoothed heading;
+   - persistent late ground-track corrections using wrap-safe circular differences;
    - go-around as a separate maneuver/outcome.
 5. Produce duration-aware evidence spans plus a worst point, actual value, provisional limit,
    time, along-track distance, altitude proxy, persistence, and plain-language explanation.
@@ -118,8 +120,9 @@ For every candidate arrival:
 All thresholds are marked `prototype_v1`. Fixed safety/quality gates are code-versioned.
 Behavioral ground-speed and descent envelopes are empirical quantiles fit on training attempts
 only and serialized as a small JSON reference artifact. The feasibility gate chooses the minimum
-conditioning supported by sample size: distance bin plus runway direction and broad ground-speed
-class, with source/year stratification diagnostics. An envelope is rejected if collection source,
+conditioning supported by sample size: distance bin plus runway direction and, when available,
+broad aircraft speed class. The current historical artifact records speed class as `unknown` and
+exposes that limitation rather than inferring it from the target speed. An envelope is rejected if collection source,
 calendar, fleet mixture or runway configuration dominates it. This is a statistical reference
 model, not a certified classifier.
 
@@ -132,11 +135,10 @@ historical data use is disclosed unless an effective historical chart is sourced
 implementation records the source URL, retrieval date, units, and file digest in every generated
 assessment artifact.
 
-Vertical evidence uses this fallback hierarchy: independently supplied QNH/pressure-corrected
-height; otherwise per-attempt bias estimated from trustworthy on-ground or threshold-adjacent
-samples; otherwise geometric altitude when present and consistent; otherwise vertical-path
-criteria abstain. Barometric altitude minus airport elevation alone is never treated as height
-above runway.
+The v1 vertical path uses a per-attempt bias estimated from trustworthy on-ground or
+threshold-adjacent samples; otherwise it abstains. The schema reserves independently supplied
+QNH/pressure-corrected height and consistent geometric altitude for the contextual iteration.
+Barometric altitude minus airport elevation alone is never treated as height above runway.
 
 ## Edge-case policy
 
@@ -151,7 +153,7 @@ above runway.
   stabilized-speed compliance.
 - Curved intercepts and vectoring: centreline and track rules activate only inside their
   configured distance gates and require persistence. OpenSky `heading` is treated as ground
-  track, invalid below a configured ground-speed floor, smoothed circularly, and never described
+  track, invalid below a configured ground-speed floor, compared circularly, and never described
   as aircraft heading.
 
 ## ML lifecycle iteration

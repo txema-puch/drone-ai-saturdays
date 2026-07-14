@@ -1,57 +1,71 @@
-# New iteration feasibility — whole-arrival approach screening
+# New iteration feasibility — observed approach-attempt screening
 
-**Date:** 2026-07-14  
-**Status:** feasible with explicit abstention; contracts still provisional  
-**Script:** `backend/scripts/approach_feasibility.py`
+**Date:** 2026-07-14
+**Status:** feasible with explicit partial evidence and abstention
+**Scripts:** `backend/scripts/approach_feasibility.py`,
+`backend/scripts/audit_approach_dataset.py`, `backend/scripts/fit_approach_reference.py`
 
 ## Firewall
 
-The script accepts only the historical `train` and `val` folds and rejects `test`. The burned
-2020 cohort was not used. The 2026 snapshot remains an unburned candidate holdout with manifest
-hash `16f1bd2cbdbd519ce7bde6fbbc8df5012b188b54c5598bffc310cef34b0c6899`.
+Historical feasibility accepts only `train` and `val`; the burned 2020 fold is rejected. The
+external audit hashes its input before reading and rejects the sealed 2026 digest
+`16f1bd2cbdbd519ce7bde6fbbc8df5012b188b54c5598bffc310cef34b0c6899`.
 
-## Geometry correction
+## Geometry correction from notebook pressure-testing
 
-The prototype now binds to ENAIRE AIP `LEMD AD 2.12`, AMDT 408/26, effective 2026-07-09. The
-source PDF digest is `65e114a09a8ce06d50a36b96eb5f7b333ac625effdbfa5c7f78a98524a683d1b`.
-The old model geometry omitted provenance, displaced thresholds and per-threshold elevations;
-several coordinates differ from the current AIP. Historical applicability remains disclosed.
+The new pipeline binds to ENAIRE AIP `LEMD AD 2.12`, effective 2026-07-09. Its PDF digest is
+`65e114a09a8ce06d50a36b96eb5f7b333ac625effdbfa5c7f78a98524a683d1b`. The legacy notebook
+threshold constants are materially wrong: on audited 2025 arrivals they place a threshold about
+2–3 km before the current AIP displaced threshold. The old `dist_to_runway_m` therefore made
+coverage-limited final approaches look like runway arrivals. It is retained only for the frozen
+historical model.
+
+The new analysis gate is 6 km, approximately the nominal 1,000 ft point on a 3° path. Reaching it
+is `final_gate_observed`, never proof of landing. Only an actual near-threshold `onground` row is
+`landing_observed`.
 
 ## Observed-row feasibility
 
-Criterion evidence excludes rows marked missing by the model-era resampling masks. No 10-second
-interpolation is treated as an observation. The approach gate requires at least 20 observed
-position samples and rejects gaps over 60 seconds or physical-rate conflicts.
+Interpolated rows marked by model-era missingness masks are excluded. Eligibility requires 20
+observations over at least 90 seconds; evidence persistence is time-based so 1-second and
+10-second sources have the same meaning. Position conflicts and >60-second gaps abstain the
+attempt. Altitude-rate conflicts suppress only barometric-path evidence.
 
-| Measure | Train (2017–2018) | Validation (2019) |
-|---|---:|---:|
-| Candidate operation records | 8,594 | 5,508 |
-| Runway direction inferred | 4,256 | 2,730 |
-| Survived quality + terminal gates | 2,937 (69.0% of inferred) | 1,868 (68.4% of inferred) |
-| Review-required by current non-speed criteria | 65 | 50 |
-| Direction ambiguous / unsupported | 4,338 | 2,778 |
-| Altitude reference available among inferred attempts | 2,519 | 1,719 |
+| Measure | Train 2017–2018 | Validation 2019 | Audited 2025 source |
+|---|---:|---:|---:|
+| Candidate operations | 8,594 | 5,508 | 1,285 |
+| Operations with attempts | 4,259 | 2,731 | 388 |
+| Attempts | 4,272 | 2,740 | 388 |
+| Assessable | 3,794 (88.8%) | 2,255 (82.3%) | 264 (68.0%) |
+| Review required among assessable | 307 (8.1%) | 271 (12.0%) | 40 (15.2%) |
+| Not assessable | 478 (11.2%) | 485 (17.7%) | 124 (32.0%) |
 
-The inference count independently matches the Phase-4 notebook's `pass_d_approach` population:
-4,256 inferred train records versus 4,268 rule-tagged approach records. The notebook also reports
-that 27.9% of train records end on-ground and 49.7% satisfy the broader approach rule, explaining
-why approach attempts outnumber observed landings; go-arounds, incomplete approaches and other
-near-runway records are intentionally distinct outcomes.
+The 4,272 train attempts independently match the Phase-4 notebook's 4,268 `pass_d_approach`
+records within four attempts, while the extractor finds 4,272 attempts in 4,259 operations. This
+confirms the notebook population and proves `flight_id` is not the final modeling unit.
 
-## Findings
+## Train-only empirical reference
 
-- The product is viable as an **attempt screen**, not as proof that every record landed at LEMD.
-- About 31% of inferred attempts abstain under strict observed-row quality/terminal gates. This is
-  within the prototype ceiling but must be stratified by source, year and outcome.
-- Barometric/geometric path evidence is available for only about 59–63% of inferred attempts;
-  QNH/weather context is therefore a high-value next iteration, not optional polish.
-- Relative altitude/position conflicts are common enough to justify first-class data-quality
-  evidence and abstention.
-- Lateral and track criteria are rare under provisional rules. The empirical speed reference and
-  manual audit are required before freezing ranking semantics.
+The published `approach_reference_v1` contains ten runway-direction/distance cells fit from 3,764
+eligible train attempts. It uses 1st/99th percentile ground-speed and observed vertical-rate
+bands. The artifact digest is
+`b485f747154ea8d84ba6b5c980501e3a22bca9caff40c41711de107b03496c56`.
 
-## Next gate
+- Calendar stability passes: maximum 2017/2018 median shift is 0.0769 of the corresponding
+  reference width, below the precommitted 0.5 limit.
+- Fleet conditioning is unavailable in the historical artifact and is explicitly `unknown`.
+- Historical fit has one OpenSky collection product. The separately collected 2025 source is a
+  validation cohort, not reference-fitting data.
 
-Audit a probability sample plus enriched rare cases, validate exact/direction runway inference,
-fit source-stratified empirical envelopes on train only, and measure validation stability. Do not
-start the 2026 burn or make an operational performance claim before those contracts are frozen.
+## Limitations carried forward
+
+- In 2025, 387/388 attempts lack a trustworthy barometric-height bias because coverage usually
+  ends before threshold-adjacent or on-ground observations. The path proxy abstains; independent
+  lateral, ground-speed, vertical-rate and track evidence remains available.
+- No independent runway label or human review-worthy-pattern labels exist yet. Geometry agreement
+  and workload are feasibility evidence, not precision claims.
+- Current AIP geometry applied historically is a disclosed prototype assumption.
+- The reference is provisional and unconditioned on aircraft type, wind or QNH.
+
+The ADS-B-only pipeline clears its assessable-coverage feasibility floor on historical,
+development and newer-source data. It does not clear the independent-label evaluation gate.

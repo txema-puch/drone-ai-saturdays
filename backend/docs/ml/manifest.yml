@@ -23,7 +23,8 @@ next_iteration:
   name: "LEMD whole-arrival approach screening"
   design: "backend/docs/designs/33-approach-conformance-reframe.md"
   decision: "backend/docs/ml/decisions/D-015-rules-first-approach-screening.md"
-  model_unit: "flight_id reconstructed as one completed arrival with explicit gaps"
+  lifecycle_manifest: "backend/docs/ml/iterations/approach-screening/manifest.yml"
+  model_unit: "one observed approach attempt nested in a candidate flight_id record"
   baseline: "deterministic observable criteria + train-only empirical reference envelopes"
   historical_model_role: "research benchmark only; no verdict or priority effect"
   fresh_holdout:

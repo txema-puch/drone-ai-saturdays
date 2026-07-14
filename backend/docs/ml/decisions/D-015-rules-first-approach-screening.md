@@ -1,8 +1,8 @@
 # D-015 — Rules-first whole-arrival approach screening
 
-**Status:** decided for prototype implementation  
-**Date:** 2026-07-14  
-**Phase:** new iteration, problem through evaluation  
+**Status:** decided for prototype implementation
+**Date:** 2026-07-14
+**Phase:** new iteration, problem through evaluation
 **Supersedes:** no historical result; the completed LSTM iteration remains immutable
 
 ## Context
@@ -18,7 +18,7 @@ coverage quality and go-around geometry. It cannot support certified stabilized-
 
 ## Decision
 
-Start an append-only ML lifecycle iteration around completed LEMD arrivals.
+Start an append-only ML lifecycle iteration around observed LEMD approach attempts.
 
 1. Reconstruct whole arrivals and approach attempts before feature extraction.
 2. Use deterministic quality gates and observable criteria for statuses and explanations.

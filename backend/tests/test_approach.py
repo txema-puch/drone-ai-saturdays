@@ -3,7 +3,13 @@ import math
 import numpy as np
 import pandas as pd
 
-from backend.core.approach import assess_approach, canonical_observations, infer_runway
+from backend.core.approach import (
+    assess_approach,
+    assess_operation,
+    canonical_observations,
+    extract_approach_attempts,
+    infer_runway,
+)
 from backend.core.approach_geometry import EARTH_RADIUS_M, load_lemd_geometry
 
 
@@ -49,6 +55,9 @@ def test_stable_fixture_is_partial_until_reference_is_fitted():
     assert result["status"] == "partial_observation"
     assert result["failed_criteria"] == []
     assert result["runway_inference"]["direction"] == "18"
+    assert result["attempt"]["outcome"] == "final_gate_observed"
+    assert len(result["provenance"]["config_sha256"]) == 64
+    assert len(result["provenance"]["reconstruction_policy_sha256"]) == 64
 
 
 def test_persistent_lateral_deviation_recommends_review():
@@ -65,6 +74,53 @@ def test_coverage_gap_abstains_instead_of_interpolating():
     assert "approach_coverage_gap" in result["reasons"]
 
 
+def test_altitude_rate_conflict_abstains_only_barometric_altitude_channel():
+    frame = _fixture()
+    frame.loc[40, "baroaltitude"] += 1_000
+    result = assess_approach(frame)
+    assert result["status"] == "partial_observation"
+    assert result["reasons"] == []
+    assert result["quality"]["channel_advisories"] == {
+        "barometric_altitude": ["altitude_rate_conflict"]
+    }
+    path = next(item for item in result["criteria"] if item["name"] == "barometric_path_proxy")
+    assert path["status"] == "not_observed"
+
+
 def test_late_track_correction_uses_ground_track_gate():
     result = assess_approach(_fixture(track_offset=25.0))
     assert "late_track_correction" in result["failed_criteria"]
+
+
+def test_observed_touchdown_is_an_outcome_not_a_failed_criterion():
+    frame = _fixture()
+    frame.loc[frame.index[-3:], "onground"] = True
+    result = assess_approach(frame)
+    assert result["attempt"]["outcome"] == "landing_observed"
+    assert result["maneuvers"][0]["name"] == "landing_observed"
+
+
+def test_descend_then_climb_is_reported_as_go_around():
+    frame = _fixture()
+    low = 55
+    frame["baroaltitude"] = np.r_[
+        np.linspace(800.0, 150.0, low + 1),
+        np.linspace(180.0, 650.0, len(frame) - low - 1),
+    ]
+    result = assess_approach(frame)
+    assert result["attempt"]["outcome"] == "go_around"
+    assert result["maneuvers"][0]["name"] == "go_around"
+
+
+def test_later_corridor_reentry_becomes_a_second_attempt():
+    first = _fixture().iloc[:65].copy()
+    second = _fixture().copy()
+    second["time"] += int(first["time"].iloc[-1] - second["time"].iloc[0] + 600)
+    operation = pd.concat([first, second], ignore_index=True)
+    attempts = extract_approach_attempts(operation)
+    result = assess_operation(operation, operation_id="fixture")
+    assert len(attempts) == 2
+    assert result["attempt_count"] == 2
+    assert [item["operation_id"] for item in result["attempts"]] == [
+        "fixture:attempt-1", "fixture:attempt-2"
+    ]

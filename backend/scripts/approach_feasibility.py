@@ -14,7 +14,8 @@ from typing import Any
 
 import pandas as pd
 
-from backend.core.approach import assess_approach
+from backend.core.approach import assess_operation
+from backend.core.approach_reference import validate_reference
 
 
 REPO = Path(__file__).resolve().parents[2]
@@ -26,9 +27,17 @@ def _counter(items) -> dict[str, int]:
     return dict(sorted(Counter(items).items()))
 
 
-def run(model_dir: Path, *, fold: str, limit: int | None = None) -> dict[str, Any]:
+def run(
+    model_dir: Path,
+    *,
+    fold: str,
+    limit: int | None = None,
+    reference: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     if fold not in ALLOWED_FOLDS:
         raise ValueError(f"fold must be one of {sorted(ALLOWED_FOLDS)}; test is burned")
+    if reference is not None:
+        validate_reference(reference)
     ids = json.loads((model_dir / "split_ids.json").read_text())
     allowed_segments = set(ids[fold])
     clean = pd.read_parquet(model_dir / "clean_df.parquet")
@@ -39,17 +48,27 @@ def run(model_dir: Path, *, fold: str, limit: int | None = None) -> dict[str, An
         eligible_operations = eligible_operations[:limit]
     selected = clean.loc[clean["flight_id"].astype(str).isin(eligible_operations)].copy()
 
-    assessments = []
+    operations = []
     for operation_id, frame in selected.groupby("flight_id", sort=True):
-        assessments.append(assess_approach(frame, operation_id=str(operation_id)))
+        operations.append(assess_operation(
+            frame, operation_id=str(operation_id), reference=reference,
+        ))
+
+    assessments = [
+        attempt
+        for operation in operations
+        for attempt in operation["attempts"]
+    ]
 
     criteria = [criterion for item in assessments for criterion in item.get("criteria", [])]
     report = {
         "schema_version": "approach_feasibility_v1",
         "fold": fold,
         "source": str(model_dir.relative_to(REPO) if model_dir.is_relative_to(REPO) else model_dir),
+        "reference_sha256": reference["artifact_sha256"] if reference else None,
         "operations_considered": len(eligible_operations),
-        "operations_assessed": len(assessments),
+        "operations_assessed": sum(bool(item["attempts"]) for item in operations),
+        "attempts_assessed": len(assessments),
         "status_counts": _counter(item["status"] for item in assessments),
         "runway_direction_counts": _counter(
             item["runway_inference"].get("direction") or "unknown" for item in assessments
@@ -59,6 +78,12 @@ def run(model_dir: Path, *, fold: str, limit: int | None = None) -> dict[str, An
         ),
         "reason_counts": _counter(
             reason for item in assessments for reason in item.get("reasons", [])
+        ),
+        "channel_advisory_counts": _counter(
+            advisory
+            for item in assessments
+            for advisories in item.get("quality", {}).get("channel_advisories", {}).values()
+            for advisory in advisories
         ),
         "altitude_reference_counts": _counter(
             item.get("altitude_reference", {}).get("source", "unavailable")
@@ -90,8 +115,10 @@ def main() -> None:
     parser.add_argument("--fold", choices=sorted(ALLOWED_FOLDS), default="train")
     parser.add_argument("--limit", type=int)
     parser.add_argument("--output", type=Path)
+    parser.add_argument("--reference", type=Path)
     args = parser.parse_args()
-    report = run(args.model_dir, fold=args.fold, limit=args.limit)
+    reference = json.loads(args.reference.read_text()) if args.reference else None
+    report = run(args.model_dir, fold=args.fold, limit=args.limit, reference=reference)
     encoded = json.dumps(report, indent=2, sort_keys=True) + "\n"
     if args.output:
         args.output.parent.mkdir(parents=True, exist_ok=True)

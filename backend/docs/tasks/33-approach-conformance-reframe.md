@@ -25,12 +25,12 @@ own the result; the old LSTM is research context only.
 
 ## Build checklist
 
-- [ ] Run an observed-row feasibility spike: reconstruction audit, runway-direction precision,
+- [x] Run an observed-row feasibility spike: reconstruction audit, runway-direction diagnostics,
   altitude fallback coverage, envelope conditioning diagnostics and criterion prevalence.
-- [ ] Freeze the reconstruction/rule/reference contracts only if feasibility gates pass.
-- [ ] Version runway geometry/elevation provenance and approach schemas.
-- [ ] Implement reconstruction, inference, attempt extraction, quality gates and criteria.
-- [ ] Fit and serialize the train-only empirical reference envelope.
+- [x] Freeze the reconstruction/rule/reference contracts only if feasibility gates pass.
+- [x] Version runway geometry/elevation provenance and approach schemas.
+- [x] Implement reconstruction, inference, attempt extraction, quality gates and criteria.
+- [x] Fit and serialize the train-only empirical reference envelope.
 - [ ] Add approach assessments to immutable release generation and serving.
 - [ ] Make upload evaluation rules-first and model preparation optional.
 - [ ] Reframe queue, operation, case and evaluation UI around approach evidence.
@@ -50,10 +50,11 @@ own the result; the old LSTM is research context only.
 
 ## Validation evidence
 
-- Geometry and observed-row core tests: `12 passed`.
-- Train feasibility: 4,256 inferred approaches; 2,937 survive quality/terminal gates (69.0%).
-- Validation feasibility: 2,730 inferred approaches; 1,868 survive gates (68.4%).
-- Independent notebook cross-check: train inference 4,256 versus 4,268 Phase-4 approach-rule records.
+- Geometry, observed-row, reference and firewall tests: `22 passed`.
+- Train feasibility: 4,272 attempts; 3,794 assessable (88.8%).
+- Validation feasibility: 2,740 attempts; 2,255 assessable (82.3%).
+- Audited 2025 source: 388 attempts; 264 assessable (68.0%).
+- Independent notebook cross-check: 4,272 attempts versus 4,268 Phase-4 approach-rule records.
 - Full evidence: `backend/docs/ml/08-approach-feasibility.md`.
 
 ## Risks

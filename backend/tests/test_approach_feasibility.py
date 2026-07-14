@@ -21,15 +21,15 @@ def test_feasibility_reports_only_requested_development_fold(tmp_path, monkeypat
     })
     monkeypatch.setattr(pd, "read_parquet", lambda _path: rows)
     monkeypatch.setattr(
-        "backend.scripts.approach_feasibility.assess_approach",
-        lambda frame, operation_id: {
-            "operation_id": operation_id,
-            "status": "not_assessable",
-            "reasons": ["fixture"],
-            "runway_inference": {"direction": None, "specificity": "unknown", "runway": None},
-            "criteria": [],
-        },
+        "backend.scripts.approach_feasibility.assess_operation",
+        lambda frame, operation_id, reference: {"attempts": [{
+                "operation_id": f"{operation_id}:attempt-1",
+                "status": "not_assessable",
+                "reasons": ["fixture"],
+                "runway_inference": {"direction": None, "specificity": "unknown", "runway": None},
+                "criteria": [],
+            }]},
     )
     report = run(tmp_path, fold="train")
     assert report["operations_considered"] == 1
-    assert report["examples"][0]["operation_id"] == "a_1"
+    assert report["examples"][0]["operation_id"] == "a_1:attempt-1"
