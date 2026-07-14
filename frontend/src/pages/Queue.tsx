@@ -27,7 +27,7 @@ type QueueMode = "operations" | "segments";
 
 const SEGMENT_ROW_HEIGHT = 56;
 const OPERATION_ROW_HEIGHT = 72;
-const GRID = "110px 1fr 64px 132px 104px";
+const GRID = "170px 1fr 64px 132px 104px";
 
 interface SegmentRowData {
   rows: FlightSummary[];

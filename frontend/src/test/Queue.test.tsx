@@ -88,8 +88,12 @@ describe("Queue", () => {
     renderQueue();
     await screen.findByText("OP-502CE6-1543855510");
     await userEvent.click(screen.getByRole("button", { name: "Segments" }));
-    expect(await screen.findByText("502ce6_1543855510#1")).toBeInTheDocument();
+    const segmentId = await screen.findByText("502ce6_1543855510#1");
+    expect(segmentId).toBeInTheDocument();
     expect(screen.getByText("CASE-C2BWWJGAXBQG4")).toBeInTheDocument();
+    expect(segmentId.closest(".q-row")).toHaveStyle({
+      gridTemplateColumns: "170px 1fr 64px 132px 104px",
+    });
   });
 
   it("reveals coverage-limited operations in their review lane", async () => {
