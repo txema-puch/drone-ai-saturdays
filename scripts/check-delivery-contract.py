@@ -161,7 +161,7 @@ def main() -> None:
         "AS runtime",
         "USER 1000:1000",
         "EXPOSE 7860",
-        "SADAR_RELEASE_DIR=/opt/sadar/release",
+        "SADAR_APPROACH_RELEASE_DIR=/opt/sadar/release",
         'ENTRYPOINT ["/usr/local/bin/sadar-entrypoint"]',
     )
     for fragment in required_fragments:
@@ -171,7 +171,7 @@ def main() -> None:
         fail("publisher token names must not cross the Docker build boundary")
 
     entrypoint = ENTRYPOINT.read_text(encoding="utf-8")
-    for fragment in ('${PORT:-7860}', "backend.serve.app:app", "--workers 1"):
+    for fragment in ('${PORT:-7860}', "backend.serve.approach_app:app", "--workers 1"):
         if fragment not in entrypoint:
             fail(f"container entrypoint is missing {fragment!r}")
 
@@ -186,8 +186,8 @@ def main() -> None:
 
     lock = LOCK.read_text(encoding="utf-8")
     requirements = list(re.finditer(r"(?m)^([a-z0-9][a-z0-9._-]*)==[^\s\\]+ \\\n", lock))
-    if len(requirements) < 20:
-        fail("serving lock is unexpectedly small or malformed")
+    if len(requirements) != 19:
+        fail("model-free serving lock package count drifted")
     for index, match in enumerate(requirements):
         end = requirements[index + 1].start() if index + 1 < len(requirements) else len(lock)
         if "--hash=sha256:" not in lock[match.end() : end]:
@@ -203,8 +203,6 @@ def main() -> None:
         "pandas",
         "pyarrow",
         "python-multipart",
-        "scikit-learn",
-        "torch",
         "uvicorn",
     }
     if direct != expected:

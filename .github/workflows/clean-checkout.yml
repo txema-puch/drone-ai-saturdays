@@ -32,35 +32,16 @@ jobs:
           scripts/compile-serving-lock.sh
           cmp /tmp/requirements-linux-x86_64.lock backend/serve/requirements-linux-x86_64.lock
 
-      - name: Detect the external T5 publication input
-        id: release
-        run: |
-          if test -f backend/serve/demo_bundle.lock.json; then
-            echo 'ready=true' >> "$GITHUB_OUTPUT"
-          else
-            echo 'ready=false' >> "$GITHUB_OUTPUT"
-            echo 'T5 external publication is pending; app-import integration tests require the real locked release.' >> "$GITHUB_STEP_SUMMARY"
-          fi
-
       - name: Fetch the immutable release for backend integration tests
-        if: steps.release.outputs.ready == 'true'
         run: >-
-          python3 -m backend.scripts.fetch_demo_bundle
-          --lock backend/serve/demo_bundle.lock.json
+          python3 -m backend.scripts.fetch_approach_release
+          --lock backend/serve/approach_bundle.lock.json
           --destination /tmp/sadar-ci-release
 
       - name: Run the full backend suite against the immutable release
-        if: steps.release.outputs.ready == 'true'
         env:
-          SADAR_RELEASE_DIR: /tmp/sadar-ci-release
+          SADAR_APPROACH_RELEASE_DIR: /tmp/sadar-ci-release
         run: uv run --project backend pytest
-
-      - name: Run the pre-publication backend subset
-        if: steps.release.outputs.ready != 'true'
-        run: >-
-          uv run --project backend pytest
-          --ignore backend/tests/test_serve_simulation.py
-          --ignore backend/tests/test_evaluation_api.py
 
       - name: Install frontend dependencies
         working-directory: frontend
@@ -82,10 +63,10 @@ jobs:
       - name: Check out tracked inputs only
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
 
-      - name: Enforce the external T5 publication gate
+      - name: Enforce the immutable approach-release gate
         run: |
-          if ! test -f backend/serve/demo_bundle.lock.json; then
-            echo '::error::T5 is blocked: publish and redownload-verify the real immutable release, then commit backend/serve/demo_bundle.lock.json.'
+          if ! test -f backend/serve/approach_bundle.lock.json; then
+            echo '::error::Publish and redownload-verify schema v3, then commit backend/serve/approach_bundle.lock.json.'
             echo 'Final image build and smoke were not claimed.' >> "$GITHUB_STEP_SUMMARY"
             exit 1
           fi

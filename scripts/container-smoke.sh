@@ -45,8 +45,7 @@ docker run --detach --rm \
   "$IMAGE" >/dev/null
 
 SADAR_SMOKE_BASE_URL="http://127.0.0.1:${HOST_PORT}" \
-SADAR_SMOKE_STARTED_AT="$started_at" \
-SADAR_SMOKE_BASE_ONLY=1 \
+SADAR_SMOKE_HEALTH_ONLY=1 \
   python3 "$ROOT/scripts/smoke-http.py"
 
 test "$(docker exec "$NAME" printenv TMPDIR)" = "/tmp/sadar"
@@ -64,7 +63,7 @@ if [ -z "$idle_rss_kib" ] || [ "$idle_rss_kib" -gt "$MAX_IDLE_RSS_KIB" ]; then
 fi
 
 SADAR_SMOKE_BASE_URL="http://127.0.0.1:${HOST_PORT}" \
-SADAR_SMOKE_MODEL_ONLY=1 \
+SADAR_SMOKE_STARTED_AT="$started_at" \
   python3 "$ROOT/scripts/smoke-http.py" &
 smoke_pid=$!
 peak_rss_kib="$idle_rss_kib"

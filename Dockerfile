@@ -26,17 +26,19 @@ COPY backend/serve/requirements-linux-x86_64.lock /tmp/requirements.lock
 RUN --mount=type=cache,target=/tmp/uv-cache \
     uv pip install --system --no-deps --require-hashes -r /tmp/requirements.lock
 
-# T5 external-publication gate. The production target intentionally cannot build
-# until the real, redownload-verified lock is tracked. No placeholder lock or
-# unverified local model is accepted. Keep this stage source-minimal so backend-only
-# edits do not invalidate the immutable artifact download layer.
+# The production target builds only from the redownload-verified schema-v3 lock.
+# Keep this stage source-minimal so application edits do not invalidate the immutable
+# evidence-artifact download layer.
 FROM --platform=linux/amd64 ${PYTHON_IMAGE} AS release-fetch
 WORKDIR /src
-COPY backend/serve/demo_bundle.lock.json ./backend/serve/demo_bundle.lock.json
+COPY backend/serve/approach_bundle.lock.json ./backend/serve/approach_bundle.lock.json
+COPY backend/serve/approach_release.py ./backend/serve/approach_release.py
+COPY backend/serve/approach_transport.py ./backend/serve/approach_transport.py
 COPY backend/serve/release.py ./backend/serve/release.py
 COPY backend/scripts/fetch_demo_bundle.py ./backend/scripts/fetch_demo_bundle.py
-RUN python -m backend.scripts.fetch_demo_bundle \
-         --lock backend/serve/demo_bundle.lock.json \
+COPY backend/scripts/fetch_approach_release.py ./backend/scripts/fetch_approach_release.py
+RUN python -m backend.scripts.fetch_approach_release \
+         --lock backend/serve/approach_bundle.lock.json \
          --destination /opt/sadar/release
 
 FROM --platform=linux/amd64 ${PYTHON_IMAGE} AS runtime
@@ -48,7 +50,7 @@ ENV HOME=/home/sadar \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PYTHONPATH=/opt/sadar/app \
-    SADAR_RELEASE_DIR=/opt/sadar/release \
+    SADAR_APPROACH_RELEASE_DIR=/opt/sadar/release \
     TMPDIR=/tmp/sadar \
     PORT=7860
 
