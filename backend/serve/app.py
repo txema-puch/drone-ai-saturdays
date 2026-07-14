@@ -23,11 +23,13 @@ import sys
 from functools import lru_cache
 from pathlib import Path
 from threading import Lock
+from typing import Annotated, Literal
 
 import numpy as np
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+from starlette.middleware.gzip import GZipMiddleware
 
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO))
@@ -99,13 +101,34 @@ app = FastAPI(title="LEMD Conformance Audit — post-hoc trajectory anomaly tria
 app.add_middleware(
     CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"],
 )
+app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 
 class SimulationRequest(BaseModel):
     id: int
-    kind: str
-    intensity: float = 1.0   # 0 = clean … 1 = the full §6-calibrated anomaly
-    onset: float = 0.5       # where in the segment the anomaly begins (fraction)
+    kind: Literal[
+        "zone_violation",
+        "altitude_high",
+        "sustained_loiter",
+        "final_approach_intercept",
+        "speed_spike",
+    ]
+    intensity: float = Field(default=1.0, ge=0.0, le=1.0, allow_inf_nan=False)
+    onset: float = Field(default=0.5, ge=0.0, le=1.0, allow_inf_nan=False)
+
+
+QueueOrder = Literal["anomalous", "normal", "typical"]
+QueueLimit = Annotated[int, Query(ge=0, le=5000)]
+
+OPERATION_QUEUE_SEGMENT_FIELDS = (
+    "case_ref",
+    "segment_id",
+    "score",
+    "pct",
+    "label",
+    "anomalous",
+    "review_lane",
+)
 
 
 @app.get("/api/health")
@@ -128,7 +151,7 @@ def health() -> dict:
 
 
 @app.get("/api/flights")
-def flights(limit: int = 50, order: str = "anomalous") -> list[dict]:
+def flights(limit: QueueLimit = 50, order: QueueOrder = "anomalous") -> list[dict]:
     """The ranked triage queue. `order`: anomalous (default, most→least) | normal (least→most)
     | typical (closest to the median normal). Every entry carries our `label`
     (normal / go_around / emergency) and whether a case file is available to open."""
@@ -146,7 +169,7 @@ def flights(limit: int = 50, order: str = "anomalous") -> list[dict]:
 
 
 @app.get("/api/operations")
-def operations(limit: int = 50, order: str = "anomalous") -> list[dict]:
+def operations(limit: QueueLimit = 50, order: QueueOrder = "anomalous") -> list[dict]:
     """Operations ranked by the worst segment only; segment scores are never summed."""
     if order == "normal":
         ranked = OPERATIONS[::-1]
@@ -163,7 +186,7 @@ def operations(limit: int = 50, order: str = "anomalous") -> list[dict]:
             **operation,
             "worst_has_case": str(operation["worst_segment_id_num"]) in CASES,
             "segments": [
-                {**segment, "has_case": str(segment["id"]) in CASES}
+                {field: segment[field] for field in OPERATION_QUEUE_SEGMENT_FIELDS}
                 for segment in operation["segments"]
             ],
         }

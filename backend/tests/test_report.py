@@ -77,6 +77,12 @@ def test_guard_cached_report_abstains_and_removes_unsupported_verdict():
     assert "Genuine LEMD anomaly" not in reviewable
 
 
+def test_guard_cached_report_rejects_prohibited_claims():
+    for claim in rpt.PROHIBITED_CLAIMS:
+        report = f"Reviewable evidence. Possible {claim} activity."
+        assert rpt.guard_cached_report(report, _case(), 0.222) is None
+
+
 def test_build_context_ranks_and_bounds():
     ctx = rpt.build_context(_case(), threshold=0.222, step_threshold=0.9)
     # attribution ranked descending

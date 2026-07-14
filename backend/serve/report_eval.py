@@ -21,8 +21,7 @@ sys.path.insert(0, str(REPO))
 from backend.serve import report as rpt  # noqa: E402
 
 BUNDLE = REPO / "backend/models/sadar_demo"
-PROHIBITED = ["drone", "uav", "unauthorized", "unauthorised", "intruder", "violation",
-              "intrud", "incursion", "hostile", "threat"]
+PROHIBITED = rpt.PROHIBITED_CLAIMS
 
 
 def pick_goldens(cases: dict) -> list[tuple[str, dict]]:

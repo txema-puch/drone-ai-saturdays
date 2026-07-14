@@ -81,6 +81,41 @@ N_TOP_NORMAL = 40
 N_TYPICAL = 20
 
 
+def select_case_indices(
+    seg_ids: np.ndarray,
+    scores: np.ndarray,
+    anomaly_ids: set[str],
+    *,
+    n_top_normal: int = N_TOP_NORMAL,
+    n_typical: int = N_TYPICAL,
+) -> set[int]:
+    """Select every held-aside anomaly plus the requested NORMAL case samples."""
+    normal = np.array([sid not in anomaly_ids for sid in seg_ids], dtype=bool)
+    normal_indices = np.flatnonzero(normal)
+    top_normal = normal_indices[np.argsort(-scores[normal_indices])[:n_top_normal]]
+    median = float(np.median(scores))
+    typical_normal = normal_indices[
+        np.argsort(np.abs(scores[normal_indices] - median))[:n_typical]
+    ]
+    anomaly_indices = np.flatnonzero(~normal)
+    return set(np.concatenate([anomaly_indices, top_normal, typical_normal]).tolist())
+
+
+def valid_normal_step_scores(
+    step_scores: np.ndarray,
+    loss_mask: np.ndarray,
+    seg_ids: np.ndarray,
+    anomaly_ids: set[str],
+) -> np.ndarray:
+    """Observed per-step reconstruction errors from normal segments only."""
+    samples = [
+        step_scores[i][loss_mask[i].astype(bool)]
+        for i, sid in enumerate(seg_ids)
+        if sid not in anomaly_ids
+    ]
+    return np.concatenate(samples) if samples else np.array([], dtype=float)
+
+
 def main() -> None:
     # build-time only: load .env so report generation sees ANTHROPIC_API_KEY (the SERVE
     # never loads .env — reports are baked here and served static).
@@ -139,13 +174,20 @@ def main() -> None:
         a = g["baroaltitude"].to_numpy()
         return bool(((d < TERM_DIST_M) & (a < TERM_ALT_M)).any())
 
-    terminal_map = cdf.groupby("segment_id", sort=False).apply(
-        _is_terminal, include_groups=False
-    ).to_dict()
+    # Keep this compatible with the project's pandas >=2.1 floor. The
+    # include_groups argument was only added in pandas 2.2.
+    terminal_map = {
+        sid: _is_terminal(group)
+        for sid, group in cdf.groupby("segment_id", sort=False)
+    }
 
     segment_frames = {
         sid: group.sort_values("time").head(T)
         for sid, group in cdf.groupby("segment_id", sort=False)
+    }
+    trajectory_frames = {
+        trajectory_id: group.sort_values("time")
+        for trajectory_id, group in clean.groupby("_traj", sort=False)
     }
     assessment_map = {
         sid: assess_segment(
@@ -198,16 +240,13 @@ def main() -> None:
 
     # ── curated case files (heavy) ────────────────────────────────────────────────────────
     median = float(np.median(scores))
-    typical_rank = np.argsort(np.abs(scores - median))
-    pick = set(np.where(np.isin(seg_ids, list(anomaly_ids)))[0].tolist())   # all real anomalies
-    pick |= set(order[:N_TOP_NORMAL].tolist())                              # most-anomalous
-    pick |= set(typical_rank[:N_TYPICAL].tolist())                         # typical sample
+    pick = select_case_indices(seg_ids, scores, anomaly_ids)
     sc_idx = [AE_FEATURES.index(c) for c in SCALER_FEATURES]
 
     cases = {}
     for i in sorted(pick):
         sid = seg_ids[i]
-        seg = clean[clean.segment_id == sid].sort_values("time").head(T)
+        seg = segment_frames[sid]
         valid = int(loss_mask[i].sum())
         nrows = min(len(seg), T)
         # real path straight from the unscaled grid (we store lat/lon natively — no inverse-proj)
@@ -233,7 +272,7 @@ def main() -> None:
         }
         # full-trajectory context (all sibling segments, time-ordered, downsampled) for the
         # map. lat/lon only — it's faint background, doesn't need per-step resolution.
-        traj = clean[clean["_traj"] == sid.rsplit("#", 1)[0]].sort_values("time")
+        traj = trajectory_frames[sid.rsplit("#", 1)[0]]
         stride = max(1, len(traj) // 150)
         context_path = [
             {"lat": round(float(la), 5), "lon": round(float(lo), 5)}
@@ -267,10 +306,7 @@ def main() -> None:
 
     # per-step threshold from NORMAL cases (99th pctile of valid per-step RE) — the
     # "this step is surprising" line for the case-file timeline; from normal behaviour only
-    normal_steps = np.array(
-        [step[i, t] for i in range(len(seg_ids)) if seg_ids[i] not in anomaly_ids
-         for t in range(int(loss_mask[i].sum()))]
-    )
+    normal_steps = valid_normal_step_scores(step, loss_mask, seg_ids, anomaly_ids)
     step_thr = float(np.percentile(normal_steps, 99)) if normal_steps.size else AE_THR
 
     # ── metrics panel (Phase-7 results, MetricRow[] shape) — bundle-self-contained ────────
@@ -335,14 +371,6 @@ def main() -> None:
     baked = 0
     for case in cases.values():
         report = cache.get(f"{case['segment_id']}|{fp}")
-        if report is None:
-            # Existing reports predate the abstention prompt. They remain useful evidence
-            # after deterministic guardrails remove unsupported verdict language.
-            report = next(
-                (value for key, value in cache.items()
-                 if key.startswith(f"{case['segment_id']}|")),
-                None,
-            )
         guarded = rpt.guard_cached_report(report, case, AE_THR)
         case["report"] = guarded
         case["report_model"] = (

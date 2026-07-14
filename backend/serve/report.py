@@ -6,14 +6,12 @@ summaries, and our data-quality flags), it writes a short forensic-conformance n
 *what drove the reconstruction error* — and, crucially, says plainly when the "anomaly"
 is a data/gate artifact rather than behaviour (D-014).
 
-Generated at BUILD time by `precompute.py` (key local), baked into the bundle, served as
-static text. So there is NO API key, no paid endpoint, no latency, and no cost/abuse
-surface on the public Space (plan-eng-review + codex outside-voice, 2026-06-04). It never
-affects the score or the Phase-7 eval.
+Generated out of band by the `gen-reports` workflow, cached, then baked into the bundle by
+`precompute.py` and served as static text. So there is NO API key, paid endpoint, latency,
+or cost/abuse surface on the public Space (plan-eng-review + codex outside-voice,
+2026-06-04). It never affects the score or the Phase-7 eval.
 
-Config knobs:
-  - SYSTEM_PROMPT below (edit it → re-run precompute → reports regenerate for changed prompt)
-  - ANTHROPIC_MODEL env (default claude-sonnet-4-6) so a model rename can't break the build
+`make_client` and `generate_report` remain available only for the opt-in live prompt eval.
 """
 from __future__ import annotations
 
@@ -29,6 +27,10 @@ DEFAULT_MODEL = "claude-sonnet-4-6"
 # metered Anthropic API. This label is the cache/model tag (keeps generation free).
 SUBAGENT_LABEL = "claude-code-subagent"
 MAX_TOKENS = 700
+PROHIBITED_CLAIMS = (
+    "drone", "uav", "unauthorized", "unauthorised", "intruder", "violation",
+    "intrud", "incursion", "hostile", "threat",
+)
 
 # ── the configurable system prompt ─────────────────────────────────────────────────────────
 # Tightened per the codex outside-voice: narrate ONLY the observed fields, rank the evidence,
@@ -109,6 +111,9 @@ def guard_cached_report(report: str | None, case: dict, threshold: float) -> str
     if case.get("behavioral_verdict") != "reviewable":
         return abstention_report(case, threshold)
     if not report:
+        return None
+    lowered = report.lower()
+    if any(claim in lowered for claim in PROHIBITED_CLAIMS):
         return None
     guarded = re.sub(
         r"Genuine LEMD anomaly, not a data artifact\.",

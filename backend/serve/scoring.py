@@ -19,13 +19,14 @@ import torch
 
 from backend.core import lstm_ae as ae
 from backend.core.features import apply_segment_derivations
-from backend.core.inject import INJECTION_KINDS, inject_segment
+from backend.core.inject import INJECTION_KINDS, inject_segment, onset_index
 from backend.core.preprocessing import (
     MASKED_FEATURES,
     SCALER_FEATURES,
     to_sequences,
     to_sequences_loss_mask,
 )
+from backend.serve.operations import severity_band
 
 # measured continuous channels the intensity knob interpolates (heading is a measured
 # handle but no §6 kind perturbs it; onground/*_missing are categorical → taken from
@@ -72,11 +73,6 @@ def unscale_block(scaled_6: np.ndarray, scaler) -> np.ndarray:
 
 
 # ── single-segment scoring (the simulate path) ─────────────────────────────────────────────
-
-def _band(pct: float) -> str:
-    return ("highly anomalous" if pct >= 95 else "elevated" if pct >= 80
-            else "upper-normal" if pct >= 50 else "normal range")
-
 
 def _stable_seed(segment_id: str, kind: str) -> int:
     """Deterministic per (segment, kind) seed so re-clicking the same what-if is stable
@@ -137,10 +133,16 @@ def simulate_segment(
 
     base = seg.sort_values("time").reset_index(drop=True).copy()
     sid = str(base["segment_id"].iloc[0])
-    rng = np.random.default_rng(_stable_seed(sid, kind))
-    perturbed, onset_idx = inject_segment(base, kind, rng, onset_fraction=onset, window_len=T)
+    if intensity == 0.0:
+        perturbed = base
+        onset_idx = onset_index(min(len(base), T), onset)
+    else:
+        rng = np.random.default_rng(_stable_seed(sid, kind))
+        perturbed, onset_idx = inject_segment(
+            base, kind, rng, onset_fraction=onset, window_len=T,
+        )
 
-    if intensity < 1.0:
+    if 0.0 < intensity < 1.0:
         for c in _BLEND_COLS:
             b = base[c].to_numpy()
             perturbed[c] = b + intensity * (perturbed[c].to_numpy() - b)
@@ -162,7 +164,7 @@ def simulate_segment(
         "scores": scored["step_scores"],
         "window_score": round(score, 6),
         "pct": round(pct, 1),
-        "band": _band(pct),
+        "band": severity_band(pct),
         "anomalous": bool(score >= threshold),
         "threshold": threshold,
         "step_threshold": step_threshold,
