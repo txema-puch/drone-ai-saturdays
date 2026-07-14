@@ -10,7 +10,7 @@ implementations and approaches to productizing the concept. **SADAR Analyst Cons
 Puch's implementation, focused on the analyst workflow: evaluating operational data and
 investigating trajectory-anomaly evidence.
 
-- **Deployment target:** <https://sadar-analyst-console.fly.dev>
+- **Application:** <https://sadar-analyst-console.fly.dev>
 - **Immutable model release:** <https://huggingface.co/Txemapuch/sadar-demo-release>
 - **Source:** <https://github.com/txema-puch/drone-ai-saturdays>
 

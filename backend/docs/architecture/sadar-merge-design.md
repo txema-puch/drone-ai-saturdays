@@ -1,7 +1,7 @@
 # SADAR Analyst Console — design & scoping
 
-**Status:** RELEASE CANDIDATE — Direction C and analyst upload evaluation are implemented;
-deployment targets the public `sadar-analyst-console.fly.dev` Fly.io application.
+**Status:** DEPLOYED — Direction C and analyst upload evaluation are live at the public
+`sadar-analyst-console.fly.dev` Fly.io application.
 **Date:** 2026-06-03; product identity and application boundary updated 2026-07-14.
 **Owner:** Txema. **Relationship to devrup404's project:** independent model and deployment;
 his MIT frontend remains credited for the reused project shape, API interfaces, and projection
@@ -246,11 +246,14 @@ The fail-closed `/evaluate` workflow now provides bounded CSV/Parquet parsing, t
 frozen-model pipeline, an upload-only evidence DTO, sample/schema onboarding, ephemeral cleanup,
 and neutral result language. No uploaded result receives an LLM report or joins the baked audit
 queue.
-7. **Docker** — adapt his two-stage build (→ npm), fetch one immutable release containing the
+7. **Docker** ✅ **DONE 2026-07-14** — adapted the build to npm, fetches one immutable release containing the
 verified baked cohort plus tensor-only model and JSON scaler artifacts, drop optuna; **deploy our
 own Fly application** with suspend/autostart and zero warm Machines; verify `/api/health`,
 queue→case→what-if, and sample upload→evaluation→export; run `/design-review` on the live app.
-(No `ANTHROPIC_API_KEY` in Fly — reports are pre-baked.)
+(No `ANTHROPIC_API_KEY` in Fly — reports are pre-baked.) The deployed image serves release
+`fb116d628a274309a387` from one `shared-cpu-1x:2048MB` Machine in `cdg`. The live container smoke,
+desktop browser audit, and forced suspend/resume check passed; resume returned health in 0.71 s
+with the model still ready.
 8. **Writeup** — add a "deployment" section pointing at our live application, framed as a **post-hoc conformance-audit tool**; credit his sliding-window design as the more streaming-ready; **ch.11 numbers unchanged** (merge ≠ model change).
 
 **STRETCH — dual-model / dual-view (§4.5.1), evaluate only after C ships:**

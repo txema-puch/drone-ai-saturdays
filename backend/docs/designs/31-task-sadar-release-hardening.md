@@ -1,6 +1,6 @@
 # Issue #31 — SADAR Analyst Console release hardening
 
-**Status:** release artifact published; Fly.io deployment configured and pending live verification
+**Status:** deployed and live-verified; Issue #31 reconciliation and teammate notification remain
 **Date:** 2026-07-14
 **Branch:** `task-sadar-merge-c`
 **Scope:** close the release blockers and make frozen-model evaluation a first-class analyst workflow
@@ -1117,14 +1117,15 @@ Conflict flags:
   - Verify: keyboard/drop/select flows, replacement race, 4xx/408/429/503 and malformed-body
     recovery, result switching, high-score non-verdict copy, sample round-trip, export, clear,
     disabled capability, and refresh behavior.
-- [ ] **T10 (P1, human: ~1 day / CC: ~60 min)** — Verification — add clean-checkout CI,
+- [x] **T10 (P1, human: ~1 day / CC: ~60 min)** — Verification — add clean-checkout CI,
   serving-lock regeneration, container security checks, performance budgets, and critical-flow
   smoke coverage.
   - Surfaced by: test review — unit suites do not prove the distributed application works.
   - Files: `.github/`, container smoke scripts, backend/frontend tests.
   - Verify: every path in the 100+ coverage diagram plus the eleven performance/size gates.
-  - Status 2026-07-14: CI, smoke, latency, response-size, RSS, compressed-image, and cleanup
-    gates are implemented; final `linux/amd64` execution awaits T5 and a Docker runner.
+  - Completed 2026-07-14: the clean-checkout workflow built and smoked the final `linux/amd64`
+    image from commit `0afd4e4`; both `contract-and-tests` and `image-stages` passed in
+    [GitHub Actions run 29349153857](https://github.com/txema-puch/drone-ai-saturdays/actions/runs/29349153857).
 - [ ] **T11 (P1, human: ~0.5 day / CC: ~30 min)** — Release — deploy the pinned inputs to Fly,
   run live desktop visual QA, record rollback evidence, reconcile Issue #31, and notify
   `devrup`.
@@ -1132,6 +1133,17 @@ Conflict flags:
   - Files: `fly.toml`, `backend/docs/writeup/`, Issue #31 checklist.
   - Verify: live release ID, deep links, sample upload/evaluation/export, read-only case during
     model warming, cleanup evidence, and prior-revision rollback.
+  - Live verification 2026-07-14: `https://sadar-analyst-console.fly.dev` serves release
+    `fb116d628a274309a387` from Machine `7814251f390958`, image
+    `deployment-01KXGPTHZYM77MXDWCYFYVGYX5`, in `cdg` on `shared-cpu-1x:2048MB`.
+    Health, queue, deep case route, What-If, sample upload/evaluation, desktop rendering, and
+    browser console checks passed. The remote performance smoke measured 1.421 s warm-evaluation
+    p95, 7.350 s maximum evaluation, 0.136 s health p95 during evaluation, and a 145,607-byte
+    largest response. A forced suspension reached `suspended`; request-triggered resume returned
+    HTTP 200 in 0.706 s and preserved `model_state: ready`. This is the first Fly release, so there
+    is no prior production image to roll back to; the recorded immutable image is the rollback
+    baseline for subsequent releases. T11 remains open only for Issue #31 reconciliation and the
+    user-owned `devrup` notification.
 
 ## Definition of done
 
@@ -1140,10 +1152,10 @@ Conflict flags:
 - [x] Release builder cannot expose a partial or mixed generation.
 - [x] Every shipped file is hash-verified against schema v2 manifest metadata.
 - [x] Runtime loads no unrestricted model or scaler pickle.
-- [ ] Clean checkout backend test collection does not require local ignored files.
-- [ ] Clean checkout Docker build needs no untracked local input.
+- [x] Clean checkout backend test collection does not require local ignored files.
+- [x] Clean checkout Docker build needs no untracked local input.
 - [x] Serving-only Linux dependency lock regenerates with no diff in CI.
-- [ ] Container smoke checks UID/platform, token absence, health, deep SPA routing, API 404,
+- [x] Container smoke checks UID/platform, token absence, health, deep SPA routing, API 404,
   case response, and zero-intensity parity.
 - [x] `/api/health` exposes deployed release/schema identity and the four-state model status.
 - [x] Public simulation returns 429 while busy and never queues unbounded work.
@@ -1157,20 +1169,20 @@ Conflict flags:
   cohort statistical reference do not match the image/model contract.
 - [x] Exact duplicates are counted/collapsed, conflicting timestamp observations are rejected,
   and canonical dataset/evaluation references ignore row order and CSV/Parquet container format.
-- [ ] Baked-vs-upload parity proves one segment receives the same score, reconstruction,
+- [x] Baked-vs-upload parity proves one segment receives the same score, reconstruction,
   attribution, terminal quality assessment, inclusive weak-ECDF percentile, and thresholds.
 - [x] `/evaluate` handles readiness, upload, rejection reasons, multiple results, JSON export,
   shared structured errors, sample/template onboarding, abort/replacement, clear, and ephemeral
   refresh states accessibly without fake progress percentages.
-- [ ] Uploads never mutate release/queue/cases/reports and leave no temp file or server-side result.
+- [x] Uploads never mutate release/queue/cases/reports and leave no temp file or server-side result.
 - [x] `EvaluationResult` and its serializer contain no ground-truth label, case/operation/report
   fields, or non-allowlisted raw payload; UI/export make no authorization/drone/incident claim.
 - [x] Public-demo copy rejects the expectation of private handling and warns not to upload
   confidential/proprietary data; it discloses that Fly may snapshot suspended runtime memory;
   evaluation is fail-closed behind its deployment capability.
-- [ ] Eleven performance/size gates pass in the final `linux/amd64` image.
-- [ ] Fly application is live and visually approved on desktop.
-- [ ] Deployment URL and release ID are recorded in project documentation.
+- [x] Eleven performance/size gates pass in the final `linux/amd64` image.
+- [x] Fly application is live and visually approved on desktop.
+- [x] Deployment URL and release ID are recorded in project documentation.
 - [ ] Issue #31 checklist is reconciled and `devrup` is notified.
 
 ## Review completion summary
