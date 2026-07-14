@@ -93,3 +93,18 @@ def test_empirical_reference_flags_a_persistent_speed_exceedance():
     result = assess_approach(_attempt(99, velocity=120.0)["frame"], reference=reference)
     assert "observed_ground_speed_envelope" in result["failed_criteria"]
     assert result["reference"]["artifact_sha256"] == reference["artifact_sha256"]
+
+
+def test_empirical_reference_not_fixed_limit_drives_descent_verdict():
+    reference = _reference()
+    attempt = _attempt(99)["frame"]
+    attempt["vertrate"] = -5.0
+
+    result = assess_approach(attempt, reference=reference)
+
+    assert "observed_descent_rate" in result["failed_criteria"]
+    criterion = next(
+        item for item in result["criteria"] if item["name"] == "observed_descent_rate"
+    )
+    assert criterion["reference_source"] == "empirical_train_envelope"
+    assert criterion["evidence"][0]["limit"] == -3.0

@@ -589,7 +589,7 @@ def assess_approach(
         descent_limit = np.full(len(attempt), config.descent_rate_limit_mps)
     descent = _criterion(
         "observed_descent_rate", attempt, vertical, descent_limit, descent_valid,
-        vertical < config.descent_rate_limit_mps, relative, unit="m/s", config=config,
+        vertical < descent_limit, relative, unit="m/s", config=config,
     )
     descent["reference_source"] = "empirical_train_envelope" if reference is not None else "provisional_fixed_limit"
 

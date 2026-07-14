@@ -1,0 +1,150 @@
+from __future__ import annotations
+
+import json
+import math
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
+import pytest
+
+from backend.core.approach_geometry import EARTH_RADIUS_M, load_lemd_geometry
+from backend.scripts import build_approach_release as builder
+from backend.serve import approach_release
+
+
+def _approach_frame(runway_name: str = "18L") -> pd.DataFrame:
+    runway = load_lemd_geometry().thresholds[runway_name]
+    along = np.linspace(12_000, 100, 80)
+    bearing = math.radians(runway.true_bearing_deg)
+    east = -along * math.sin(bearing)
+    north = -along * math.cos(bearing)
+    lat = runway.lat + np.degrees(north / EARTH_RADIUS_M)
+    lon = runway.lon + np.degrees(
+        east / (EARTH_RADIUS_M * np.cos(np.radians(runway.lat)))
+    )
+    height = np.tan(np.radians(3.0)) * along
+    return pd.DataFrame({
+        "flight_id": "fixture-operation",
+        "icao24": "abc123",
+        "callsign": "TEST1",
+        "time": 1_700_000_000 + np.arange(80) * 10,
+        "lat": lat,
+        "lon": lon,
+        "baroaltitude": runway.elevation_m + height,
+        "geoaltitude": runway.elevation_m + height,
+        "velocity": np.linspace(90, 65, 80),
+        "heading": runway.true_bearing_deg,
+        "vertrate": -3.0,
+        "onground": False,
+        "alert": False,
+        "squawk": "1234",
+    })
+
+
+def test_builder_is_deterministic_and_emits_bounded_schema_v3(tmp_path: Path) -> None:
+    input_path = tmp_path / "audited-2025.parquet"
+    _approach_frame().to_parquet(input_path, index=False)
+    left = tmp_path / "left"
+    right = tmp_path / "right"
+
+    first = builder.build_approach_release(
+        input_path, output=left, max_case_observations=12
+    )
+    second = builder.build_approach_release(
+        input_path, output=right, max_case_observations=12
+    )
+
+    assert first == second
+    assert first["schema_version"] == 3
+    assert len(first["release_id"]) == 20
+    assert {item["path"] for item in first["files"]} == approach_release.REQUIRED_FILES
+    assert approach_release.validate_release_directory(left) == first
+    assert approach_release.validate_release_directory(right) == second
+    loaded = approach_release.load_release_directory(left)
+    assert loaded["manifest"] == first
+    assert len(loaded["attempts"]) == len(loaded["cases"]) == 1
+    assert loaded["research"] is None
+    cases = json.loads((left / "cases.json").read_text())
+    assert len(cases["cases"]) == 1
+    assert cases["cases"][0]["observation_count"] == 80
+    assert cases["cases"][0]["observations_downsampled"] is True
+    assert len(cases["cases"][0]["observations"]) <= 12
+    assert (left / "attempts.json").read_bytes() == approach_release.canonical_json_bytes(
+        json.loads((left / "attempts.json").read_text())
+    )
+
+
+def test_validator_rejects_corruption_extras_and_symlinks(tmp_path: Path) -> None:
+    input_path = tmp_path / "audited-2025.parquet"
+    _approach_frame().to_parquet(input_path, index=False)
+    release_dir = tmp_path / "release"
+    builder.build_approach_release(input_path, output=release_dir)
+
+    attempts = release_dir / "attempts.json"
+    original = attempts.read_bytes()
+    attempts.write_bytes(original + b" ")
+    with pytest.raises(approach_release.ApproachReleaseIntegrityError, match="attempts.json"):
+        approach_release.validate_release_directory(release_dir)
+    attempts.write_bytes(original)
+
+    (release_dir / "unexpected.txt").write_text("unexpected")
+    with pytest.raises(approach_release.ApproachReleaseFormatError, match="extra_files"):
+        approach_release.validate_release_directory(release_dir)
+    (release_dir / "unexpected.txt").unlink()
+
+    (release_dir / "alias.json").symlink_to("metrics.json")
+    with pytest.raises(approach_release.ApproachReleaseFormatError, match="symlink"):
+        approach_release.validate_release_directory(release_dir)
+
+
+def test_manifest_requires_v3_required_subset_and_optional_allowlist(tmp_path: Path) -> None:
+    input_path = tmp_path / "audited-2025.parquet"
+    _approach_frame().to_parquet(input_path, index=False)
+    release_dir = tmp_path / "release"
+    manifest = builder.build_approach_release(input_path, output=release_dir)
+
+    invalid = dict(manifest)
+    invalid["schema_version"] = 2
+    invalid["release_id"] = approach_release.release_id_for_manifest(invalid)
+    with pytest.raises(approach_release.ApproachReleaseFormatError, match="schema_version"):
+        approach_release.validate_manifest(invalid)
+
+    missing = dict(manifest)
+    missing["files"] = [
+        item for item in missing["files"] if item["path"] != "metrics.json"
+    ]
+    missing["release_id"] = approach_release.release_id_for_manifest(missing)
+    with pytest.raises(approach_release.ApproachReleaseFormatError, match="missing"):
+        approach_release.validate_manifest(missing)
+
+    extra = dict(manifest)
+    extra["files"] = [
+        *extra["files"],
+        {"path": "not-allowed.json", "sha256": "0" * 64, "bytes": 0},
+    ]
+    extra["files"] = sorted(extra["files"], key=lambda item: item["path"])
+    extra["release_id"] = approach_release.release_id_for_manifest(extra)
+    with pytest.raises(approach_release.ApproachReleaseFormatError, match="allowlisted"):
+        approach_release.validate_manifest(extra)
+
+
+def test_builder_refuses_sealed_2026_before_parquet_read(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    sealed = tmp_path / "sealed.parquet"
+    sealed.write_bytes(b"not parsed")
+    read = False
+
+    def fail_if_read(*args, **kwargs):
+        nonlocal read
+        read = True
+        raise AssertionError("sealed parquet was read")
+
+    monkeypatch.setattr(
+        builder, "file_sha256", lambda path: next(iter(builder.SEALED_HOLDOUT_SHA256))
+    )
+    monkeypatch.setattr(builder.pd, "read_parquet", fail_if_read)
+    with pytest.raises(ValueError, match="sealed 2026 holdout"):
+        builder.build_approach_release(sealed, output=tmp_path / "release")
+    assert read is False
