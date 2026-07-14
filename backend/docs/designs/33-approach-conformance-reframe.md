@@ -211,6 +211,86 @@ metrics on historical/2025 data; tag the candidate release; then perform one scr
 - The frozen LSTM appears only under `Research benchmark`, with text stating that it does not determine the verdict.
 - Upload evaluation uses the same approach assessment contract and exports its evidence.
 
+### Information architecture
+
+This is an analyst application, not a KPI dashboard. The primary workspace is a dense attempt
+list; secondary context lives in a fixed summary rail on wide screens and an on-demand disclosure
+on narrow screens. Cards are reserved for interactive evidence modules, not page layout.
+
+```text
+SADAR Analyst Console
+├── Attempts (default)
+│   ├── cohort scope + status counts
+│   ├── filters: status / direction / criterion / outcome / quality
+│   └── attempt table: status → runway → evidence → coverage → time
+├── Attempt dossier
+│   ├── plain-language status + assessability reason
+│   ├── runway-relative trajectory and synchronized evidence timeline
+│   ├── criterion rows with observed band, span and provenance
+│   ├── quality / missing-context disclosure
+│   └── Research benchmark (collapsed, visually separated)
+└── Evaluate data
+    ├── schema/privacy/limits
+    ├── upload progress and bounded errors
+    └── results using the identical attempt dossier vocabulary
+```
+
+The first viewport answers only three questions: what cohort is loaded, which attempts need
+review, and why the first row is prioritized. Raw model score is never one of those three.
+
+### Interaction states
+
+| Feature | Loading | Empty | Error | Success | Partial |
+|---|---|---|---|---|---|
+| Attempt queue | stable skeleton rows | explain active filters; clear-filter action | retry without losing filters | sorted table + count | quality-limited rows remain visible and filterable |
+| Attempt dossier | preserve header footprint | missing attempt with queue link | bounded retry and release ID | synchronized map/timeline/criteria | observed criteria render; unavailable channels explain why |
+| Upload | capability check then progress | schema sample + choose-file action | field-level issue list, file retained for retry | attempt summaries + export | zero attempts or partial attempts explain gate failures |
+| Research benchmark | lazy collapsed disclosure | “not included in this release” | failure cannot suppress rules | incompatible-unit metrics | coverage explicitly states which segment was scored |
+
+Navigation and filters survive reload through URL query state. Empty states always provide the
+next valid action; no screen ends at “No items found.”
+
+### Analyst journey
+
+| Horizon | User experience | Design response |
+|---|---|---|
+| First 5 seconds | Understands this screens approach attempts, not emergencies | explicit product subtitle; status vocabulary dominates numerical evidence |
+| First 5 minutes | Filters review candidates and verifies one evidence span | keyboard-operable table, linked dossier, synchronized map/timeline |
+| Long-term | Can reproduce why an attempt was or was not assessable | visible release/config/reference digests and exported evidence contract |
+
+### Visual system and anti-slop constraints
+
+Reuse the existing dark aviation-audit palette, serif display face, monospace identifiers, route
+shell, trajectory map and temporal-panel primitives. Replace score red/yellow semantics with a
+small status palette: review red, partial amber, observed neutral, unavailable muted. Body text is
+at least 16 px and 4.5:1 contrast. Dense tables use spacing and type hierarchy instead of boxed
+cards, thick borders, gradients, ornamental icons or uniform rounded containers.
+
+### Responsive and accessibility contract
+
+- At >=1200 px, queue and dossier use a workspace + context-rail layout. At 768–1199 px the rail
+  moves below the workspace. Below 768 px, table rows become labeled two-column records; evidence
+  values never disappear or clip horizontally.
+- All filters and rows are keyboard reachable. A row has one primary link, visible focus and a
+  descriptive accessible name. Status is never color-only.
+- Map evidence has a textual criterion/timestamp equivalent. Timeline scrubbing updates an
+  `aria-live=polite` summary without announcing every pointer movement.
+- Touch targets are at least 44 px. Reduced-motion disables animated scrub transitions. Loading
+  retains layout dimensions to avoid focus jumps.
+- CSV/Parquet upload labels remain visible after selection; validation errors focus the summary
+  and link to field-level details.
+
+### Design decisions resolved
+
+1. Prioritization is categorical (`review_required`, then partial/observed/not-assessable) and
+   deterministic; within a status, failed-criterion count then time breaks ties.
+2. Partial evidence is a normal first-class state, not an error banner.
+3. Attempt dossier is the canonical detail unit; operation grouping is secondary context.
+4. Research evidence is collapsed and cannot share the verdict color or ranking surface.
+5. Mobile preserves all evidence as labeled records instead of hiding columns.
+6. No generated narrative is required to interpret a criterion; direct evidence copy leads.
+7. Visual QA after implementation must exercise loading, empty, error, success and partial states.
+
 ## Delivery contract
 
 Retain the existing FastAPI/React same-origin container, immutable model bundle, GitHub Actions checks, and Fly deployment configuration. The clean-checkout build must run backend tests, frontend tests/build, release-contract validation, and HTTP/container smoke tests.
@@ -321,12 +401,12 @@ parallel, then converge for contract and end-to-end tests.
 | CEO Review | `/plan-ceo-review` | Scope & strategy | 0 | — | Product scope resolved through office-hours and user direction |
 | Codex Review | `/codex review` | Independent 2nd opinion | 1 | CLEAR | 14 findings accepted into the design and sequencing |
 | Eng Review | `/plan-eng-review` | Architecture & tests (required) | 1 | CLEAR | 14 issues resolved, 0 critical gaps left in the plan |
-| Design Review | `/plan-design-review` | UI/UX gaps | 0 | pending after feasibility | Information architecture intentionally follows validated workflow |
+| Design Review | `/plan-design-review` | UI/UX gaps | 1 | CLEAR | score 6/10 → 9/10; 7 interaction decisions added |
 | DX Review | `/plan-devex-review` | Developer experience gaps | 0 | — | Not required for feasibility |
 
 **CODEX:** Forced observed-row evidence, reconstruction validation, explicit attempt outcomes,
 schema-v3 migration, complete provenance and a feasibility-first sequence.
 
-**VERDICT:** ENG CLEARED — implement feasibility first, then the full vertical slice.
+**VERDICT:** ENG + DESIGN CLEARED — implement the attempt-first vertical slice.
 
 NO UNRESOLVED DECISIONS
