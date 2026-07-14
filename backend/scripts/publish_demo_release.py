@@ -98,7 +98,12 @@ def _resolved_directory(path: Path | str, *, field: str) -> Path:
     return resolved
 
 
-def _lock_destination(lock_path: Path | str, *, repository_root: Path) -> Path:
+def _lock_destination(
+    lock_path: Path | str,
+    *,
+    repository_root: Path,
+    lock_name: str = LOCK_NAME,
+) -> Path:
     candidate = Path(lock_path)
     if not candidate.is_absolute():
         candidate = repository_root / candidate
@@ -117,8 +122,8 @@ def _lock_destination(lock_path: Path | str, *, repository_root: Path) -> Path:
     except (OSError, ValueError) as exc:
         raise PublicationError("lock destination must have an existing parent inside the repository") from exc
     destination = parent / candidate.name
-    if destination.name != LOCK_NAME:
-        raise PublicationError(f"lock destination basename must be {LOCK_NAME}")
+    if destination.name != lock_name:
+        raise PublicationError(f"lock destination basename must be {lock_name}")
     if destination.exists() or destination.is_symlink():
         try:
             mode = destination.lstat().st_mode
@@ -231,7 +236,11 @@ def _publication_timestamp(clock: Clock) -> str:
     return observed.astimezone(UTC).isoformat(timespec="seconds").replace("+00:00", "Z")
 
 
-def validate_lock_record(value: object) -> dict[str, object]:
+def validate_lock_record(
+    value: object,
+    *,
+    expected_schema_version: int = release.RELEASE_SCHEMA_VERSION,
+) -> dict[str, object]:
     """Validate the exact committed lock schema before writing or consuming it."""
     if not isinstance(value, dict) or set(value) != LOCK_KEYS:
         raise PublicationError("publication lock must contain exactly the supported fields")
@@ -247,7 +256,7 @@ def validate_lock_record(value: object) -> dict[str, object]:
         raise PublicationError("publication lock release_id must be 20 lowercase hexadecimal characters")
     if not isinstance(schema_version, int) or isinstance(schema_version, bool):
         raise PublicationError("publication lock schema_version must be an integer")
-    if schema_version != release.RELEASE_SCHEMA_VERSION:
+    if schema_version != expected_schema_version:
         raise PublicationError("publication lock schema_version is unsupported")
     if not isinstance(published_at, str) or len(published_at) > 32:
         raise PublicationError("publication lock published_at must be a bounded UTC timestamp")
@@ -267,8 +276,16 @@ def validate_lock_record(value: object) -> dict[str, object]:
     }
 
 
-def _write_lock_atomically(lock_path: Path, record: dict[str, object]) -> None:
-    data = release.canonical_json_bytes(validate_lock_record(record)) + b"\n"
+def _write_lock_atomically(
+    lock_path: Path,
+    record: dict[str, object],
+    *,
+    contract=release,
+    schema_version: int = release.RELEASE_SCHEMA_VERSION,
+) -> None:
+    data = contract.canonical_json_bytes(
+        validate_lock_record(record, expected_schema_version=schema_version)
+    ) + b"\n"
     if len(data) > MAX_LOCK_BYTES:
         raise PublicationError("publication lock exceeds its byte limit")
     descriptor, temporary_name = tempfile.mkstemp(prefix=f".{lock_path.name}.", suffix=".tmp", dir=lock_path.parent)
@@ -295,6 +312,10 @@ def publish_release(
     downloader: ArtifactDownloader,
     clean_tree_check: CleanTreeCheck = assert_clean_git_tree,
     clock: Clock = lambda: datetime.now(UTC),
+    contract=release,
+    schema_version: int = release.RELEASE_SCHEMA_VERSION,
+    lock_name: str = LOCK_NAME,
+    artifact_name: str = DEFAULT_ARTIFACT_NAME,
 ) -> dict[str, object]:
     """Run the local publication transaction and return the newly committed lock."""
     repository = _resolved_directory(repository_root, field="repository root")
@@ -302,16 +323,20 @@ def publish_release(
     if not source_candidate.is_absolute():
         source_candidate = repository / source_candidate
     source = _resolved_directory(source_candidate, field="release directory")
-    destination = _lock_destination(lock_path, repository_root=repository)
+    destination = _lock_destination(
+        lock_path, repository_root=repository, lock_name=lock_name
+    )
     clean_tree_check(repository)
 
-    source_manifest = release.validate_release_directory(source)
+    source_manifest = contract.validate_release_directory(source)
     with tempfile.TemporaryDirectory(prefix="sadar-publish-") as working_name:
         working = Path(working_name)
-        archive = working / DEFAULT_ARTIFACT_NAME
-        archive_sha256, _ = release.create_deterministic_archive(source, archive)
-        packaged_manifest = release.inspect_release_archive(archive, expected_sha256=archive_sha256)
-        if release.canonical_json_bytes(packaged_manifest) != release.canonical_json_bytes(source_manifest):
+        archive = working / artifact_name
+        archive_sha256, _ = contract.create_deterministic_archive(source, archive)
+        packaged_manifest = contract.inspect_release_archive(
+            archive, expected_sha256=archive_sha256
+        )
+        if contract.canonical_json_bytes(packaged_manifest) != contract.canonical_json_bytes(source_manifest):
             raise PublicationError("release changed while its deterministic archive was built")
 
         uploaded = uploader(archive)
@@ -322,8 +347,10 @@ def publish_release(
 
         redownload = working / "redownloaded-demo-bundle.tar.gz"
         downloader(url, redownload)
-        downloaded_manifest = release.inspect_release_archive(redownload, expected_sha256=archive_sha256)
-        if release.canonical_json_bytes(downloaded_manifest) != release.canonical_json_bytes(source_manifest):
+        downloaded_manifest = contract.inspect_release_archive(
+            redownload, expected_sha256=archive_sha256
+        )
+        if contract.canonical_json_bytes(downloaded_manifest) != contract.canonical_json_bytes(source_manifest):
             raise PublicationError("redownloaded release manifest differs from the packaged release")
 
         record = validate_lock_record(
@@ -334,9 +361,15 @@ def publish_release(
                 "revision": revision,
                 "schema_version": source_manifest["schema_version"],
                 "url": url,
-            }
+            },
+            expected_schema_version=schema_version,
         )
-        _write_lock_atomically(destination, record)
+        _write_lock_atomically(
+            destination,
+            record,
+            contract=contract,
+            schema_version=schema_version,
+        )
         return record
 
 

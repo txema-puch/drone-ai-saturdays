@@ -55,7 +55,7 @@ class ArtifactDownloader(Protocol):
     def __call__(self, url: str, destination: Path) -> None: ...
 
 
-def _read_bounded_lock(path: Path | str) -> Any:
+def _read_bounded_lock(path: Path | str, *, contract=release) -> Any:
     lock_path = Path(path)
     flags = os.O_RDONLY
     if hasattr(os, "O_NOFOLLOW"):
@@ -79,8 +79,8 @@ def _read_bounded_lock(path: Path | str) -> Any:
     except OSError as exc:
         raise FetchError("cannot read release lock") from exc
     try:
-        return release.parse_json_bytes(data, source="release lock")
-    except release.ReleaseError as exc:
+        return contract.parse_json_bytes(data, source="release lock")
+    except contract.ReleaseError as exc:
         raise FetchError("release lock is malformed") from exc
 
 
@@ -115,7 +115,11 @@ def _validate_public_url(value: object, *, revision: str) -> str:
     return value
 
 
-def validate_lock_record(value: object) -> dict[str, object]:
+def validate_lock_record(
+    value: object,
+    *,
+    expected_schema_version: int = release.RELEASE_SCHEMA_VERSION,
+) -> dict[str, object]:
     """Validate the exact, bounded serving lock schema."""
     if not isinstance(value, dict) or set(value) != LOCK_KEYS:
         raise FetchError("release lock must contain exactly the supported fields")
@@ -134,7 +138,7 @@ def validate_lock_record(value: object) -> dict[str, object]:
     if (
         not isinstance(schema_version, int)
         or isinstance(schema_version, bool)
-        or schema_version != release.RELEASE_SCHEMA_VERSION
+        or schema_version != expected_schema_version
     ):
         raise FetchError("release lock schema_version is unsupported")
     if not isinstance(published_at, str) or len(published_at) > 32 or not published_at.endswith("Z"):
@@ -155,8 +159,16 @@ def validate_lock_record(value: object) -> dict[str, object]:
     }
 
 
-def read_lock(path: Path | str) -> dict[str, object]:
-    return validate_lock_record(_read_bounded_lock(path))
+def read_lock(
+    path: Path | str,
+    *,
+    contract=release,
+    expected_schema_version: int = release.RELEASE_SCHEMA_VERSION,
+) -> dict[str, object]:
+    return validate_lock_record(
+        _read_bounded_lock(path, contract=contract),
+        expected_schema_version=expected_schema_version,
+    )
 
 
 def _exclusive_output(path: Path) -> BinaryIO:
@@ -242,9 +254,16 @@ def fetch_locked_release(
     lock_path: Path | str,
     destination: Path | str,
     downloader: ArtifactDownloader = download_public_artifact,
+    contract=release,
+    expected_schema_version: int = release.RELEASE_SCHEMA_VERSION,
+    archive_name: str = "demo-bundle.tar.gz",
 ) -> dict[str, Any]:
     """Download, verify, and atomically install the release named by a lock."""
-    lock = read_lock(lock_path)
+    lock = read_lock(
+        lock_path,
+        contract=contract,
+        expected_schema_version=expected_schema_version,
+    )
     target = _safe_destination(destination)
     try:
         target.parent.mkdir(parents=True, exist_ok=True)
@@ -257,14 +276,14 @@ def fetch_locked_release(
     success = False
     installed_by_us = False
     try:
-        archive = working / "demo-bundle.tar.gz"
+        archive = working / archive_name
         downloader(str(lock["url"]), archive)
-        inspected = release.inspect_release_archive(
+        inspected = contract.inspect_release_archive(
             archive,
             expected_sha256=str(lock["archive_sha256"]),
         )
         _assert_manifest_matches_lock(inspected, lock)
-        extracted = release.extract_release_archive(
+        extracted = contract.extract_release_archive(
             archive,
             target,
             expected_sha256=str(lock["archive_sha256"]),
@@ -275,7 +294,7 @@ def fetch_locked_release(
         return extracted
     except FetchError:
         raise
-    except release.ReleaseError as exc:
+    except contract.ReleaseError as exc:
         raise FetchError("locked release archive failed verification") from exc
     except OSError as exc:
         raise FetchError("locked release could not be installed") from exc
