@@ -13,6 +13,7 @@ import hashlib
 import io
 import math
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import PurePath
 from typing import Any
 
@@ -22,7 +23,9 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 
 from backend.core.approach import assess_approach, extract_approach_attempts
+from backend.core.approach_context import WeatherObservation
 from backend.core.approach_reference import load_approach_reference, validate_reference
+from backend.core.contextual_approach import assess_contextual_operation
 from backend.core.derivations import add_flight_id
 from backend.serve.release import canonical_json_bytes
 
@@ -46,6 +49,7 @@ REQUIRED_COLUMNS = (
 )
 OPTIONAL_COLUMNS = (
     "callsign", "squawk", "geoaltitude", "alert", "spi", "lastcontact",
+    "qnh_hpa", "wind_from_direction_deg", "wind_speed_mps", "aircraft_typecode",
 )
 ACCEPTED_COLUMNS = REQUIRED_COLUMNS + OPTIONAL_COLUMNS
 DERIVED_COLUMNS = {
@@ -73,6 +77,9 @@ _CANONICAL_PRECISION = {
     "heading": 6,
     "vertrate": 6,
     "lastcontact": 6,
+    "qnh_hpa": 2,
+    "wind_from_direction_deg": 2,
+    "wind_speed_mps": 3,
 }
 
 
@@ -197,7 +204,9 @@ def _parse_csv(data: bytes) -> pd.DataFrame:
     except csv.Error as exc:
         raise EvaluationError(422, "invalid_csv", "The CSV body is malformed.") from exc
     string_columns = {
-        name: "string" for name in ("icao24", "callsign") if name in materialized
+        name: "string"
+        for name in ("icao24", "callsign", "aircraft_typecode")
+        if name in materialized
     }
     try:
         return pd.read_csv(
@@ -307,6 +316,8 @@ def _normalize(frame: pd.DataFrame) -> tuple[pd.DataFrame, int, str]:
             "onground": bool(onground),
             "callsign": None, "squawk": None, "geoaltitude": None,
             "alert": None, "spi": None, "lastcontact": None,
+            "qnh_hpa": None, "wind_from_direction_deg": None,
+            "wind_speed_mps": None, "aircraft_typecode": None,
         }
         if "callsign" in source and not _is_null(source["callsign"]):
             record["callsign"] = str(source["callsign"]).strip()
@@ -323,6 +334,54 @@ def _normalize(frame: pd.DataFrame) -> tuple[pd.DataFrame, int, str]:
                 record[name] = _finite_number(
                     source[name], field=f"{prefix}.{name}", nullable=True,
                 )
+        if "qnh_hpa" in source:
+            record["qnh_hpa"] = _finite_number(
+                source["qnh_hpa"], field=f"{prefix}.qnh_hpa", nullable=True,
+            )
+            if record["qnh_hpa"] is not None and not 850 <= record["qnh_hpa"] <= 1100:
+                raise EvaluationError(
+                    422, "invalid_schema", "One or more fields are invalid.",
+                    (_field(f"{prefix}.qnh_hpa", "Expected 850 through 1100 hPa.", "range"),),
+                )
+        if "wind_from_direction_deg" in source:
+            record["wind_from_direction_deg"] = _finite_number(
+                source["wind_from_direction_deg"],
+                field=f"{prefix}.wind_from_direction_deg",
+                nullable=True,
+            )
+            direction = record["wind_from_direction_deg"]
+            if direction is not None and not 0 <= direction <= 360:
+                raise EvaluationError(
+                    422, "invalid_schema", "One or more fields are invalid.",
+                    (_field(
+                        f"{prefix}.wind_from_direction_deg",
+                        "Expected 0 through 360 degrees.",
+                        "range",
+                    ),),
+                )
+            if direction == 360:
+                record["wind_from_direction_deg"] = 0.0
+        if "wind_speed_mps" in source:
+            record["wind_speed_mps"] = _finite_number(
+                source["wind_speed_mps"], field=f"{prefix}.wind_speed_mps", nullable=True,
+            )
+            if record["wind_speed_mps"] is not None and record["wind_speed_mps"] < 0:
+                raise EvaluationError(
+                    422, "invalid_schema", "One or more fields are invalid.",
+                    (_field(f"{prefix}.wind_speed_mps", "Expected zero or greater.", "range"),),
+                )
+        if "aircraft_typecode" in source and not _is_null(source["aircraft_typecode"]):
+            typecode = str(source["aircraft_typecode"]).strip().upper()
+            if len(typecode) > 16:
+                raise EvaluationError(
+                    422, "invalid_schema", "One or more fields are invalid.",
+                    (_field(
+                        f"{prefix}.aircraft_typecode",
+                        "Expected at most 16 characters.",
+                        "length",
+                    ),),
+                )
+            record["aircraft_typecode"] = typecode or None
         for name in ("alert", "spi"):
             if name in source:
                 record[name], _ = _boolean(
@@ -470,7 +529,65 @@ def _result(
         },
         "trajectory": trajectory,
         "channels": channels,
+        **({"context": assessment["context"]} if assessment.get("context") else {}),
     }
+
+
+def _supplied_context(
+    operation: pd.DataFrame,
+) -> tuple[list[WeatherObservation], dict[str, str] | None]:
+    weather: list[WeatherObservation] = []
+    for row in operation.itertuples(index=False):
+        qnh = getattr(row, "qnh_hpa", None)
+        wind_direction = getattr(row, "wind_from_direction_deg", None)
+        wind_speed = getattr(row, "wind_speed_mps", None)
+        if all(value is None or pd.isna(value) for value in (qnh, wind_direction, wind_speed)):
+            continue
+        missing = []
+        if qnh is None or pd.isna(qnh):
+            missing.append("analyst_supplied_qnh_missing")
+        if wind_direction is None or pd.isna(wind_direction):
+            missing.append("analyst_supplied_wind_direction_missing")
+        if wind_speed is None or pd.isna(wind_speed):
+            missing.append("analyst_supplied_wind_speed_missing")
+        weather.append(WeatherObservation(
+            station="analyst_supplied",
+            observed_at=datetime.fromtimestamp(int(row.time), tz=timezone.utc),
+            report_type="analyst_supplied",
+            wind_from_direction_deg=(
+                None if wind_direction is None or pd.isna(wind_direction)
+                else float(wind_direction)
+            ),
+            wind_speed_mps=(
+                None if wind_speed is None or pd.isna(wind_speed) else float(wind_speed)
+            ),
+            qnh_hpa=None if qnh is None or pd.isna(qnh) else float(qnh),
+            raw_metar_qnh_hpa=None,
+            qnh_cross_check_delta_hpa=None,
+            qnh_cross_check_matches=None,
+            temperature_c=None,
+            dew_point_c=None,
+            missing_reasons=tuple(missing),
+        ))
+
+    typecodes = sorted({
+        str(value).strip().upper()
+        for value in operation["aircraft_typecode"].dropna()
+        if str(value).strip()
+    })
+    if len(typecodes) > 1:
+        raise EvaluationError(
+            422,
+            "conflicting_aircraft_context",
+            "An operation may contain only one aircraft type code.",
+            (_field(
+                "aircraft_typecode",
+                "Use one ICAO aircraft type code for every row in an operation.",
+                "conflict",
+            ),),
+        )
+    metadata = {"typecode": typecodes[0]} if typecodes else None
+    return weather, metadata
 
 
 class ApproachUploadEvaluationService:
@@ -481,11 +598,13 @@ class ApproachUploadEvaluationService:
         *,
         release_id: str,
         reference: dict[str, Any] | None = None,
+        contextual: bool = False,
     ) -> None:
         if not release_id:
             raise ValueError("release_id is required")
         self.release_id = release_id
         self.reference = reference if reference is not None else load_approach_reference()
+        self.contextual = contextual
         validate_reference(self.reference)
 
     def evaluate(
@@ -522,12 +641,30 @@ class ApproachUploadEvaluationService:
                     413, "too_many_attempts",
                     f"At most {MAX_ATTEMPTS} approach attempts are accepted.",
                 )
-            for attempt_index, attempt_frame in enumerate(attempt_frames, start=1):
-                assessment = assess_approach(
-                    attempt_frame,
-                    operation_id=f"{operation_id}:attempt-{attempt_index}",
+            if self.contextual:
+                weather, aircraft_metadata = _supplied_context(operation)
+                contextual = assess_contextual_operation(
+                    operation,
+                    operation_id=str(operation_id),
+                    weather=weather,
+                    aircraft_metadata=aircraft_metadata,
                     reference=self.reference,
                 )
+                assessments = contextual["attempts"]
+                if len(assessments) != len(attempt_frames):
+                    raise RuntimeError("Contextual attempt extraction diverged from upload extraction.")
+            else:
+                assessments = [
+                    assess_approach(
+                        attempt_frame,
+                        operation_id=f"{operation_id}:attempt-{attempt_index}",
+                        reference=self.reference,
+                    )
+                    for attempt_index, attempt_frame in enumerate(attempt_frames, start=1)
+                ]
+            for attempt_index, (attempt_frame, assessment) in enumerate(
+                zip(attempt_frames, assessments, strict=True), start=1,
+            ):
                 results.append(_result(
                     assessment=assessment,
                     attempt_frame=attempt_frame,

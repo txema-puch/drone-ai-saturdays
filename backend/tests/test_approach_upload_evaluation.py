@@ -1,11 +1,13 @@
 import io
 import math
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
 import pytest
 
 from backend.core.approach_geometry import EARTH_RADIUS_M, load_lemd_geometry
+from backend.core.approach_reference import load_approach_reference
 from backend.serve.approach_evaluation import (
     ApproachUploadEvaluationService,
     EvaluationError,
@@ -46,6 +48,19 @@ def _parquet(frame: pd.DataFrame) -> bytes:
 @pytest.fixture
 def service() -> ApproachUploadEvaluationService:
     return ApproachUploadEvaluationService(release_id="approach-fixture-v1")
+
+
+@pytest.fixture
+def contextual_service() -> ApproachUploadEvaluationService:
+    reference_path = (
+        Path(__file__).resolve().parents[1]
+        / "core/resources/lemd_approach_context_reference_v1.json"
+    )
+    return ApproachUploadEvaluationService(
+        release_id="approach-context-fixture-v1",
+        reference=load_approach_reference(reference_path),
+        contextual=True,
+    )
 
 
 def test_fixture_evaluates_without_model_and_returns_exact_rules_dto(service):
@@ -180,6 +195,40 @@ def test_published_reference_flags_persistent_speed_exceedance(service):
     result = response["results"][0]
     assert result["status"] == "review_required"
     assert "observed_ground_speed_envelope" in result["failed_criteria"]
+
+
+def test_contextual_upload_uses_supplied_qnh_wind_and_aircraft_type(contextual_service):
+    frame = _approach_frame()
+    frame["qnh_hpa"] = 1003.25
+    frame["wind_from_direction_deg"] = 180.0
+    frame["wind_speed_mps"] = 5.0
+    frame["aircraft_typecode"] = "a320"
+
+    response = contextual_service.evaluate(
+        _csv(frame), filename="context.csv", media_type="text/csv"
+    )
+
+    result = response["results"][0]
+    assert result["provenance"]["engine_version"] == "approach_context_v1"
+    assert result["context"]["weather"]["station"] == "analyst_supplied"
+    assert result["context"]["weather"]["qnh_hpa"] == 1003.25
+    assert result["context"]["weather"]["headwind_mps"] == pytest.approx(5.0, abs=0.1)
+    assert result["context"]["aircraft"]["typecode"] == "A320"
+    assert result["provenance"]["reference"]["speed_class"] == "A320"
+
+
+def test_contextual_upload_rejects_conflicting_aircraft_type(contextual_service):
+    frame = _approach_frame()
+    frame["aircraft_typecode"] = "A320"
+    frame.loc[40:, "aircraft_typecode"] = "B738"
+
+    with pytest.raises(EvaluationError) as raised:
+        contextual_service.evaluate(
+            _csv(frame), filename="conflicting-context.csv", media_type="text/csv"
+        )
+
+    assert raised.value.status_code == 422
+    assert raised.value.code == "conflicting_aircraft_context"
 
 
 def test_dto_forbids_model_score_fields_and_filename(service):

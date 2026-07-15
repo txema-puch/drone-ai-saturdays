@@ -304,6 +304,11 @@ export interface ApproachUploadAttempt extends ApproachSummary {
   maneuvers?: Array<Record<string, unknown>>;
   provenance?: Record<string, unknown> | null;
   path?: ApproachPathPoint[];
+  context?: {
+    weather?: Record<string, unknown> | null;
+    aircraft?: Record<string, unknown> | null;
+    unavailable?: string[];
+  } | null;
 }
 
 interface NativeApproachEvaluationResult {
@@ -329,6 +334,11 @@ interface NativeApproachEvaluationResult {
     fatal_reasons?: string[];
     observed_samples?: number;
     [key: string]: unknown;
+  } | null;
+  context?: {
+    weather?: Record<string, unknown> | null;
+    aircraft?: Record<string, unknown> | null;
+    unavailable?: string[];
   } | null;
 }
 
@@ -392,6 +402,7 @@ export async function evaluateApproachFile(
       maneuvers: result.maneuvers ?? [],
       provenance: result.provenance ?? null,
       path: result.trajectory?.points ?? [],
+      context: result.context ?? null,
     })),
   };
 }

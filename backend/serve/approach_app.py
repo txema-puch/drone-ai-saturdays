@@ -53,6 +53,7 @@ REFERENCE = RELEASE["reference"]
 RESEARCH = RELEASE["research"]
 RELEASE_ID = MANIFEST["release_id"]
 SCHEMA_VERSION = MANIFEST["schema_version"]
+CONTEXTUAL_RELEASE = MANIFEST.get("contracts", {}).get("engine_version") == "approach_context_v1"
 STATUS_PRIORITY = {
     "review_required": 0,
     "partial_observation": 1,
@@ -352,7 +353,11 @@ async def evaluate_upload(request: Request) -> dict:
         _api_error(413, "request_too_large", "The upload exceeds the 10 MiB limit.")
     if EVALUATION_LOCK.locked():
         _api_error(429, "analysis_busy", "Another approach evaluation is in progress.", retry_after=1)
-    service = ApproachUploadEvaluationService(release_id=RELEASE_ID, reference=REFERENCE)
+    service = ApproachUploadEvaluationService(
+        release_id=RELEASE_ID,
+        reference=REFERENCE,
+        contextual=CONTEXTUAL_RELEASE,
+    )
     try:
         async with EVALUATION_LOCK:
             return await run_in_threadpool(
