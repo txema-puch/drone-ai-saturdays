@@ -25,7 +25,8 @@ Three lifecycle tracks are preserved explicitly:
 3. [Approach lifecycle manifest](./ml/iterations/approach-screening/manifest.yml)
 4. [Context lifecycle manifest](./ml/iterations/approach-context/manifest.yml)
 5. [Sealed evaluation](./ml/iterations/approach-screening/07-eval.md)
-6. [Data workflow](./workflow/data-pipeline.md)
+6. [Hugging Face model card](./ml/model-card.md)
+7. [Data workflow](./workflow/data-pipeline.md)
 
 ## Navigation
 

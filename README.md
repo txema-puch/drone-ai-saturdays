@@ -7,6 +7,7 @@ shows deterministic criterion evidence on a synchronized trajectory and timeline
 
 - **Application:** <https://sadar-analyst-console.fly.dev>
 - **Immutable approach-screening artifact:** <https://huggingface.co/Txemapuch/sadar-demo-release>
+- **Model card:** [release artifacts and limitations](backend/docs/ml/model-card.md)
 - **Source:** <https://github.com/txema-puch/drone-ai-saturdays>
 
 This is not emergency detection, stabilized-approach certification, ATC decision support, or a
