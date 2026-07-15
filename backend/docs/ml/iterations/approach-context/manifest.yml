@@ -42,7 +42,7 @@ gates:
     status: "passed_reference_only"
     passed_at: "2026-07-15"
     artifact: "backend/docs/ml/iterations/approach-context/06-train.md"
-    reference_sha256: "53c6998329131d7fc6a86334b7b4e14f749a8e6c64b0944bd769f5ad123bb1cf"
+    reference_sha256: "93903a371728257390b2099aae44bf040f1ea212714d85f80dc6b47dcf0e2f24"
   eval:
     status: "failed_qualification"
     evaluated_at: "2026-07-15"
@@ -69,17 +69,18 @@ development_evidence:
     criteria_observed: 51
     review_required: 50
   artifact_sha256:
-    train_coverage: "614419a2b0e4ad1dbcbaa800ef499e1a226a8ded78e8015df006ea29aeecb0ac"
-    validation_coverage: "0da2c5aed8e71d3831821d4dd0ac3e2b2e166d67d5b4e6d729f0c1976eac1fb0"
-    newer_source_coverage: "74fb2873464379456277b8169f1a855024877d4293be73630bc4682f2a9b91d1"
-    validation_comparison: "bd89cf03c48079b5bccd277f11ce861728d0ccfd3c615eaafa282a2fe8b7865c"
-    newer_source_comparison: "bfc3fd15a5bf1e493ea9111ab5c2da437aa7c9a607385a078033300c9e2dcdff"
+    train_coverage: "46d4f92adf5cdea1a8d5c5680d0079e1ba7815316672b8f126323cca57c88dab"
+    validation_coverage: "70592c09cdc0a100d0fd37577583a021ba933da0ec3c1de71a70eb1e88f071f9"
+    newer_source_coverage: "548afb45a3d4fecd15088694752061b2c805f6b8b3df85032ecc001ea7cd4911"
+    validation_comparison: "8bc491f086da0b9003f3d58d888a7f53ef9237a3e0171437cbb7de0f42d04446"
+    newer_source_comparison: "208f6f26e4c669472a9ecd1757d67d6ede0b26007110417c35c050b141d125fa"
 
 release_candidate:
-  release_id: "541006baf9ed3748aea3"
+  release_id: "df22ce72488273f28c8a"
   engine_version: "approach_context_v1"
   context_sources_sha256: "eef2a7a32ee55ee079d4263dc5c7eb339aa250837256c2e00325b5d5b401402e"
   input_sha256: "8256c65f95135597f3db07413941380fc2a0c6bbfc429b07b12b10478f7e2c10"
+  source_commit: "6e5237f1baca8d1a93703f1dd939e4d7dcc69c59"
   publication: "pending_review"
   opensky_publication_notice: "owner_action_required_after_live_publication"
 

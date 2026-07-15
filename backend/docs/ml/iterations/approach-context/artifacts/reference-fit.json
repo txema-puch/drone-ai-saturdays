@@ -1,33 +1,33 @@
 {
-  "accepted_attempts": 3764,
+  "accepted_attempts": 3779,
   "candidate_operations": 8594,
   "diagnostics": {
     "direction": {
-      "18": 598,
-      "32": 3166
+      "18": 599,
+      "32": 3180
     },
     "speed_class": {
       "A20N": 20,
       "A306": 8,
       "A310": 5,
       "A318": 2,
-      "A319": 441,
-      "A320": 870,
-      "A321": 374,
-      "A332": 153,
+      "A319": 442,
+      "A320": 872,
+      "A321": 377,
+      "A332": 154,
       "A333": 90,
       "A343": 9,
-      "A346": 89,
+      "A346": 90,
       "A359": 15,
       "A388": 12,
       "A400": 2,
       "AT76": 69,
       "B38M": 4,
       "B733": 6,
-      "B734": 26,
+      "B734": 25,
       "B735": 2,
       "B737": 17,
-      "B738": 841,
+      "B738": 846,
       "B739": 19,
       "B744": 6,
       "B752": 15,
@@ -36,8 +36,8 @@
       "B772": 19,
       "B773": 1,
       "B77W": 10,
-      "B788": 92,
-      "B789": 70,
+      "B788": 93,
+      "B789": 72,
       "BCS1": 3,
       "BCS3": 13,
       "C25A": 3,
@@ -73,12 +73,12 @@
       "unknown": 19
     },
     "year": {
-      "2017": 1768,
-      "2018": 1996
+      "2017": 1782,
+      "2018": 1997
     }
   },
-  "eligible_attempts": 3774,
-  "exact_type_cells": 91,
+  "eligible_attempts": 3789,
+  "exact_type_cells": 90,
   "exact_typecodes": [
     "A319",
     "A320",
@@ -95,30 +95,30 @@
     "CRJX",
     "E195"
   ],
-  "reference_cells": 101,
-  "reference_sha256": "53c6998329131d7fc6a86334b7b4e14f749a8e6c64b0944bd769f5ad123bb1cf",
+  "reference_cells": 100,
+  "reference_sha256": "93903a371728257390b2099aae44bf040f1ea212714d85f80dc6b47dcf0e2f24",
   "rejected_attempts": {
-    "go_around": 19,
-    "quality_or_coverage": 478
+    "go_around": 22,
+    "quality_or_coverage": 460
   },
   "schema_version": "approach_context_reference_fit_v1",
-  "source_commit": "b2e31c4c477adc388cf38b03bbb2cfffe3f87fb3",
+  "source_commit": "6e5237f1baca8d1a93703f1dd939e4d7dcc69c59",
   "top_typecodes": [
     [
       "A320",
-      871
+      873
     ],
     [
       "B738",
-      841
+      846
     ],
     [
       "A319",
-      442
+      443
     ],
     [
       "A321",
-      375
+      378
     ],
     [
       "CRJX",
@@ -126,7 +126,7 @@
     ],
     [
       "A332",
-      153
+      154
     ],
     [
       "E195",
@@ -134,7 +134,7 @@
     ],
     [
       "B788",
-      92
+      93
     ],
     [
       "A333",
@@ -142,11 +142,11 @@
     ],
     [
       "A346",
-      89
+      90
     ],
     [
       "B789",
-      70
+      72
     ],
     [
       "AT76",
@@ -158,7 +158,7 @@
     ],
     [
       "B734",
-      27
+      26
     ],
     [
       "unknown",

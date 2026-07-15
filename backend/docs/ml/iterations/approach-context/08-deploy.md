@@ -2,10 +2,10 @@
 
 ## Candidate contract
 
-The local immutable schema-v3 candidate is release `541006baf9ed3748aea3` with:
+The local immutable schema-v3 candidate is release `df22ce72488273f28c8a` with:
 
 - engine `approach_context_v1`;
-- reference digest `53c6998329131d7fc6a86334b7b4e14f749a8e6c64b0944bd769f5ad123bb1cf`;
+- reference digest `93903a371728257390b2099aae44bf040f1ea212714d85f80dc6b47dcf0e2f24`;
 - context-source contract digest
   `eef2a7a32ee55ee079d4263dc5c7eb339aa250837256c2e00325b5d5b401402e`;
 - 388 newer-source attempts: 124 not assessable, 163 partial, 51 criteria observed, and

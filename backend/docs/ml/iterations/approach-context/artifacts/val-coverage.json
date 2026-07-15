@@ -13,7 +13,7 @@
   "coverage": {
     "aircraft_metadata_rate": 0.9865,
     "aircraft_typecode_rate": 0.985,
-    "barometric_path_current_rate": 0.5759,
+    "barometric_path_current_rate": 0.5752,
     "barometric_path_qnh_context_upper_bound_rate": 1.0,
     "qnh_rate": 1.0,
     "weather_match_rate": 1.0,
@@ -33,10 +33,10 @@
   "schema_version": "approach_context_audit_v1",
   "source_sha256": "97344b4ab03af7ef0a404d26591ba3e0303198b21cf3528a4faaa007637cb478",
   "status_counts": {
-    "criteria_observed": 1350,
-    "not_assessable": 485,
-    "partial_observation": 652,
-    "review_required": 253
+    "criteria_observed": 1349,
+    "not_assessable": 481,
+    "partial_observation": 659,
+    "review_required": 251
   },
   "top_typecodes": [
     [

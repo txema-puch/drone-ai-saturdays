@@ -2,8 +2,7 @@
   "attempts": 388,
   "base_criterion_status_counts": {
     "barometric_path_proxy": {
-      "not_observed": 387,
-      "review_required": 1
+      "not_observed": 388
     },
     "late_track_correction": {
       "not_observed": 295,
@@ -23,11 +22,11 @@
     }
   },
   "base_reference_sha256": "b485f747154ea8d84ba6b5c980501e3a22bca9caff40c41711de107b03496c56",
-  "base_review_rate_among_assessable": 0.1515,
+  "base_review_rate_among_assessable": 0.1477,
   "base_status_counts": {
     "not_assessable": 124,
-    "partial_observation": 224,
-    "review_required": 40
+    "partial_observation": 225,
+    "review_required": 39
   },
   "cohort": "2025",
   "context_coverage": {
@@ -59,7 +58,7 @@
       "within_limit": 321
     }
   },
-  "context_reference_sha256": "53c6998329131d7fc6a86334b7b4e14f749a8e6c64b0944bd769f5ad123bb1cf",
+  "context_reference_sha256": "93903a371728257390b2099aae44bf040f1ea212714d85f80dc6b47dcf0e2f24",
   "context_review_rate_among_assessable": 0.1894,
   "context_status_counts": {
     "criteria_observed": 51,
@@ -76,18 +75,18 @@
   ],
   "review_overlap": {
     "base_only": 2,
-    "both": 38,
-    "context_only": 12
+    "both": 37,
+    "context_only": 13
   },
   "schema_version": "approach_context_comparison_v1",
-  "source_commit": "c077d970c70b5c6f80ce85920155596cac8367f8",
+  "source_commit": "6e5237f1baca8d1a93703f1dd939e4d7dcc69c59",
   "source_sha256": "8256c65f95135597f3db07413941380fc2a0c6bbfc429b07b12b10478f7e2c10",
   "status_transition_counts": {
     "not_assessable->not_assessable": 124,
     "partial_observation->criteria_observed": 51,
     "partial_observation->partial_observation": 161,
-    "partial_observation->review_required": 12,
+    "partial_observation->review_required": 13,
     "review_required->partial_observation": 2,
-    "review_required->review_required": 38
+    "review_required->review_required": 37
   }
 }

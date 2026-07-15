@@ -18,8 +18,8 @@ coverage result, not proof that the recovered criterion is correct.
 
 ## Type distribution and support
 
-The train candidate contains 3,774 eligible attempts and 99.34% have a type designator. Minimum
-support produces 91 exact type/direction/distance cells across 14 types plus 10 direction/distance
+The train candidate contains 3,789 eligible attempts and 99.34% have a type designator. Minimum
+support produces 90 exact type/direction/distance cells across 14 types plus 10 direction/distance
 fallback cells. On the 2025 cohort, 84.28% use at least one exact type cell and 83.76% use exact
 type cells for every supported reference row.
 
