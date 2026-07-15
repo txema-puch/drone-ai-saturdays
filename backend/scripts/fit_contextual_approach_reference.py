@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import subprocess
 from collections import Counter
 from pathlib import Path
 
@@ -22,6 +23,17 @@ DEFAULT_AIRCRAFT_PARTS = REPO / "data/raw/aircraft_metadata"
 DEFAULT_OUTPUT = (
     REPO / "backend/core/resources/lemd_approach_context_reference_v1.json"
 )
+
+
+def _source_commit() -> str:
+    return subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=REPO,
+        check=True,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    ).stdout.strip()
 
 
 def build_contextual_reference(
@@ -74,6 +86,7 @@ def build_contextual_reference(
     clean_digest = hashlib.sha256(clean_path.read_bytes()).hexdigest()
     metadata_digest = _logical_parts_sha256(aircraft_parts_dir)
     cohort = {
+        "source_commit": _source_commit(),
         "source": "OpenSky scientific Monday historical clean observations",
         "years": [2017, 2018],
         "split_ids_sha256": hashlib.sha256(split_bytes).hexdigest(),
@@ -90,6 +103,7 @@ def build_contextual_reference(
     ]
     report = {
         "schema_version": "approach_context_reference_fit_v1",
+        "source_commit": _source_commit(),
         "candidate_operations": int(train["flight_id"].nunique()),
         "eligible_attempts": len(attempts),
         "accepted_attempts": reference["accepted_attempts"],
