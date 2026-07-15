@@ -62,7 +62,7 @@ def test_global_hourly_exposes_variable_wind_and_qnh_mismatch() -> None:
 
     assert observation.wind_from_direction_deg is None
     assert observation.wind_speed_mps == 1.0
-    assert observation.qnh_hpa == 1030.0
+    assert observation.qnh_hpa is None
     assert observation.qnh_cross_check_delta_hpa == 2.0
     assert observation.qnh_cross_check_matches is False
     assert set(observation.missing_reasons) == {
@@ -89,23 +89,36 @@ def _weather(at_minute: int) -> WeatherObservation:
     )
 
 
-def test_nearest_weather_join_has_age_limit_and_prefers_past_on_tie() -> None:
+def test_weather_join_uses_latest_prior_report_and_has_age_limit() -> None:
     observations = [_weather(0), _weather(30)]
 
     joined = join_nearest_weather(
-        "2025-01-01T12:15:00Z", observations, maximum_age_seconds=901
+        "2025-01-01T12:29:00Z", observations, maximum_age_seconds=1800
     )
     stale = join_nearest_weather(
         "2025-01-01T13:00:00Z", observations, maximum_age_seconds=1200
     )
 
     assert joined.observation == observations[0]
-    assert joined.age_seconds == 900.0
+    assert joined.age_seconds == 1740.0
     assert joined.missing_reasons == ()
     assert stale.observation is None
     assert stale.nearest_observation_at == observations[1].observed_at
     assert stale.age_seconds == 1800.0
-    assert stale.missing_reasons == ("nearest_weather_observation_too_old",)
+    assert stale.missing_reasons == ("latest_prior_weather_observation_too_old",)
+
+
+def test_weather_join_never_uses_a_future_report() -> None:
+    observation = _weather(30)
+
+    joined = join_nearest_weather(
+        "2025-01-01T12:29:00Z", [observation], maximum_age_seconds=1800
+    )
+
+    assert joined.observation is None
+    assert joined.nearest_observation_at == observation.observed_at
+    assert joined.age_seconds is None
+    assert joined.missing_reasons == ("weather_observation_not_yet_available",)
 
 
 def test_nearest_weather_join_accepts_real_epoch_seconds_without_unit_drift() -> None:

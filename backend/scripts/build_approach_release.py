@@ -332,6 +332,22 @@ def build_payloads(
             "The historical LSTM is optional research evidence and never changes the approach verdict or queue priority.",
         ],
     }
+    if contextual is not None:
+        metrics.update({
+            "qualification": contextual["sources"]["qualification"],
+            "allowed_role": "research_and_evidence_labeling_demonstrator",
+            "blocked_uses": [
+                "operational_monitoring",
+                "emergency_detection",
+                "stabilized_approach_certification",
+                "atc_decision_support",
+                "safety_performance_claims",
+                "context_accuracy_improvement_claims",
+            ],
+        })
+        metrics["limitations"].append(
+            "This contextual candidate is not qualified: independent labels and a fresh holdout are unavailable."
+        )
     payloads: dict[str, Any] = {
         "attempts.json": {"schema_version": "approach_attempts_v1", "attempts": attempt_records},
         "cases.json": {"schema_version": "approach_cases_v1", "cases": case_records},
@@ -358,6 +374,8 @@ def build_payloads(
         contracts["context_sources_sha256"] = hashlib.sha256(
             canonical_json_bytes(contextual["sources"])
         ).hexdigest()
+        contracts["qualification"] = contextual["sources"]["qualification"]
+        contracts["allowed_role"] = "research_and_evidence_labeling_demonstrator"
     source = {
         "input_sha256": input_sha256,
         "rows": len(frame),

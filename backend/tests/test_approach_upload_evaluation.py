@@ -231,6 +231,48 @@ def test_contextual_upload_rejects_conflicting_aircraft_type(contextual_service)
     assert raised.value.code == "conflicting_aircraft_context"
 
 
+def test_base_release_rejects_nonempty_context_instead_of_ignoring_it(service):
+    frame = _approach_frame()
+    frame["qnh_hpa"] = 1013.25
+
+    with pytest.raises(EvaluationError) as raised:
+        service.evaluate(_csv(frame), filename="context.csv", media_type="text/csv")
+
+    assert raised.value.status_code == 422
+    assert raised.value.code == "context_not_supported"
+
+
+def test_contextual_upload_rejects_weather_fields_split_across_rows(contextual_service):
+    frame = _approach_frame()
+    frame["qnh_hpa"] = np.nan
+    frame["wind_from_direction_deg"] = np.nan
+    frame.loc[0, "qnh_hpa"] = 1013.25
+    frame.loc[40, "wind_from_direction_deg"] = 180.0
+
+    with pytest.raises(EvaluationError) as raised:
+        contextual_service.evaluate(
+            _csv(frame), filename="sparse-context.csv", media_type="text/csv"
+        )
+
+    assert raised.value.status_code == 422
+    assert raised.value.code == "sparse_weather_context"
+
+
+def test_unknown_uploaded_type_discloses_reference_fallback(contextual_service):
+    frame = _approach_frame()
+    frame["aircraft_typecode"] = "ZZZZ"
+
+    result = contextual_service.evaluate(
+        _csv(frame), filename="unknown-type.csv", media_type="text/csv"
+    )["results"][0]
+
+    aircraft = result["context"]["aircraft"]
+    assert aircraft["source"] == "analyst_supplied"
+    assert aircraft["temporal_identity_warning"] is None
+    assert aircraft["reference_fallbacks"] == ["unknown_speed_class"]
+    assert aircraft["effective_reference_classes"] == ["unknown"]
+
+
 def test_dto_forbids_model_score_fields_and_filename(service):
     response = service.evaluate(
         _csv(_approach_frame()), filename="secret-name.csv", media_type="text/csv"

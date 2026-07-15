@@ -262,6 +262,12 @@ def _validate_payloads(payloads: dict[str, Any]) -> None:
         raise ApproachReleaseFormatError("operations.json operations must be an array")
     if not isinstance(metrics.get("limitations"), list):
         raise ApproachReleaseFormatError("metrics.json limitations must be an array")
+    if "qualification" in metrics and not isinstance(metrics["qualification"], str):
+        raise ApproachReleaseFormatError("metrics.json qualification must be a string")
+    if "allowed_role" in metrics and not isinstance(metrics["allowed_role"], str):
+        raise ApproachReleaseFormatError("metrics.json allowed_role must be a string")
+    if "blocked_uses" in metrics and not isinstance(metrics["blocked_uses"], list):
+        raise ApproachReleaseFormatError("metrics.json blocked_uses must be an array")
     if not isinstance(config.get("config"), dict):
         raise ApproachReleaseFormatError("approach config payload is invalid")
     if not isinstance(geometry.get("thresholds"), dict):

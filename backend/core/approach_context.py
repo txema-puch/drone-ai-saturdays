@@ -158,6 +158,7 @@ def _decode_weather_row(row: Mapping[str, str]) -> WeatherObservation:
     qnh = _parse_ma1_qnh(row.get("MA1", ""))
     metar_qnh = _parse_raw_metar_qnh(row.get("REM", ""))
     qnh_delta = abs(qnh - metar_qnh) if qnh is not None and metar_qnh is not None else None
+    qnh_matches = qnh_delta <= 0.6 if qnh_delta is not None else None
     missing = []
     if wind_direction is None:
         missing.append("wind_direction_missing_or_variable")
@@ -167,8 +168,9 @@ def _decode_weather_row(row: Mapping[str, str]) -> WeatherObservation:
         missing.append("ma1_qnh_missing")
     if qnh is not None and metar_qnh is None:
         missing.append("raw_metar_qnh_cross_check_unavailable")
-    elif qnh_delta is not None and qnh_delta > 0.6:
+    elif qnh_matches is False:
         missing.append("ma1_raw_metar_qnh_mismatch")
+        qnh = None
     temperature = _signed_tenths(*((row.get("TMP") or "").split(",", 1) + [""])[:2])
     dew_point = _signed_tenths(*((row.get("DEW") or "").split(",", 1) + [""])[:2])
     if temperature is None:
@@ -184,7 +186,7 @@ def _decode_weather_row(row: Mapping[str, str]) -> WeatherObservation:
         qnh_hpa=qnh,
         raw_metar_qnh_hpa=metar_qnh,
         qnh_cross_check_delta_hpa=qnh_delta,
-        qnh_cross_check_matches=qnh_delta <= 0.6 if qnh_delta is not None else None,
+        qnh_cross_check_matches=qnh_matches,
         temperature_c=temperature,
         dew_point_c=dew_point,
         missing_reasons=tuple(missing),
@@ -228,7 +230,7 @@ def join_nearest_weather(
     *,
     maximum_age_seconds: float,
 ) -> WeatherJoin:
-    """Join the nearest observation without silently accepting stale context."""
+    """Join the latest prior observation without accepting future or stale context."""
 
     if maximum_age_seconds < 0:
         raise ValueError("maximum_age_seconds must be non-negative")
@@ -244,18 +246,18 @@ def join_nearest_weather(
             missing_reasons=("weather_observation_unavailable",),
         )
     epochs = [item.observed_at.timestamp() for item in ordered]
-    index = bisect.bisect_left(epochs, midpoint.timestamp())
-    candidates = ordered[max(0, index - 1) : min(len(ordered), index + 1)]
-    # Ties deliberately prefer the earlier observation to avoid future-looking
-    # context when two reports are equally close.
-    nearest = min(
-        candidates,
-        key=lambda item: (
-            abs((item.observed_at - midpoint).total_seconds()),
-            item.observed_at > midpoint,
-        ),
-    )
-    age = abs((nearest.observed_at - midpoint).total_seconds())
+    index = bisect.bisect_right(epochs, midpoint.timestamp()) - 1
+    if index < 0:
+        return WeatherJoin(
+            attempt_midpoint=midpoint,
+            observation=None,
+            nearest_observation_at=ordered[0].observed_at,
+            age_seconds=None,
+            maximum_age_seconds=float(maximum_age_seconds),
+            missing_reasons=("weather_observation_not_yet_available",),
+        )
+    nearest = ordered[index]
+    age = (midpoint - nearest.observed_at).total_seconds()
     if age > maximum_age_seconds:
         return WeatherJoin(
             attempt_midpoint=midpoint,
@@ -263,7 +265,7 @@ def join_nearest_weather(
             nearest_observation_at=nearest.observed_at,
             age_seconds=age,
             maximum_age_seconds=float(maximum_age_seconds),
-            missing_reasons=("nearest_weather_observation_too_old",),
+            missing_reasons=("latest_prior_weather_observation_too_old",),
         )
     return WeatherJoin(
         attempt_midpoint=midpoint,

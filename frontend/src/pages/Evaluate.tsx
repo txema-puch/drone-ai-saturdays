@@ -23,7 +23,15 @@ function contextSummary(context: ApproachUploadAttempt["context"]): string | nul
   if (typeof weather.wind_from_direction_deg === "number" && typeof weather.wind_speed_mps === "number") {
     parts.push(`wind ${weather.wind_from_direction_deg.toFixed(0)}° at ${weather.wind_speed_mps.toFixed(1)} m/s`);
   }
-  if (typeof aircraft.typecode === "string") parts.push(`type ${aircraft.typecode}`);
+  if (typeof aircraft.typecode === "string") {
+    const fallbacks = Array.isArray(aircraft.reference_fallbacks)
+      ? aircraft.reference_fallbacks : [];
+    parts.push(
+      fallbacks.includes("unknown_speed_class")
+        ? `type ${aircraft.typecode} · unknown reference fallback`
+        : `type ${aircraft.typecode}`,
+    );
+  }
   return parts.length ? parts.join(" · ") : "Context unavailable; explicit fallback applied";
 }
 
@@ -230,14 +238,20 @@ export default function Evaluate() {
         <aside className="context-rail upload-rail sans" aria-label="Upload requirements">
           <h2>Required schema</h2>
           <p>Columns required: <code>time</code>, <code>icao24</code>, <code>lat</code>, <code>lon</code>, <code>baroaltitude</code>, <code>velocity</code>, <code>heading</code>, <code>vertrate</code> and <code>onground</code>.</p>
-          <p>Optional context: <code>qnh_hpa</code>, <code>wind_from_direction_deg</code>, <code>wind_speed_mps</code> and <code>aircraft_typecode</code>. Context must describe observed or analyst-supplied facts.</p>
+          {health?.context_enabled ? (
+            <p>Optional context: <code>qnh_hpa</code>, <code>wind_from_direction_deg</code>, <code>wind_speed_mps</code> and <code>aircraft_typecode</code>. Put every supplied weather field on the same report rows. Context must describe observed or analyst-supplied facts.</p>
+          ) : (
+            <p>The loaded release accepts ADS-B fields only. Non-empty context columns are rejected instead of silently ignored.</p>
+          )}
           <p>Kinematic cells may be null when unobserved. Missing channels abstain instead of being invented.</p>
           <h2>Privacy and limits</h2>
           <p>Uploads are evaluated in memory for this request. The browser and server do not save the source file.</p>
           <h2>Assessment language</h2>
           <p>Results screen observable approach criteria. They are not emergency detections, safety certifications or causal findings.</p>
           <h2>Qualification</h2>
-          <p>This research candidate missed its sealed assessability target, and independent review precision is unknown. Use results to inspect and label evidence, not for operational decisions.</p>
+          <p>{health?.qualification
+            ? `This release is ${humanize(health.qualification)}. Use results only for ${humanize(health.allowed_role ?? "research and evidence labeling")}.`
+            : "This research candidate missed its sealed assessability target, and independent review precision is unknown. Use results to inspect and label evidence, not for operational decisions."}</p>
         </aside>
       </div>
     </main>

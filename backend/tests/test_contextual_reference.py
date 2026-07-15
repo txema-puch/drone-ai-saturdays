@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from backend.core.approach_reference import (
     load_approach_reference,
     lookup_reference,
@@ -7,7 +9,8 @@ from backend.core.approach_reference import (
 
 def test_published_contextual_reference_is_typed_with_unknown_fallback() -> None:
     reference = load_approach_reference(
-        "backend/core/resources/lemd_approach_context_reference_v1.json"
+        Path(__file__).resolve().parents[1]
+        / "core/resources/lemd_approach_context_reference_v1.json"
     )
     validate_reference(reference)
     assert reference["fit_fold"] == "train"

@@ -21,6 +21,9 @@ REFERENCE_PATH = Path(__file__).with_name("resources") / "lemd_approach_referenc
 DISTANCE_BINS_M = (0.0, 1_500.0, 3_000.0, 6_000.0, 10_000.0, 20_000.0)
 MINIMUM_ATTEMPTS = 20
 MINIMUM_SAMPLES = 100
+MAXIMUM_REFERENCE_SPEED_MPS = 150.0
+MAXIMUM_ABS_REFERENCE_VERTICAL_RATE_MPS = 25.0
+ATTEMPT_BALANCED_QUANTILE_POINTS = 101
 
 
 def _observed(frame: pd.DataFrame, channel: str) -> np.ndarray:
@@ -57,8 +60,43 @@ def validate_reference(reference: dict[str, Any]) -> None:
     for entry in reference.get("entries", []):
         if not entry["speed_lower_mps"] <= entry["speed_upper_mps"]:
             raise ValueError("invalid speed reference bounds")
+        if reference.get("fit_value_bounds") and (
+            entry["speed_lower_mps"] < 0
+            or entry["speed_upper_mps"] > MAXIMUM_REFERENCE_SPEED_MPS
+        ):
+            raise ValueError("implausible speed reference bounds")
         if not entry["vertical_rate_lower_mps"] <= entry["vertical_rate_upper_mps"]:
             raise ValueError("invalid vertical-rate reference bounds")
+        if reference.get("fit_value_bounds") and max(
+            abs(entry["vertical_rate_lower_mps"]),
+            abs(entry["vertical_rate_upper_mps"]),
+        ) > MAXIMUM_ABS_REFERENCE_VERTICAL_RATE_MPS:
+            raise ValueError("implausible vertical-rate reference bounds")
+
+
+def _attempt_balanced_values(group: pd.DataFrame, column: str) -> np.ndarray:
+    """Approximate an equal-attempt empirical CDF regardless of row count."""
+
+    quantile_grid = np.linspace(0.0, 1.0, ATTEMPT_BALANCED_QUANTILE_POINTS)
+    samples = []
+    for _, attempt in group.groupby("attempt_id", sort=True):
+        values = attempt[column].dropna().to_numpy(dtype="float64")
+        if column == "speed_mps":
+            values = values[(values >= 0.0) & (values <= MAXIMUM_REFERENCE_SPEED_MPS)]
+        elif column == "vertical_rate_mps":
+            values = values[np.abs(values) <= MAXIMUM_ABS_REFERENCE_VERTICAL_RATE_MPS]
+        if len(values):
+            samples.append(np.quantile(values, quantile_grid))
+    return np.concatenate(samples) if samples else np.array([], dtype="float64")
+
+
+def _plausible_raw_count(group: pd.DataFrame, column: str) -> int:
+    values = group[column].dropna().to_numpy(dtype="float64")
+    if column == "speed_mps":
+        values = values[(values >= 0.0) & (values <= MAXIMUM_REFERENCE_SPEED_MPS)]
+    elif column == "vertical_rate_mps":
+        values = values[np.abs(values) <= MAXIMUM_ABS_REFERENCE_VERTICAL_RATE_MPS]
+    return int(len(values))
 
 
 def fit_reference(
@@ -123,17 +161,24 @@ def fit_reference(
         groups = table.groupby(["direction", "speed_class", "distance_bin_m"], sort=True)
         for (direction, speed_class, bin_name), group in groups:
             attempt_count = int(group["attempt_id"].nunique())
-            speed = group["speed_mps"].dropna().to_numpy(dtype="float64")
-            vertical = group["vertical_rate_mps"].dropna().to_numpy(dtype="float64")
-            if attempt_count < minimum_attempts or len(speed) < minimum_samples or len(vertical) < minimum_samples:
+            speed = _attempt_balanced_values(group, "speed_mps")
+            vertical = _attempt_balanced_values(group, "vertical_rate_mps")
+            speed_sample_count = _plausible_raw_count(group, "speed_mps")
+            vertical_sample_count = _plausible_raw_count(group, "vertical_rate_mps")
+            if (
+                attempt_count < minimum_attempts
+                or speed_sample_count < minimum_samples
+                or vertical_sample_count < minimum_samples
+            ):
                 continue
             entries.append({
                 "direction": direction,
                 "speed_class": speed_class,
                 "distance_bin_m": bin_name,
                 "attempt_count": attempt_count,
-                "speed_sample_count": int(len(speed)),
-                "vertical_rate_sample_count": int(len(vertical)),
+                "speed_sample_count": speed_sample_count,
+                "vertical_rate_sample_count": vertical_sample_count,
+                "quantile_effective_sample_count": int(len(speed)),
                 "speed_lower_mps": round(float(np.quantile(speed, 0.01)), 4),
                 "speed_upper_mps": round(float(np.quantile(speed, 0.99)), 4),
                 "vertical_rate_lower_mps": round(float(np.quantile(vertical, 0.01)), 4),
@@ -143,8 +188,8 @@ def fit_reference(
         year_groups = year_table.groupby(["year", "direction", "distance_bin_m"], sort=True)
         for (year, direction, bin_name), group in year_groups:
             attempt_count = int(group["attempt_id"].nunique())
-            speed = group["speed_mps"].dropna().to_numpy(dtype="float64")
-            vertical = group["vertical_rate_mps"].dropna().to_numpy(dtype="float64")
+            speed = _attempt_balanced_values(group, "speed_mps")
+            vertical = _attempt_balanced_values(group, "vertical_rate_mps")
             if attempt_count < minimum_attempts or not len(speed) or not len(vertical):
                 continue
             year_cells.append({
@@ -197,6 +242,15 @@ def fit_reference(
         "cohort": cohort,
         "distance_bins_m": list(DISTANCE_BINS_M),
         "quantiles": [0.01, 0.99],
+        "quantile_weighting": "equal_attempt_empirical_cdf_v1",
+        "quantile_points_per_attempt_cell": ATTEMPT_BALANCED_QUANTILE_POINTS,
+        "fit_value_bounds": {
+            "speed_mps": [0.0, MAXIMUM_REFERENCE_SPEED_MPS],
+            "vertical_rate_mps": [
+                -MAXIMUM_ABS_REFERENCE_VERTICAL_RATE_MPS,
+                MAXIMUM_ABS_REFERENCE_VERTICAL_RATE_MPS,
+            ],
+        },
         "minimum_attempts": minimum_attempts,
         "minimum_samples": minimum_samples,
         "accepted_attempts": accepted_attempts,

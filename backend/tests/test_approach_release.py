@@ -109,7 +109,14 @@ def test_contextual_builder_embeds_explicit_weather_type_and_qualification(tmp_p
     assert attempts[0]["assessment"]["context"]["weather"]["qnh_hpa"] == 1003.0
     assert attempts[0]["assessment"]["context"]["aircraft"]["typecode"] == "A320"
     config = json.loads((release_dir / "config/approach-config.json").read_text())
+    metrics = json.loads((release_dir / "metrics.json").read_text())
     assert config["context_sources"]["qualification"].startswith("not_qualified")
+    assert metrics["qualification"].startswith("not_qualified")
+    assert metrics["allowed_role"] == (
+        "research_and_evidence_labeling_demonstrator"
+    )
+    assert "operational_monitoring" in metrics["blocked_uses"]
+    assert manifest["contracts"]["qualification"].startswith("not_qualified")
 
 
 def test_validator_rejects_corruption_extras_and_symlinks(tmp_path: Path) -> None:

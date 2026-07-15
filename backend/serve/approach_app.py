@@ -253,6 +253,10 @@ def health() -> dict:
             "artifact_sha256": REFERENCE.get("artifact_sha256"),
         },
         "evaluation_enabled": EVALUATION_ENABLED,
+        "context_enabled": CONTEXTUAL_RELEASE,
+        "qualification": METRICS.get("qualification"),
+        "allowed_role": METRICS.get("allowed_role"),
+        "blocked_uses": METRICS.get("blocked_uses", []),
     }
 
 

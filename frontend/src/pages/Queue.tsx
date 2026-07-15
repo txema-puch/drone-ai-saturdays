@@ -236,7 +236,9 @@ export default function Queue() {
           </div>
           <div className="context-rail__note">
             <b>Research candidate</b>
-            <p>The sealed evaluation retained 63.1% of attempts, below its 65% target. Independent review precision is unknown; this queue is not operationally qualified.</p>
+            <p>{health?.qualification
+              ? `Qualification: ${humanize(health.qualification)}. Allowed role: ${humanize(health.allowed_role ?? "research and evidence labeling")}.`
+              : "The sealed evaluation retained 63.1% of attempts, below its 65% target. Independent review precision is unknown; this queue is not operationally qualified."}</p>
           </div>
         </aside>
       </div>

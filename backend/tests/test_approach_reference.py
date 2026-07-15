@@ -110,6 +110,27 @@ def test_typed_reference_keeps_exact_and_unknown_fallback_cells():
     )
 
 
+def test_reference_quantiles_weight_attempts_equally_and_reject_implausible_cells():
+    attempts = []
+    for index in range(25):
+        item = _attempt(index)
+        item["speed_class"] = "A320"
+        if index == 0:
+            polluted = item["frame"].copy()
+            polluted["velocity"] = 246.0
+            item["frame"] = pd.concat([polluted] * 20, ignore_index=True)
+        attempts.append(item)
+
+    reference = fit_reference(attempts, fit_fold="train", cohort={})
+    exact = lookup_reference(
+        reference, direction="18", speed_class="A320", along_track_m=2_000
+    )
+
+    assert reference["quantile_weighting"] == "equal_attempt_empirical_cdf_v1"
+    assert exact is not None
+    assert exact["speed_upper_mps"] < 150.0
+
+
 def test_empirical_reference_flags_a_persistent_speed_exceedance():
     reference = _reference()
     result = assess_approach(_attempt(99, velocity=120.0)["frame"], reference=reference)

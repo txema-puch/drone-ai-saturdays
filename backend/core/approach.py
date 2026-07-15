@@ -586,6 +586,16 @@ def assess_approach(
         ) if reference is not None and along >= 0 else None
         for along in relative.along_track_m
     ]
+    if base["reference"] is not None:
+        base["reference"].update({
+            "requested_speed_class": speed_class,
+            "effective_speed_classes": sorted({
+                row["speed_class"] for row in reference_rows if row is not None
+            }),
+            "fallbacks": sorted({
+                row["fallback"] for row in reference_rows if row is not None
+            }),
+        })
     vertical = attempt.get("vertrate", pd.Series(np.nan, index=attempt.index)).to_numpy(dtype="float64")
     empirical_vertical = np.array([
         row["vertical_rate_lower_mps"] if row else np.nan for row in reference_rows

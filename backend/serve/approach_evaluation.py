@@ -42,6 +42,12 @@ MAX_ATTEMPTS = 500
 MAX_TRAJECTORY_POINTS = 300
 MAX_CRITERION_EVIDENCE = 25
 MAX_RESPONSE_BYTES = 8 * 1024 * 1024
+CONTEXT_COLUMNS = (
+    "qnh_hpa", "wind_from_direction_deg", "wind_speed_mps", "aircraft_typecode",
+)
+WEATHER_CONTEXT_COLUMNS = (
+    "qnh_hpa", "wind_from_direction_deg", "wind_speed_mps",
+)
 
 REQUIRED_COLUMNS = (
     "time", "icao24", "lat", "lon", "baroaltitude", "velocity", "heading",
@@ -536,6 +542,25 @@ def _result(
 def _supplied_context(
     operation: pd.DataFrame,
 ) -> tuple[list[WeatherObservation], dict[str, str] | None]:
+    supplied_weather_fields = [
+        field for field in WEATHER_CONTEXT_COLUMNS if operation[field].notna().any()
+    ]
+    if supplied_weather_fields:
+        context_rows = operation[supplied_weather_fields].notna().any(axis=1)
+        if operation.loc[context_rows, supplied_weather_fields].isna().any().any():
+            raise EvaluationError(
+                422,
+                "sparse_weather_context",
+                "Weather fields supplied for an operation must be co-located on the same rows.",
+                tuple(
+                    _field(
+                        field,
+                        "Repeat all supplied weather fields on each weather-report row.",
+                        "incomplete_context",
+                    )
+                    for field in supplied_weather_fields
+                ),
+            )
     weather: list[WeatherObservation] = []
     for row in operation.itertuples(index=False):
         qnh = getattr(row, "qnh_hpa", None)
@@ -586,7 +611,10 @@ def _supplied_context(
                 "conflict",
             ),),
         )
-    metadata = {"typecode": typecodes[0]} if typecodes else None
+    metadata = (
+        {"typecode": typecodes[0], "_source": "analyst_supplied"}
+        if typecodes else None
+    )
     return weather, metadata
 
 
@@ -625,6 +653,21 @@ class ApproachUploadEvaluationService:
         raw = _parse(data, suffix=suffix, media_type=media_type)
         raw_rows = int(len(raw))
         normalized, duplicate_rows, dataset_digest = _normalize(raw)
+        if not self.contextual and normalized[list(CONTEXT_COLUMNS)].notna().any().any():
+            raise EvaluationError(
+                422,
+                "context_not_supported",
+                "The loaded release does not support contextual upload fields.",
+                tuple(
+                    _field(
+                        field,
+                        "Remove this field or use a contextual release.",
+                        "unsupported_for_release",
+                    )
+                    for field in CONTEXT_COLUMNS
+                    if normalized[field].notna().any()
+                ),
+            )
         operations_frame = add_flight_id(normalized)
         operation_groups = list(operations_frame.groupby("flight_id", sort=True))
         if len(operation_groups) > MAX_OPERATIONS:

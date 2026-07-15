@@ -17,6 +17,10 @@ export interface Health {
   attempts?: number;
   operations?: number;
   evaluation_enabled?: boolean;
+  context_enabled?: boolean;
+  qualification?: string | null;
+  allowed_role?: string | null;
+  blocked_uses?: string[];
   status_counts?: Partial<Record<ApproachStatus, number>>;
   reference?: {
     status?: string;

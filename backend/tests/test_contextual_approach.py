@@ -59,7 +59,7 @@ def test_contextual_assessment_uses_qnh_and_type_without_hiding_missing_private_
 
     assert result["engine_version"] == "approach_context_v1"
     assert result["altitude_reference"]["source"] == (
-        "ncei_metar_qnh_pressure_altitude_proxy"
+        "ncei_global_hourly_qnh_pressure_altitude_proxy"
     )
     assert result["context"]["aircraft"]["typecode"] == "A320"
     assert result["context"]["unavailable"] == [
@@ -67,3 +67,27 @@ def test_contextual_assessment_uses_qnh_and_type_without_hiding_missing_private_
     ]
     assert result["reference"]["speed_class"] == "A320"
     assert result["provenance"]["context_sha256"]
+
+
+def test_extreme_but_parseable_qnh_abstains_instead_of_crashing() -> None:
+    frame = _fixture()
+    midpoint = int((frame.time.min() + frame.time.max()) // 2)
+    weather = _weather(qnh=850.0)
+    weather[0] = replace(
+        weather[0], observed_at=datetime.fromtimestamp(midpoint, tz=timezone.utc)
+    )
+
+    result = assess_contextual_operation(
+        frame,
+        operation_id="fixture",
+        weather=weather,
+        aircraft_metadata=None,
+        reference=_reference(),
+    )["attempts"][0]
+
+    assert result["altitude_reference"]["source"] != (
+        "ncei_global_hourly_qnh_pressure_altitude_proxy"
+    )
+    assert "qnh_pressure_altitude_proxy_outside_supported_bias" in (
+        result["context"]["weather"]["missing_reasons"]
+    )

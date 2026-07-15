@@ -56,6 +56,9 @@ def assess_contextual_operation(
 
     geometry = geometry or load_lemd_geometry()
     metadata = dict(aircraft_metadata or {})
+    metadata_source = metadata.pop("_source", None) or (
+        "opensky_current_registry" if metadata else None
+    )
     typecode = (metadata.get("typecode") or "").strip().upper()
     speed_class = typecode or "unknown"
     assessments = []
@@ -74,6 +77,11 @@ def assess_contextual_operation(
             if observation is not None and observation.qnh_hpa is not None
             else None
         )
+        qnh_bias_m = (
+            qnh_proxy.pressure_altitude_minus_qnh_altitude_proxy_m
+            if qnh_proxy is not None else None
+        )
+        qnh_proxy_supported = qnh_bias_m is not None and abs(qnh_bias_m) <= 500.0
         assessment = assess_approach(
             attempt,
             operation_id=f"{operation_id}:attempt-{index}",
@@ -82,12 +90,11 @@ def assess_contextual_operation(
             reference=reference,
             speed_class=speed_class,
             altitude_bias_override_m=(
-                qnh_proxy.pressure_altitude_minus_qnh_altitude_proxy_m
-                if qnh_proxy is not None else None
+                qnh_bias_m if qnh_proxy_supported else None
             ),
             altitude_bias_source=(
-                "ncei_metar_qnh_pressure_altitude_proxy"
-                if qnh_proxy is not None else None
+                "ncei_global_hourly_qnh_pressure_altitude_proxy"
+                if qnh_proxy_supported else None
             ),
         )
         inference = assessment["runway_inference"]
@@ -129,16 +136,29 @@ def assess_contextual_operation(
                 "crosswind_from_right_mps": (
                     wind.crosswind_from_right_mps if wind is not None else None
                 ),
-                "missing_reasons": list(joined.missing_reasons),
+                "missing_reasons": [
+                    *joined.missing_reasons,
+                    *(
+                        ["qnh_pressure_altitude_proxy_outside_supported_bias"]
+                        if qnh_proxy is not None and not qnh_proxy_supported else []
+                    ),
+                ],
             },
             "aircraft": {
+                "source": metadata_source,
                 "typecode": typecode or None,
                 "manufacturer": metadata.get("manufacturername") or None,
                 "model": metadata.get("model") or None,
                 "category": metadata.get("categoryDescription") or None,
                 "temporal_identity_warning": (
                     "OpenSky metadata is a current snapshot and may not represent the historical operation."
-                    if metadata else None
+                    if metadata_source == "opensky_current_registry" else None
+                ),
+                "reference_fallbacks": (
+                    assessment.get("reference", {}).get("fallbacks", [])
+                ),
+                "effective_reference_classes": (
+                    assessment.get("reference", {}).get("effective_speed_classes", [])
                 ),
             },
             "unavailable": ["aircraft_configuration", "actual_mass", "atc_clearance"],
