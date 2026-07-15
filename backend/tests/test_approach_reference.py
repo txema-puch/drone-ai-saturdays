@@ -88,6 +88,28 @@ def test_unknown_speed_class_is_an_explicit_fallback():
     assert match["fallback"] == "unknown_speed_class"
 
 
+def test_typed_reference_keeps_exact_and_unknown_fallback_cells():
+    attempts = []
+    for index in range(25):
+        item = _attempt(index)
+        item["speed_class"] = "A320"
+        attempts.append(item)
+    reference = fit_reference(attempts, fit_fold="train", cohort={})
+
+    exact = lookup_reference(
+        reference, direction="18", speed_class="A320", along_track_m=2_000
+    )
+    fallback = lookup_reference(
+        reference, direction="18", speed_class="B738", along_track_m=2_000
+    )
+
+    assert exact is not None and exact["fallback"] == "exact"
+    assert fallback is not None and fallback["fallback"] == "unknown_speed_class"
+    assert reference["stratification"]["fleet"]["status"] == (
+        "typecode_conditioned_with_unknown_fallback"
+    )
+
+
 def test_empirical_reference_flags_a_persistent_speed_exceedance():
     reference = _reference()
     result = assess_approach(_attempt(99, velocity=120.0)["frame"], reference=reference)

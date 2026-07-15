@@ -470,6 +470,8 @@ def assess_approach(
     config: ApproachConfig = DEFAULT_CONFIG,
     reference: dict[str, Any] | None = None,
     speed_class: str = "unknown",
+    altitude_bias_override_m: float | None = None,
+    altitude_bias_source: str | None = None,
 ) -> dict[str, Any]:
     """Assess the last supported LEMD approach attempt in one candidate record."""
     geometry = geometry or load_lemd_geometry()
@@ -538,10 +540,17 @@ def assess_approach(
     if not terminal:
         quality["fatal_reasons"].append("terminal_gate_not_reached")
 
-    bias, bias_source = (
-        _vertical_bias(attempt, runway, relative)
-        if altitude_usable else (None, "rate_conflict")
-    )
+    if altitude_bias_override_m is not None:
+        if not math.isfinite(altitude_bias_override_m) or abs(altitude_bias_override_m) > 500:
+            raise ValueError("altitude bias override must be finite and within 500 m")
+        if not altitude_bias_source:
+            raise ValueError("altitude bias override requires an explicit source")
+    if not altitude_usable:
+        bias, bias_source = None, "rate_conflict"
+    elif altitude_bias_override_m is not None:
+        bias, bias_source = float(altitude_bias_override_m), altitude_bias_source
+    else:
+        bias, bias_source = _vertical_bias(attempt, runway, relative)
     baro = attempt.get("baroaltitude", pd.Series(np.nan, index=attempt.index)).to_numpy(dtype="float64")
     height = baro - runway.elevation_m - (bias or 0.0)
     track, track_valid = _track_values(attempt, config)

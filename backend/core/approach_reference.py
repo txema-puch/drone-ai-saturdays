@@ -69,6 +69,7 @@ def fit_reference(
     geometry: GeometryCatalog | None = None,
     minimum_attempts: int = MINIMUM_ATTEMPTS,
     minimum_samples: int = MINIMUM_SAMPLES,
+    include_unknown_fallback: bool = True,
 ) -> dict[str, Any]:
     """Fit robust per-distance envelopes; hard-fail on any non-train fold."""
     if fit_fold != "train":
@@ -96,15 +97,19 @@ def fit_reference(
             vertical = float(frame.iloc[index]["vertrate"]) if vertical_valid[index] else np.nan
             if not np.isfinite(speed) and not np.isfinite(vertical):
                 continue
-            rows.append({
-                "attempt_id": attempt_id,
-                "year": year,
-                "direction": direction,
-                "speed_class": speed_class,
-                "distance_bin_m": bin_name,
-                "speed_mps": speed,
-                "vertical_rate_mps": vertical,
-            })
+            classes = [speed_class]
+            if include_unknown_fallback and speed_class != "unknown":
+                classes.append("unknown")
+            for reference_class in classes:
+                rows.append({
+                    "attempt_id": attempt_id,
+                    "year": year,
+                    "direction": direction,
+                    "speed_class": reference_class,
+                    "distance_bin_m": bin_name,
+                    "speed_mps": speed,
+                    "vertical_rate_mps": vertical,
+                })
             contributed = True
         if contributed:
             accepted_attempts += 1
@@ -134,7 +139,8 @@ def fit_reference(
                 "vertical_rate_lower_mps": round(float(np.quantile(vertical, 0.01)), 4),
                 "vertical_rate_upper_mps": round(float(np.quantile(vertical, 0.99)), 4),
             })
-        year_groups = table.groupby(["year", "direction", "distance_bin_m"], sort=True)
+        year_table = table.loc[table["speed_class"] == "unknown"]
+        year_groups = year_table.groupby(["year", "direction", "distance_bin_m"], sort=True)
         for (year, direction, bin_name), group in year_groups:
             attempt_count = int(group["attempt_id"].nunique())
             speed = group["speed_mps"].dropna().to_numpy(dtype="float64")
@@ -207,10 +213,13 @@ def fit_reference(
                 "status": "single_source_only",
                 "note": "Historical fit contains one OpenSky collection product; 2025 is audited separately.",
             },
-            "fleet": {
+            "fleet": ({
+                "status": "typecode_conditioned_with_unknown_fallback",
+                "note": "Eligible exact typecode cells are retained; every attempt also contributes to an unknown-class fallback.",
+            } if any(key != "unknown" for key in diagnostics["speed_class"]) else {
                 "status": "unavailable",
                 "note": "No aircraft type field exists in the historical fit artifact; speed_class is explicit unknown.",
-            },
+            }),
         },
         "entries": entries,
     }
