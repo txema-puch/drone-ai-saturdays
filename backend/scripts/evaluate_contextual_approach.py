@@ -123,15 +123,12 @@ def evaluate(
         )
 
     paired = list(zip(base_attempts, contextual_attempts))
-    exact_reference = 0
-    for item in contextual_attempts:
-        speed_class = item.get("reference", {}).get("speed_class", "unknown")
-        direction = item.get("runway_inference", {}).get("direction")
-        if speed_class != "unknown" and any(
-            entry["speed_class"] == speed_class and entry["direction"] == direction
-            for entry in contextual_reference["entries"]
-        ):
-            exact_reference += 1
+    reference_fallbacks = [
+        set((item.get("reference") or {}).get("fallbacks") or [])
+        for item in contextual_attempts
+    ]
+    any_exact_reference = sum("exact" in fallbacks for fallbacks in reference_fallbacks)
+    all_exact_reference = sum(fallbacks == {"exact"} for fallbacks in reference_fallbacks)
     return {
         "schema_version": "approach_context_comparison_v1",
         "source_commit": _commit(),
@@ -178,8 +175,11 @@ def evaluate(
                 item.get("context", {}).get("aircraft", {}).get("typecode") is not None
                 for item in contextual_attempts
             ) / len(contextual_attempts), 4) if contextual_attempts else None,
-            "exact_type_reference": round(
-                exact_reference / len(contextual_attempts), 4
+            "any_exact_type_reference": round(
+                any_exact_reference / len(contextual_attempts), 4
+            ) if contextual_attempts else None,
+            "all_reference_cells_exact_type": round(
+                all_exact_reference / len(contextual_attempts), 4
             ) if contextual_attempts else None,
         },
         "decision": "not_qualified_no_independent_labels_or_fresh_holdout",
