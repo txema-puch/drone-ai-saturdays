@@ -49,7 +49,7 @@ gates:
     artifact: "backend/docs/ml/iterations/approach-context/07-eval.md"
     reason: "no_independent_labels_or_fresh_holdout"
   deploy:
-    status: "research_candidate"
+    status: "published_research_candidate"
     artifact: "backend/docs/ml/iterations/approach-context/08-deploy.md"
     operational_claims: "blocked"
 
@@ -81,7 +81,11 @@ release_candidate:
   context_sources_sha256: "eef2a7a32ee55ee079d4263dc5c7eb339aa250837256c2e00325b5d5b401402e"
   input_sha256: "8256c65f95135597f3db07413941380fc2a0c6bbfc429b07b12b10478f7e2c10"
   source_commit: "305166924590940b6fad9ad62dd0a736fcd698ee"
-  publication: "pending_review"
+  publication: "published_verified"
+  hf_revision: "db1a1a9232b3b96276a169a070852f619eec7c21"
+  archive_sha256: "1f135728a0c235c245b5107a509cb73f1757ac4ced7346f123a1ea70a732c093"
+  published_at: "2026-07-15T11:29:14Z"
+  anonymous_install_verified: true
   superseded_publication:
     release_id: "df22ce72488273f28c8a"
     hf_revision: "1f1ac1bd2e8ca2cf6ff868d372e7508b902cfc13"

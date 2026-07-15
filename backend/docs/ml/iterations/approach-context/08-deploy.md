@@ -28,8 +28,12 @@ decision support, safety-performance claims, or claims that context improves acc
 
 Release `df22ce72488273f28c8a` was published to `Txemapuch/sadar-demo-release` on 2026-07-15,
 then superseded before deployment when final red-team review found a prompt re-approach boundary
-defect. It remains immutable provenance but must not be deployed. Replacement candidate
-`491f81fb1d896b0d793e` is pending publication and independent anonymous installation.
+defect. It remains immutable provenance but must not be deployed.
+
+Corrected release `491f81fb1d896b0d793e` was published at immutable revision
+`db1a1a9232b3b96276a169a070852f619eec7c21` with archive SHA-256
+`1f135728a0c235c245b5107a509cb73f1757ac4ced7346f123a1ea70a732c093`. Both the publisher and
+the independent CI fetch path anonymously installed and strictly validated that release.
 
 Fly deployment, remote container smoke, and live QA remain the delivery gate. Promotion beyond
 research requires independent labels and another precommitted untouched cohort.
