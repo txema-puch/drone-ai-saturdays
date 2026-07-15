@@ -1,128 +1,34 @@
 # Architecture
 
-**Status: Proposed — not committed**
+## Current system — approach-screening schema v3
 
-This is the working architecture. It will evolve as we narrow down the use case and dataset.
+The active specification is
+[`../designs/33-approach-conformance-reframe.md`](../designs/33-approach-conformance-reframe.md).
 
----
-
-## Active Design Doc
-
-**[design-trajectory-anomaly-detection.md](./design-trajectory-anomaly-detection.md)** — *2026-04-11, APPROVED*
-
-Full design for the selected approach: ADS-B trajectory anomaly detection on OpenSky data
-around Madrid Barajas (LEMD). Covers architecture, preprocessing, model (Isolation Forest
-+ LSTM Autoencoder), evaluation, team division, 10-week milestone plan, and the assignment
-for Week 1. Read this before the architecture overview below.
-
----
-
----
-
-## System Overview
-
-```
-┌─────────────────────────────────────────────────────────┐
-│          DRONE DETECTION & PREDICTION SYSTEM             │
-├─────────────────────────────────────────────────────────┤
-│                                                          │
-│  LAYER 1: DATA SOURCES                                  │
-│  ├─ ADS-B (OpenSky) — cooperative drones               │
-│  ├─ RF signals — any radio-emitting drone               │
-│  ├─ Visual (camera) — physical detection                │
-│  ├─ Weather (AEMET) — wind for trajectory correction    │
-│  └─ Geofences (OSM) — restricted zone polygons         │
-│            ↓                                            │
-│                                                          │
-│  LAYER 2: FEATURE ENGINEERING                           │
-│  ├─ Speed, heading, turn rate, vertical rate            │
-│  ├─ Distance to restricted zones                        │
-│  ├─ Time context (hour of day, day of week)             │
-│  ├─ Registration status (cross-check AESA)              │
-│  └─ Wind-adjusted trajectory components                 │
-│            ↓                                            │
-│                                                          │
-│  LAYER 3: ANOMALY DETECTION                             │
-│  ├─ Isolation Forest (baseline, unsupervised)           │
-│  └─ LSTM Autoencoder (learned normal patterns)          │
-│            ↓                                            │
-│                                                          │
-│  LAYER 4: TRAJECTORY PREDICTION                         │
-│  └─ GRU encoder-decoder                                 │
-│     Input: last N positions → Output: next 10 min      │
-│            ↓                                            │
-│                                                          │
-│  LAYER 5: RISK SCORING                                  │
-│  └─ XGBoost / fusion layer → risk score 0-10           │
-│     Weights: geofence proximity > anomaly > trajectory  │
-│            ↓                                            │
-│                                                          │
-│  LAYER 6: OUTPUT                                        │
-│  ├─ Risk 0-3: Normal, passive monitoring                │
-│  ├─ Risk 4-6: Watch — increased monitoring              │
-│  ├─ Risk 7-8: Alert — notify operators                  │
-│  └─ Risk 9-10: Critical — immediate action              │
-│                                                          │
-└─────────────────────────────────────────────────────────┘
+```text
+bounded observed rows
+  -> schema validation and canonicalization
+  -> operation continuity and attempt reconstruction
+  -> AIP runway-relative geometry and direction inference
+  -> telemetry/coverage quality gates
+  -> deterministic observable criteria + train-only reference bands
+  -> immutable evidence contract
+  -> FastAPI same-origin API
+  -> React attempt queue / dossier / upload results
 ```
 
----
+The deployable artifact contains geometry, criterion configuration, the empirical reference,
+precomputed approach evidence and provenance digests. Torch and the historical LSTM are not
+runtime dependencies. Uncertain evidence produces `partial_observation` or `not_assessable`, not
+an inferred result.
 
-## Modality options
+The sealed evaluation failed qualification; this architecture is a research and labeling
+demonstrator, not operational conformance or safety software. See
+[`../ml/iterations/approach-screening/07-eval.md`](../ml/iterations/approach-screening/07-eval.md).
 
-We don't need to implement all layers. The architecture is modular — pick 1-2 data sources and build depth there.
+## Historical architecture
 
-| Approach | Data sources | ML tasks | Complexity | Demo impact |
-|---|---|---|---|---|
-| **A: ADS-B only** | OpenSky | Anomaly detection + trajectory prediction | Medium | Medium |
-| **B: Visual only** | Roboflow/Kaggle images | Object detection (YOLO) | Low-Medium | High |
-| **C: RF only** | Kaggle RF signals | Signal classification | Medium | Low (hard to visualize) |
-| **D: ADS-B + Visual** | OpenSky + images | Detection + tracking | Medium-High | High |
-| **E: Full multi-modal** | All of the above | All of the above | High | Very high — but risky in 6 weeks |
-
-**Current lean:** Option D (ADS-B + Visual) gives the best risk/reward. Option A is the safest starting point.
-
----
-
-## Data flow (Option A — ADS-B)
-
-```
-OpenSky API (polling every 30s)
-    ↓
-Parse states: [icao24, lat, lon, alt, speed, heading, timestamp]
-    ↓
-Cross-check vs. AESA registry → is_registered flag
-    ↓
-Feature extraction (rolling window, geofence distances)
-    ↓
-Isolation Forest → anomaly_score
-    ↓
-GRU → predicted_positions (next 10 min)
-    ↓
-Geofence intersection check on predicted path
-    ↓
-Risk score → alert if threshold exceeded
-```
-
----
-
-## Key technical questions to resolve
-
-- [ ] What's the input sequence length for the GRU? (30 points? 60 points?)
-- [ ] How do we label "anomalies" for supervised training given no ground truth?
-- [ ] How do we handle the 10-30s polling gap in OpenSky — interpolate or accept sparsity?
-- [ ] If we add visual: how do we fuse a bbox detection with an ADS-B track?
-- [ ] Evaluation metric for trajectory prediction: ADE (Average Displacement Error)? FDE?
-
----
-
-## Week-by-week plan (draft)
-
-| Week | Focus | Deliverable |
-|---|---|---|
-| 1 | Setup + EDA | OpenSky API working, 30 days of data downloaded, EDA notebook |
-| 2 | Feature engineering + baseline | 30+ features, Isolation Forest baseline with metrics |
-| 3 | DL models | GRU trajectory model + LSTM anomaly detection |
-| 4 | Integration + risk scoring | XGBoost fusion, end-to-end pipeline |
-| 5 | Demo + evaluation | Working demo, evaluation report |
-| 6 | Polish + presentation | Final slides, cleaned code, documented repo |
+The original unauthorized-drone, identity-gate and LSTM anomaly concept is preserved in
+[`design-trajectory-anomaly-detection.md`](./design-trajectory-anomaly-detection.md). The later
+score-first console is preserved in [`sadar-merge-design.md`](./sadar-merge-design.md). Both are
+superseded product designs and must not be read as descriptions of the current release.

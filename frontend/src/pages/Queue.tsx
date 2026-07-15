@@ -234,6 +234,10 @@ export default function Queue() {
             <b>How to read this queue</b>
             <p>Review status comes from observed rule evidence. Missing coverage stays visible instead of being scored as normal.</p>
           </div>
+          <div className="context-rail__note">
+            <b>Research candidate</b>
+            <p>The sealed evaluation retained 63.1% of attempts, below its 65% target. Independent review precision is unknown; this queue is not operationally qualified.</p>
+          </div>
         </aside>
       </div>
     </main>

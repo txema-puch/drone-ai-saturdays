@@ -1,5 +1,10 @@
 # Task Boards
 
+The week boards below preserve the original course plan. Current product work is tracked in
+[`33-approach-conformance-reframe.md`](./33-approach-conformance-reframe.md); its schema-v3
+candidate is implemented but failed sealed qualification, with review and contextual follow-up
+still open.
+
 One file per week. Each file describes what needs to be done, who does it, and what "done" looks like.
 
 Check boxes off as you complete tasks. Update status at the top of each file when the week closes.
@@ -13,6 +18,7 @@ Check boxes off as you complete tasks. Update status at the top of each file whe
 | 3 | LSTM Training | [week3.md](./week3.md) | Not started |
 | 4 | Integration + Evaluation | [week4.md](./week4.md) | Not started |
 | 5 | Writeup + Presentation | [week5.md](./week5.md) | Not started |
+| #33 | Approach-screening reframe | [33-approach-conformance-reframe.md](./33-approach-conformance-reframe.md) | Qualification failed; review pending |
 
 ---
 

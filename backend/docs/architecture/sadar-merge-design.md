@@ -1,4 +1,8 @@
-# SADAR Analyst Console — design & scoping
+# SADAR Analyst Console — Historical schema-v2 design
+
+> **Superseded by issue #33 / D-015.** This records the score-first LSTM console that preceded
+> rules-first approach screening. Its model ranking and deployment language are not current.
+> See [`../designs/33-approach-conformance-reframe.md`](../designs/33-approach-conformance-reframe.md).
 
 **Status:** DEPLOYED — Direction C and analyst upload evaluation are live at the public
 `sadar-analyst-console.fly.dev` Fly.io application.

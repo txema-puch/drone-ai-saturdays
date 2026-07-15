@@ -1,4 +1,7 @@
-# Issue #31 — SADAR Analyst Console release hardening
+# Issue #31 — SADAR Analyst Console release hardening — Historical schema v2
+
+> **Superseded by issue #33 / D-015.** Preserve this as implementation history; use
+> `33-approach-conformance-reframe.md` for the current release contract.
 
 **Status:** deployed and live-verified; Issue #31 reconciliation and teammate notification remain
 **Date:** 2026-07-14

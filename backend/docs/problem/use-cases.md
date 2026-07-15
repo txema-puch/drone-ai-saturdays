@@ -1,4 +1,7 @@
-# Use Cases
+# Use Cases — Historical course scoping
+
+> The current product decision is D-015: post-flight, rules-first approach screening. This file
+> preserves the original option analysis and is not the served product specification.
 
 We identified 8 scenarios. **Decision made (2026-04-11, D-001):** Use Case 1 — Airports, anchored to LEMD.
 

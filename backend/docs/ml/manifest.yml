@@ -6,9 +6,9 @@ project_name: "Drone Trajectory Anomaly Detection (LEMD)"
 problem_type: "anomaly_detection"
 model_track: "dl"   # Confirmed by the Phase-7 real-event head-to-head (2026-06-02).
 
-current_phase: "deploy"   # Phase 7 passed and the test was burned once on 2026-06-02
-                          # (issue #29, provenance commit 7b7bbf3). Phase 8 is a course-demo
-                          # close-out, not a production deployment.
+current_phase: "deploy"   # Historical LSTM iteration only: Phase 7 passed and the test was
+                          # burned once on 2026-06-02 (issue #29). See next_iteration for the
+                          # active approach-screening result; its qualification failed.
 
 pending_work:
   status: "iteration_closed_with_findings"
@@ -18,7 +18,7 @@ pending_work:
   summary: "Eight deferred findings (PW-001..PW-008). Phase-7 provenance is reconciled; secure a fresh holdout before any redesigned-pipeline performance claim."
 
 next_iteration:
-  status: "problem_defined"
+  status: "eval_failed_deploy_blocked"
   opened_at: "2026-07-14"
   name: "LEMD whole-arrival approach screening"
   design: "backend/docs/designs/33-approach-conformance-reframe.md"
@@ -30,7 +30,18 @@ next_iteration:
   fresh_holdout:
     candidate: "lemd_20260310_to_20260314__snapshot_2026-05-11"
     sha256: "16f1bd2cbdbd519ce7bde6fbbc8df5012b188b54c5598bffc310cef34b0c6899"
-    status: "candidate_to_seal_before_first_evaluation"
+    status: "burned_once_failed_qualification"
+    source_commit: "7e52fc05eae72159c5d4616f4b2538ff8e5341e7"
+  eval:
+    artifact: "backend/docs/ml/iterations/approach-screening/07-eval.md"
+    report: "backend/docs/ml/iterations/approach-screening/artifacts/2026-holdout-burn.json"
+    retention: 0.6313
+    retention_target: 0.65
+    precision: "unknown_no_independent_labels"
+    decision: "qualification_failed"
+  deploy:
+    status: "blocked_for_operational_claims"
+    allowed_role: "research_and_evidence_labeling_demonstrator"
   supervised_model_gate: "independent labels + agreement + incremental value over rules"
 
 # Gate ledger — append, never rewrite.

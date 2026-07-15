@@ -1,6 +1,6 @@
 # SADAR approach-conformance reframe
 
-**Status:** approved for implementation
+**Status:** implemented; qualification failed; operational deploy blocked
 **Date:** 2026-07-14
 **Branch:** `feature/approach-conformance-reframe`
 
@@ -306,14 +306,22 @@ persistence settings, empirical reference, cohort definition and assessment engi
 
 ## Definition of done
 
-- [ ] Approach-domain types and provisional criteria are versioned and documented.
-- [ ] Runway inference, final-approach extraction, quality abstention, and rule evaluation are implemented.
-- [ ] Precomputed and uploaded arrivals share the assessment contract.
-- [ ] Queue, case file, filters, exports, and copy are approach-first.
-- [ ] The LSTM is benchmark-only and cannot affect the verdict.
-- [ ] Deterministic backend and frontend regression suites pass.
-- [ ] Clean build and deployed-like smoke test pass.
-- [ ] README, architecture, ML limitations, and design documentation match the shipped behavior.
+- [x] Approach-domain types and provisional criteria are versioned and documented.
+- [x] Runway inference, final-approach extraction, quality abstention, and rule evaluation are implemented.
+- [x] Precomputed and uploaded arrivals share the assessment contract.
+- [x] Queue, case file, filters, exports, and copy are approach-first.
+- [x] The LSTM is benchmark-only and cannot affect the verdict.
+- [x] Deterministic backend and frontend regression suites pass.
+- [x] Clean build and deployed-like HTTP smoke test pass (Docker daemon unavailable locally).
+- [x] README, architecture, ML limitations, and design documentation match the candidate behavior.
+
+## Qualification outcome
+
+The one-time sealed 2026 burn retained 387/613 attempts (63.1%), below the precommitted 65%
+target. Independent review labels do not exist, so precision and safety performance are unknown.
+The qualification gate failed. The schema-v3 candidate may be used only as a research and
+evidence-labeling demonstrator; it must not be retuned from the burned holdout or described as
+operational conformance software. See `../ml/iterations/approach-screening/07-eval.md`.
 
 ## NOT in scope
 
@@ -387,11 +395,11 @@ parallel, then converge for contract and end-to-end tests.
 
 ## Implementation Tasks
 
-- [ ] **T1 (P1)** — Finish observed-row reconstruction and feasibility; freeze v1 contracts.
-- [ ] **T2 (P1)** — Fit, validate and serialize source-stratified empirical references.
-- [ ] **T3 (P1)** — Generate schema-v3 approach evidence and migrate serving/upload contracts.
-- [ ] **T4 (P1)** — Build the validated analyst information architecture and evidence views.
-- [ ] **T5 (P1)** — Complete lifecycle artifacts, backend/frontend/release tests and QA.
+- [x] **T1 (P1)** — Finish observed-row reconstruction and feasibility; freeze v1 contracts.
+- [x] **T2 (P1)** — Fit, validate and serialize source-stratified empirical references.
+- [x] **T3 (P1)** — Generate schema-v3 approach evidence and migrate serving/upload contracts.
+- [x] **T4 (P1)** — Build the validated analyst information architecture and evidence views.
+- [ ] **T5 (P1)** — Complete lifecycle artifacts, review, live QA and PR handoff.
 - [ ] **T6 (P2)** — Start the contextual data/model lifecycle after ADS-B-only release closure.
 
 ## GSTACK REVIEW REPORT

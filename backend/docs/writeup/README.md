@@ -1,4 +1,8 @@
-# Writeup notes
+# Writeup notes — Historical narrative material
+
+> Most chapters describe the original anomaly/LSTM iteration. They remain a record of what was
+> tried, but current claims must follow the approach-screening evaluation in
+> `../ml/iterations/approach-screening/07-eval.md`.
 
 Draft material for the end-of-project deliverables: presentation slides + Medium publication.
 

@@ -218,6 +218,8 @@ export default function Evaluate() {
           <p>Uploads are evaluated in memory for this request. The browser and server do not save the source file.</p>
           <h2>Assessment language</h2>
           <p>Results screen observable approach criteria. They are not emergency detections, safety certifications or causal findings.</p>
+          <h2>Qualification</h2>
+          <p>This research candidate missed its sealed assessability target, and independent review precision is unknown. Use results to inspect and label evidence, not for operational decisions.</p>
         </aside>
       </div>
     </main>

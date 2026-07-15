@@ -6,8 +6,8 @@
 - 2019 OpenSky scientific Mondays: development validation only.
 - Burned 2020 fold: historical diagnostic only; excluded from this iteration.
 - March 2025 audited snapshot: later-source temporal/source validation.
-- March 2026 audited snapshot: sealed candidate final holdout; do not inspect through the new
-  assessment pipeline before contracts and metrics are frozen.
+- March 2026 audited snapshot: burned once on 2026-07-14 only after the assessment contracts and
+  metrics were frozen; it cannot be reused as a fresh release gate.
 
 ## Geometry
 
@@ -30,5 +30,10 @@ conditioning is unavailable and explicit `unknown`. The published reference dige
 
 - Validate candidate-record reconstruction and attempt outcomes on a probability sample.
 - Obtain aircraft-type data before claiming fleet-conditioned speed evidence.
-- Seal eligible-operation counts without evaluating the 2026 holdout.
 - Define lawful joins and missingness for the later weather/QNH/wind/aircraft iteration.
+
+## Holdout outcome
+
+The one-time 2026 burn reconstructed 613 attempts from 1,426 operations and retained 387 (63.1%)
+as assessable. This missed the 65% gate. See `07-eval.md`; no data or criterion decision may be
+retuned from this cohort.

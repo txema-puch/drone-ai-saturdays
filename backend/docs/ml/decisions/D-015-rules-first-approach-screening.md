@@ -1,6 +1,6 @@
 # D-015 — Rules-first whole-arrival approach screening
 
-**Status:** decided for prototype implementation
+**Status:** implemented; sealed qualification failed; operational deploy blocked
 **Date:** 2026-07-14
 **Phase:** new iteration, problem through evaluation
 **Supersedes:** no historical result; the completed LSTM iteration remains immutable
@@ -42,8 +42,17 @@ Start an append-only ML lifecycle iteration around observed LEMD approach attemp
 - Prototype thresholds and reference envelopes remain explicitly non-certified.
 - Training may end with “ML adds no product value”; that is a valid lifecycle outcome.
 
+## Outcome — 2026-07-14
+
+The schema-v3 rules-first candidate was implemented and evaluated once on the sealed 2026
+snapshot. Assessable retention was 63.1% against a 65% target, and independent review labels were
+not available to estimate precision. Qualification therefore failed. The implementation remains
+valid as a research and evidence-labeling demonstrator, but no operational conformance claim may
+be made and the burned cohort cannot be used to tune a successor.
+
 ## References
 
 - `backend/docs/designs/33-approach-conformance-reframe.md`
 - `backend/docs/ml/pending-work.md` (PW-001 through PW-004)
 - `backend/docs/ml/decisions/D-014-window-truncation-of-long-arrivals.md`
+- `backend/docs/ml/iterations/approach-screening/07-eval.md`
