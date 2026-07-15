@@ -32,15 +32,19 @@ jobs:
           scripts/compile-serving-lock.sh
           cmp /tmp/requirements-linux-x86_64.lock backend/serve/requirements-linux-x86_64.lock
 
-      - name: Fetch the immutable release for backend integration tests
-        run: >-
-          python3 -m backend.scripts.fetch_approach_release
-          --lock backend/serve/approach_bundle.lock.json
-          --destination /tmp/sadar-ci-release
+      - name: Fetch the immutable releases for backend integration tests
+        run: |
+          python3 -m backend.scripts.fetch_demo_bundle \
+            --lock backend/serve/demo_bundle.lock.json \
+            --destination /tmp/sadar-ci-demo-release
+          python3 -m backend.scripts.fetch_approach_release \
+            --lock backend/serve/approach_bundle.lock.json \
+            --destination /tmp/sadar-ci-approach-release
 
       - name: Run the full backend suite against the immutable release
         env:
-          SADAR_APPROACH_RELEASE_DIR: /tmp/sadar-ci-release
+          SADAR_RELEASE_DIR: /tmp/sadar-ci-demo-release
+          SADAR_APPROACH_RELEASE_DIR: /tmp/sadar-ci-approach-release
         run: uv run --project backend pytest
 
       - name: Install frontend dependencies
