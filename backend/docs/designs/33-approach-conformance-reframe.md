@@ -99,8 +99,13 @@ For every candidate arrival:
 
 1. Infer the runway through a transparent hierarchy: exact threshold when geometry separates
    parallel runways, runway direction/pair when only alignment is supported, otherwise abstain.
+   Pair-level results retain the lowest-scoring threshold only as a provisional computation
+   anchor; the API and UI expose that anchor separately and never present it as the observed
+   runway assignment.
 2. Extract a runway-relative final-approach window ending at touchdown, the final analysis gate, or
-   go-around initiation plus bounded post-event context.
+   go-around initiation plus bounded post-event context. Criterion evaluation ends at go-around
+   initiation or touch-and-go ground contact, so the subsequent climb/turn cannot create a failed
+   approach criterion; post-event rows remain available only as outcome evidence.
 3. Evaluate telemetry quality and coverage before behavioral criteria.
 4. Evaluate provisional ADS-B-observable criteria:
    - lateral centreline-proxy deviation;
@@ -108,7 +113,7 @@ For every candidate arrival:
    - excessive or unstable observed vertical rate;
    - unusual observed ground-speed level or variation relative to a train-fitted cohort;
    - persistent late ground-track corrections using wrap-safe circular differences;
-   - go-around as a separate maneuver/outcome.
+   - go-around and touch-and-go as separate maneuvers/outcomes.
 5. Produce duration-aware evidence spans plus a worst point, actual value, provisional limit,
    time, along-track distance, altitude proxy, persistence, and plain-language explanation.
 6. Aggregate without hiding evidence. Overall status uses the same public vocabulary everywhere:
@@ -295,6 +300,8 @@ cards, thick borders, gradients, ornamental icons or uniform rounded containers.
   retains layout dimensions to avoid focus jumps.
 - CSV/Parquet upload labels remain visible after selection; validation errors focus the summary
   and link to field-level details.
+- Pair-level runway inference visibly separates the public direction/pair from the provisional
+  exact-threshold geometry anchor used to calculate proxies.
 
 ### Design decisions resolved
 
@@ -319,6 +326,11 @@ Torch; the research benchmark is lazy and optional.
 
 Every assessment records digests/versions for geometry, reconstruction policy, rule configuration,
 persistence settings, empirical reference, cohort definition and assessment engine.
+Anonymous evaluation additionally enforces request-body, row, attempt, rolling global and
+rolling per-client admission limits. A parsed operation with no supported attempt is retained in
+the response as a structured rejection reason. Evidence export preserves the complete native
+evaluation contract, including attempt index, runway specificity/confidence, sampled trajectory,
+channels and rejection reasons.
 
 ## Definition of done
 

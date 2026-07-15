@@ -22,8 +22,9 @@ from backend.core.approach import (
     extract_approach_attempts,
 )
 from backend.core.approach_context import (
+    DEFAULT_MAXIMUM_WEATHER_AGE_S,
     WeatherObservation,
-    join_nearest_weather,
+    join_latest_prior_weather,
     qnh_pressure_altitude_correction_proxy,
     runway_relative_wind_components,
 )
@@ -32,7 +33,7 @@ from backend.core.approach_geometry import GeometryCatalog, load_lemd_geometry
 
 CONTEXT_ENGINE_VERSION = "approach_context_v1"
 CONTEXT_SCHEMA_VERSION = "approach_context_v1"
-MAXIMUM_WEATHER_AGE_S = 1_800
+MAXIMUM_WEATHER_AGE_S = DEFAULT_MAXIMUM_WEATHER_AGE_S
 
 
 def _digest(value: Any) -> str:
@@ -66,7 +67,7 @@ def assess_contextual_operation(
         extract_approach_attempts(frame, geometry=geometry, config=config), start=1
     ):
         midpoint = int((attempt["time"].min() + attempt["time"].max()) // 2)
-        joined = join_nearest_weather(
+        joined = join_latest_prior_weather(
             midpoint,
             weather,
             maximum_age_seconds=maximum_weather_age_s,

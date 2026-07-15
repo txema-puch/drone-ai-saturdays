@@ -114,6 +114,7 @@ export default function CaseFile() {
   const startTime = detail.start_time ?? detail.path[0]?.time ?? 0;
   const endTime = Math.max(startTime + 1, detail.end_time ?? detail.path[detail.path.length - 1]?.time ?? startTime + 1);
   const runway = detail.runway || detail.direction || "Unknown";
+  const pairLevel = detail.runway_specificity === "direction";
   const activePoint = activeIndex == null ? null : detail.path[activeIndex];
   const provenance = {
     release_schema: detail.schema_version,
@@ -143,7 +144,8 @@ export default function CaseFile() {
       </header>
 
       <dl className="dossier-facts sans">
-        <div><dt>Runway inference</dt><dd>{runway}</dd></div>
+        <div><dt>Runway inference</dt><dd>{runway}{pairLevel ? " · pair-level" : ""}</dd></div>
+        {pairLevel && <div><dt>Geometry anchor</dt><dd>{detail.geometry_runway ?? "Unavailable"} · provisional computation only</dd></div>}
         <div><dt>Outcome</dt><dd>{humanize(detail.outcome)}</dd></div>
         <div><dt>Coverage</dt><dd>{formatCoverage(detail.coverage, detail.observed_samples)}</dd></div>
         <div><dt>Observed interval</dt><dd>{formatTime(startTime)} – {formatTime(endTime)}</dd></div>
@@ -158,11 +160,19 @@ export default function CaseFile() {
         </div>
       )}
 
+      {pairLevel && (
+        <div className="quality-notice sans" role="note">
+          <b>Parallel runway unresolved.</b> The named geometry anchor is the lowest-scoring
+          candidate used to calculate runway-relative proxies. It is not a claim that the
+          aircraft used that exact runway.
+        </div>
+      )}
+
       <div className="dossier-layout">
         <div className="dossier-main">
           <section className="evidence-section" aria-labelledby="trajectory-title">
             <div className="section-heading sans">
-              <div><p className="eyebrow">Synchronized evidence</p><h2 id="trajectory-title">Trajectory and criterion timeline</h2></div>
+              <div><p className="eyebrow">Synchronized evidence</p><h2 id="trajectory-title">Observed ground track and criterion timeline</h2></div>
               <span aria-live="polite">
                 {activePoint ? `${formatTime(activePoint.time ?? activeTime)} · ${activePoint.along_track_m == null ? "position observed" : `${Math.round(activePoint.along_track_m / 100) / 10} km from threshold`}` : "No position selected"}
               </span>
@@ -179,7 +189,7 @@ export default function CaseFile() {
                 />
               </>
             ) : (
-              <div className="state-panel"><h3>Trajectory positions unavailable</h3><p>Criterion rows remain available below.</p></div>
+              <div className="state-panel"><h3>Observed positions unavailable</h3><p>Criterion rows remain available below.</p></div>
             )}
           </section>
 
@@ -225,7 +235,7 @@ export default function CaseFile() {
               ].map(([label, value]) => (
                 <div className="rail-record" key={String(label)}><span>{String(label)}</span><b>{value == null ? "Unavailable" : String(value)}</b></div>
               ))}
-              <p>Airport weather is nearest-time context. QNH supplies a pressure-altitude proxy; wind does not create a verdict.</p>
+              <p>Airport weather is the latest prior observation within the allowed age. QNH supplies a pressure-altitude proxy; wind does not create a verdict.</p>
             </>
           )}
           {detail.context?.aircraft && (

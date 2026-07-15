@@ -41,8 +41,8 @@ export default function ApproachMap({ path, activeIndex, runway }: Props) {
         viewBox={`0 0 ${W} ${H}`}
         role="img"
         aria-label={relative
-          ? `Observed trajectory relative to runway ${runway ?? "direction unavailable"}`
-          : `Observed approach trajectory; runway-relative coordinates unavailable`}
+          ? `Observed ground track relative to runway ${runway ?? "direction unavailable"}`
+          : `Observed approach ground track; runway-relative coordinates unavailable`}
       >
         <rect width={W} height={H} fill="var(--map-bg)" />
         {relative ? (

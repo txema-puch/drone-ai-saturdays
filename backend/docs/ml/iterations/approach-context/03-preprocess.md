@@ -9,6 +9,9 @@ must remain within 850–1100 hPa; wind direction is normalized to `[0, 360)` an
 Observations are ordered by UTC time. An attempt receives the latest report at or before its
 midpoint when it is no more than 1,800 seconds old. Future observations are never eligible.
 Missing or stale context produces named reasons and preserves the ADS-B-only fallback.
+This is retrospective attempt-level context, not a per-row causal weather join: a midpoint report
+can postdate the earliest ADS-B rows in the attempt and therefore must not support a claim about
+what information was available at every instant of the approach.
 
 ## Aircraft join
 

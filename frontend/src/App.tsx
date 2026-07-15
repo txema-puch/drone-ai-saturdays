@@ -18,6 +18,10 @@ export default function App() {
           <NavLink to="/evaluate">Evaluate data</NavLink>
         </nav>
       </header>
+      <div className="app-qualification sans" role="note" aria-label="Research qualification">
+        <b>Research candidate</b>
+        <span>Not operationally qualified. Use for evidence inspection and labeling only.</span>
+      </div>
       <div className="app-content">
         <Routes>
           <Route path="/" element={<Queue />} />

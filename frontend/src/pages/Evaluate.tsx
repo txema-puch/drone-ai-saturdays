@@ -36,7 +36,10 @@ function contextSummary(context: ApproachUploadAttempt["context"]): string | nul
 }
 
 function downloadEvidence(result: ApproachUploadResponse) {
-  const blob = new Blob([JSON.stringify(result, null, 2)], { type: "application/json" });
+  const blob = new Blob(
+    [JSON.stringify(result.native_response ?? result, null, 2)],
+    { type: "application/json" },
+  );
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
   anchor.href = url;
@@ -202,7 +205,7 @@ export default function Evaluate() {
                     <li key={attempt.attempt_id}>
                       <div className="upload-attempt-record">
                         <ApproachStatus status={attempt.status} compact />
-                        <span><b className="mono">{attempt.runway ?? attempt.direction ?? "Unknown runway"}</b><small>{humanize(attempt.outcome)}</small></span>
+                        <span><b className="mono">{attempt.runway ?? attempt.direction ?? "Unknown runway"}</b><small>{attempt.runway_specificity === "direction" ? `pair-level · ${attempt.geometry_runway ?? "unknown"} computation anchor` : humanize(attempt.outcome)}</small></span>
                         <span><b>{attempt.failed_criteria.length ? attempt.failed_criteria.map(humanize).join(", ") : "No persistent crossing"}</b><small>{formatCoverage(attempt.coverage, attempt.observed_samples)}</small></span>
                         <time>{formatTime(attempt.start_time)}</time>
                       </div>

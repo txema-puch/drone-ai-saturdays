@@ -43,6 +43,13 @@ def _approach_frame(runway_name: str = "18L") -> pd.DataFrame:
     })
 
 
+def _release_payloads(release_dir: Path) -> dict[str, object]:
+    return {
+        relative: json.loads((release_dir / relative).read_text())
+        for relative in approach_release.REQUIRED_FILES
+    }
+
+
 def test_builder_is_deterministic_and_emits_bounded_schema_v3(tmp_path: Path) -> None:
     input_path = tmp_path / "audited-2025.parquet"
     _approach_frame().to_parquet(input_path, index=False)
@@ -140,6 +147,52 @@ def test_validator_rejects_corruption_extras_and_symlinks(tmp_path: Path) -> Non
     (release_dir / "alias.json").symlink_to("metrics.json")
     with pytest.raises(approach_release.ApproachReleaseFormatError, match="symlink"):
         approach_release.validate_release_directory(release_dir)
+
+
+def test_payload_validator_rejects_missing_attempt_contract(tmp_path: Path) -> None:
+    input_path = tmp_path / "audited-2025.parquet"
+    _approach_frame().to_parquet(input_path, index=False)
+    release_dir = tmp_path / "release"
+    builder.build_approach_release(input_path, output=release_dir)
+    payloads = _release_payloads(release_dir)
+    payloads["attempts.json"]["attempts"][0].pop("status")
+
+    with pytest.raises(
+        approach_release.ApproachReleaseFormatError, match="unsupported status"
+    ):
+        approach_release._validate_payloads(payloads)
+
+
+def test_payload_validator_rejects_permuted_and_duplicate_links(tmp_path: Path) -> None:
+    first = _approach_frame()
+    second = _approach_frame("32L")
+    second["flight_id"] = "fixture-operation-2"
+    second["icao24"] = "def456"
+    second["time"] += 10_000
+    input_path = tmp_path / "audited-2025.parquet"
+    pd.concat([first, second], ignore_index=True).to_parquet(input_path, index=False)
+    release_dir = tmp_path / "release"
+    builder.build_approach_release(input_path, output=release_dir)
+
+    payloads = _release_payloads(release_dir)
+    records = payloads["attempts.json"]["attempts"]
+    records[0]["case_id"], records[1]["case_id"] = (
+        records[1]["case_id"], records[0]["case_id"],
+    )
+    with pytest.raises(
+        approach_release.ApproachReleaseFormatError, match="not reciprocal"
+    ):
+        approach_release._validate_payloads(payloads)
+
+    payloads = _release_payloads(release_dir)
+    operations = payloads["operations.json"]["operations"]
+    duplicate_attempt = operations[0]["attempt_ids"][0]
+    operations[1]["attempt_ids"].append(duplicate_attempt)
+    operations[1]["attempt_count"] += 1
+    with pytest.raises(
+        approach_release.ApproachReleaseFormatError, match="cover attempts exactly"
+    ):
+        approach_release._validate_payloads(payloads)
 
 
 def test_manifest_requires_v3_required_subset_and_optional_allowlist(tmp_path: Path) -> None:

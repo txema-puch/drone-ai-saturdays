@@ -13,13 +13,13 @@
   --panel: #191d25;    /* cards */
   --panel2: #1c212b;   /* inputs / nested surfaces */
   --map-bg: #11141a;   /* chart/map canvas (slightly under --bg) */
-  --edge: #272d39;     /* borders / rules */
+  --edge: #2b313d;     /* borders / rules */
   --control-edge: #687386; /* interactive boundaries — ≥3:1 on --panel2 */
   --chart-grid: #303847;
   --chart-context: #586477; /* meaningful non-text evidence — ≥3:1 on --map-bg */
   --chart-muted: #9da3ae; /* small chart labels — ≥4.5:1 on --map-bg */
   --ink: #e7e3d8;      /* primary text — paper-cream */
-  --mut: #8b8e98;      /* secondary text */
+  --mut: #9b9da6;      /* secondary text */
   --accent: #c9a25a;   /* gold — interactive / case numbers */
   --visited: #aa9168;  /* subdued bronze — previously visited navigation */
   --amber: #e0a93b;    /* severity: elevated / go-around */
@@ -27,8 +27,8 @@
   --blue: #6f8fb5;     /* observed trajectory evidence */
   --status-review: #e0564f;
   --status-partial: #e0a93b;
-  --status-observed: #e7e3d8;
-  --status-unavailable: #8b8e98;
+  --status-observed: #8fa395;
+  --status-unavailable: #778294;
 
   /* type */
   --serif: "Newsreader", Georgia, "Times New Roman", serif;
@@ -96,8 +96,22 @@ body,
   color: var(--ink);
   border-bottom-color: var(--accent);
 }
+.app-qualification {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 8px 28px;
+  border-bottom: 1px solid var(--edge);
+  background: var(--panel);
+  color: var(--mut);
+  font-size: 16px;
+  line-height: 1.35;
+}
+.app-qualification b { color: var(--amber); }
 .app-content {
-  min-height: calc(100vh - 54px);
+  min-height: calc(100vh - 98px);
 }
 
 html {

@@ -677,8 +677,19 @@ class ApproachUploadEvaluationService:
             )
 
         results: list[dict[str, Any]] = []
+        rejection_reasons: list[dict[str, Any]] = []
         for operation_id, operation in operation_groups:
             attempt_frames = extract_approach_attempts(operation)
+            if not attempt_frames:
+                rejection_reasons.append({
+                    "code": "no_supported_approach_attempt",
+                    "message": (
+                        "The operation did not contain a supported LEMD final-corridor visit; "
+                        "no holding, diversion, or intent label was inferred."
+                    ),
+                    "count": 1,
+                    "operation_id": str(operation_id),
+                })
             if len(results) + len(attempt_frames) > MAX_ATTEMPTS:
                 raise EvaluationError(
                     413, "too_many_attempts",
@@ -732,6 +743,7 @@ class ApproachUploadEvaluationService:
             "operations": len(operation_groups),
             "attempts": len(results),
             "status_counts": dict(sorted(status_counts.items())),
+            "rejection_reasons": rejection_reasons,
             "results": results,
         }
         if len(canonical_json_bytes(response)) > MAX_RESPONSE_BYTES:

@@ -18,7 +18,8 @@ import pandas as pd
 
 from backend.core.approach import assess_operation
 from backend.core.approach_context import (
-    join_nearest_weather,
+    DEFAULT_MAXIMUM_WEATHER_AGE_S,
+    join_latest_prior_weather,
     load_aircraft_metadata_parts,
     load_global_hourly_weather,
     runway_relative_wind_components,
@@ -34,7 +35,7 @@ WEATHER_DIR = REPO / "data/raw/weather"
 AIRCRAFT_PARTS_DIR = REPO / "data/raw/aircraft_metadata"
 SOURCE_2025 = REPO / "data/raw/lemd_20250310_to_20250314__deduped_2026-05-10.parquet"
 SOURCE_2025_SHA256 = "8256c65f95135597f3db07413941380fc2a0c6bbfc429b07b12b10478f7e2c10"
-MAXIMUM_WEATHER_AGE_S = 1_800
+MAXIMUM_WEATHER_AGE_S = DEFAULT_MAXIMUM_WEATHER_AGE_S
 
 
 def _logical_parts_sha256(directory: Path) -> str:
@@ -121,7 +122,7 @@ def audit_context(
         )["attempts"]:
             interval = assessment["attempt"]
             midpoint = (interval["start_time"] + interval["end_time"]) // 2
-            joined = join_nearest_weather(
+            joined = join_latest_prior_weather(
                 midpoint, weather, maximum_age_seconds=MAXIMUM_WEATHER_AGE_S
             )
             observation = joined.observation

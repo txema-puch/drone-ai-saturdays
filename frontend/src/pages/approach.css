@@ -193,11 +193,12 @@
 
 .attempt-record--review_required { --status-color: var(--red); }
 .attempt-record--partial_observation { --status-color: var(--amber); }
-.attempt-record--criteria_observed { --status-color: var(--ink); }
-.attempt-record--not_assessable { --status-color: var(--mut); }
+.attempt-record--criteria_observed { --status-color: var(--status-observed); }
+.attempt-record--not_assessable { --status-color: var(--status-unavailable); }
 
+.attempt-record__status > .approach-status,
 .approach-status {
-  display: inline-flex !important;
+  display: inline-flex;
   align-items: center;
   gap: 8px;
   color: var(--status-color, var(--mut));
@@ -220,8 +221,8 @@
 .approach-status--review_required .approach-status__mark { background: currentColor; }
 .approach-status--partial_observation { --status-color: var(--amber); }
 .approach-status--partial_observation .approach-status__mark { border-style: dashed; }
-.approach-status--criteria_observed { --status-color: var(--ink); }
-.approach-status--not_assessable { --status-color: var(--mut); }
+.approach-status--criteria_observed { --status-color: var(--status-observed); }
+.approach-status--not_assessable { --status-color: var(--status-unavailable); }
 
 .context-rail {
   align-self: start;
@@ -261,7 +262,7 @@
 .context-rail > p {
   margin-top: 22px;
   color: var(--mut);
-  font-size: 13px;
+  font-size: 16px;
   line-height: 1.55;
 }
 
@@ -355,7 +356,7 @@
 
 .evidence-map { margin: 0; border: 1px solid var(--edge); background: var(--map-bg); }
 .evidence-map svg { display: block; width: 100%; max-height: 520px; }
-.evidence-map figcaption { padding: 10px 14px; border-top: 1px solid var(--edge); color: var(--mut); font-size: 12px; }
+.evidence-map figcaption { padding: 10px 14px; border-top: 1px solid var(--edge); color: var(--mut); font-size: 16px; }
 .evidence-map__axis { stroke: var(--chart-grid); stroke-width: 1; stroke-dasharray: 5 5; }
 .evidence-map__runway { stroke: var(--ink); stroke-width: 5; }
 .evidence-map__label { fill: var(--chart-muted); font: 11px var(--sans); }
@@ -372,12 +373,14 @@
 }
 .evidence-timeline__scrubber { display: grid; grid-template-columns: 160px 1fr; align-items: center; gap: 12px; color: var(--mut); font-size: 12px; }
 .evidence-timeline__scrubber input { width: 100%; min-height: 44px; margin: 0; }
-.evidence-timeline__lane { display: grid; grid-template-columns: 160px 1fr; align-items: center; gap: 12px; min-height: 38px; }
+.evidence-timeline__lane { display: grid; grid-template-columns: 160px 1fr; align-items: center; gap: 12px; min-height: 44px; }
 .evidence-timeline__name { color: var(--mut); font-size: 12px; }
 .evidence-timeline__track { position: relative; height: 10px; border-bottom: 1px solid var(--chart-grid); }
-.evidence-timeline__span { position: absolute; top: 1px; min-width: 8px; height: 8px; min-height: 0; padding: 0; border: 0; border-radius: 0; background: var(--mut); }
-.evidence-timeline__span--review_required { background: var(--red); }
-.evidence-timeline__span--within_limit { background: var(--ink); }
+.evidence-timeline__span { position: absolute; top: -17px; min-width: 44px; height: 44px; min-height: 44px; padding: 0; border: 0; border-radius: 0; background: transparent; --span-color: var(--mut); }
+.evidence-timeline__span::after { content: ""; position: absolute; inset: 18px 0; background: var(--span-color); }
+.evidence-timeline__span--review_required { --span-color: var(--red); }
+.evidence-timeline__span--within_limit { --span-color: var(--status-observed); }
+.evidence-timeline__span:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 
 .criterion-table { border-top: 1px solid var(--edge); }
 .criterion-row {
@@ -391,8 +394,8 @@
 .criterion-row--review_required { border-left: 2px solid var(--red); }
 .criterion-row--not_observed { border-left: 2px dashed var(--amber); }
 .criterion-row h3 { margin: 0 0 5px; font-size: 15px; }
-.criterion-row span,
-.criterion-row p { color: var(--mut); font-size: 12px; line-height: 1.5; }
+.criterion-row span { color: var(--mut); font-size: 12px; line-height: 1.5; }
+.criterion-row p { color: var(--mut); font-size: 16px; line-height: 1.5; }
 .criterion-row p { margin: 0 0 5px; }
 .criterion-row b { display: block; font-size: 13px; overflow-wrap: anywhere; }
 .criterion-row .record-label { display: block; margin-bottom: 5px; font-size: 9px; }

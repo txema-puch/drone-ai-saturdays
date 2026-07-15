@@ -12,6 +12,14 @@ from backend.serve import approach_app
 client = TestClient(approach_app.app)
 
 
+def _fresh_limiter(*, global_limit: int = 100, client_limit: int = 100):
+    return approach_app.EvaluationAdmissionLimiter(
+        window_seconds=60,
+        global_limit=global_limit,
+        client_limit=client_limit,
+    )
+
+
 def test_health_and_openapi_describe_rules_first_product():
     response = client.get("/api/health")
     assert response.status_code == 200
@@ -77,6 +85,139 @@ def test_disabled_upload_and_unknown_records_are_structured():
     missing = client.get("/api/approaches/a_missing")
     assert missing.status_code == 404
     assert missing.json()["detail"]["code"] == "attempt_not_found"
+
+
+def test_enabled_upload_uses_approach_service_and_context_contract(monkeypatch):
+    observed = {}
+
+    class StubService:
+        def __init__(self, **kwargs):
+            observed.update(kwargs)
+
+        def evaluate(self, data, *, filename, media_type):
+            return {
+                "release_id": observed["release_id"],
+                "filename": filename,
+                "media_type": media_type,
+                "bytes": len(data),
+            }
+
+    monkeypatch.setattr(approach_app, "EVALUATION_ENABLED", True)
+    monkeypatch.setattr(approach_app, "EVALUATION_LIMITER", _fresh_limiter())
+    monkeypatch.setattr(approach_app, "ApproachUploadEvaluationService", StubService)
+    response = client.post(
+        "/api/evaluations",
+        files={"file": ("sample.csv", b"time\n1\n", "text/csv")},
+    )
+    assert response.status_code == 200
+    assert response.json()["bytes"] == 7
+    assert observed == {
+        "release_id": approach_app.RELEASE_ID,
+        "reference": approach_app.REFERENCE,
+        "contextual": approach_app.CONTEXTUAL_RELEASE,
+    }
+
+
+def test_enabled_upload_rejects_busy_and_rate_limited_before_parsing(monkeypatch):
+    monkeypatch.setattr(approach_app, "EVALUATION_ENABLED", True)
+
+    class Locked:
+        @staticmethod
+        def locked():
+            return True
+
+    monkeypatch.setattr(approach_app, "EVALUATION_LOCK", Locked())
+    busy = client.post("/api/evaluations", content=b"not multipart")
+    assert busy.status_code == 429
+    assert busy.json()["detail"]["code"] == "analysis_busy"
+
+    monkeypatch.setattr(approach_app, "EVALUATION_LOCK", approach_app.asyncio.Lock())
+    monkeypatch.setattr(
+        approach_app,
+        "EVALUATION_LIMITER",
+        _fresh_limiter(global_limit=1, client_limit=1),
+    )
+    monkeypatch.setattr(
+        approach_app.ApproachUploadEvaluationService,
+        "evaluate",
+        lambda *_args, **_kwargs: {"results": []},
+    )
+    accepted = client.post(
+        "/api/evaluations",
+        files={"file": ("sample.csv", b"time\n1\n", "text/csv")},
+    )
+    assert accepted.status_code == 200
+    limited = client.post("/api/evaluations", content=b"not multipart")
+    assert limited.status_code == 429
+    assert limited.json()["detail"]["code"] == "evaluation_rate_limited"
+    assert int(limited.headers["retry-after"]) >= 1
+
+
+def test_enabled_upload_maps_bounded_and_unexpected_errors(monkeypatch):
+    monkeypatch.setattr(approach_app, "EVALUATION_ENABLED", True)
+    monkeypatch.setattr(approach_app, "EVALUATION_LIMITER", _fresh_limiter())
+
+    def bounded(*_args, **_kwargs):
+        raise approach_app.EvaluationError(422, "invalid_schema", "Safe message")
+
+    monkeypatch.setattr(
+        approach_app.ApproachUploadEvaluationService, "evaluate", bounded,
+    )
+    invalid = client.post(
+        "/api/evaluations",
+        files={"file": ("sample.csv", b"time\n1\n", "text/csv")},
+    )
+    assert invalid.status_code == 422
+    assert invalid.json()["detail"] == {
+        "code": "invalid_schema", "message": "Safe message",
+    }
+
+    def unexpected(*_args, **_kwargs):
+        raise RuntimeError("secret-file.csv icao24=abc123")
+
+    monkeypatch.setattr(
+        approach_app.ApproachUploadEvaluationService, "evaluate", unexpected,
+    )
+    failed = client.post(
+        "/api/evaluations",
+        files={"file": ("secret-file.csv", b"icao24\nabc123\n", "text/csv")},
+    )
+    assert failed.status_code == 500
+    assert failed.json()["detail"]["code"] == "evaluation_failed"
+    assert "secret-file" not in failed.text
+    assert "abc123" not in failed.text
+
+
+def test_enabled_upload_validates_content_length_and_multipart(monkeypatch):
+    monkeypatch.setattr(approach_app, "EVALUATION_ENABLED", True)
+    monkeypatch.setattr(approach_app, "EVALUATION_LIMITER", _fresh_limiter())
+    negative = client.post(
+        "/api/evaluations",
+        content=b"--x--\r\n",
+        headers={"content-type": "multipart/form-data; boundary=x", "content-length": "-1"},
+    )
+    assert negative.status_code == 400
+    assert negative.json()["detail"]["code"] == "invalid_content_length"
+
+    malformed = client.post(
+        "/api/evaluations",
+        content=b"not multipart",
+        headers={"content-type": "multipart/form-data; boundary=x"},
+    )
+    assert malformed.status_code == 422
+    assert malformed.json()["detail"]["code"] == "invalid_multipart"
+
+
+def test_evaluation_admission_limiter_expires_and_prunes_clients():
+    limiter = approach_app.EvaluationAdmissionLimiter(
+        window_seconds=10, global_limit=2, client_limit=1,
+    )
+    assert limiter.admit("client-a", now=0) is None
+    assert limiter.admit("client-a", now=1) == 10
+    assert limiter.admit("client-b", now=1) is None
+    assert limiter.admit("client-c", now=2) == 9
+    assert limiter.admit("client-c", now=11) is None
+    assert set(limiter._clients) == {"client-c"}
 
 
 def test_same_origin_fallback_never_captures_unknown_api(tmp_path: Path, monkeypatch):

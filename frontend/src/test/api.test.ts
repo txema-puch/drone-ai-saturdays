@@ -56,11 +56,17 @@ describe("approach API client", () => {
             attempt_index: 1,
             status: "partial_observation",
             attempt: { start_time: 100, end_time: 200, outcome: "final_gate_observed", observed_samples: 11 },
-            runway: { designator: "32L", direction: "32" },
+            runway: { designator: "32L", direction: "32", specificity: "exact", confidence: 0.91 },
             failed_criteria: [],
             reasons: [],
             criteria: [{ name: "late_track_correction", status: "within_limit", observed_samples: 9, evidence: [] }],
-            trajectory: { points: [{ time: 100, lat: 40.4, lon: -3.6 }] },
+            trajectory: {
+              observed_points: 11,
+              returned_points: 1,
+              sampling: "evenly_spaced_v1",
+              points: [{ time: 100, lat: 40.4, lon: -3.6 }],
+            },
+            channels: { time: [100], ground_speed_mps: [71.2] },
             quality: { fatal_reasons: ["altitude_unavailable"], observed_samples: 11 },
           }],
         }),
@@ -86,6 +92,12 @@ describe("approach API client", () => {
         criteria: [{ name: "late_track_correction", status: "within_limit" }],
         path: [{ time: 100, lat: 40.4, lon: -3.6 }],
       }],
+    });
+    expect(response.native_response?.results[0]).toMatchObject({
+      attempt_index: 1,
+      runway: { specificity: "exact", confidence: 0.91 },
+      trajectory: { sampling: "evenly_spaced_v1", observed_points: 11 },
+      channels: { time: [100], ground_speed_mps: [71.2] },
     });
   });
 

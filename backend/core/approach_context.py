@@ -22,6 +22,7 @@ from typing import Iterable, Mapping, Sequence, TextIO
 LEMD_GLOBAL_HOURLY_STATION = "08221099999"
 STANDARD_PRESSURE_HPA = 1013.25
 METRES_PER_HPA_PRESSURE_ALTITUDE_PROXY = 30.0 * 0.3048
+DEFAULT_MAXIMUM_WEATHER_AGE_S = 1_800
 _METAR_QNH_RE = re.compile(r"(?:^|\s)Q(\d{4})(?=\s|=|$)")
 _NATURAL_PART_RE = re.compile(r"(\d+)")
 
@@ -46,7 +47,7 @@ class WeatherObservation:
 
 @dataclass(frozen=True)
 class WeatherJoin:
-    """Result of a nearest-time weather join for an attempt midpoint."""
+    """Result of a latest-prior weather join for an attempt midpoint."""
 
     attempt_midpoint: datetime
     observation: WeatherObservation | None
@@ -224,7 +225,7 @@ def load_global_hourly_weather(
             handle.close()
 
 
-def join_nearest_weather(
+def join_latest_prior_weather(
     attempt_midpoint: datetime | str | int | float,
     observations: Sequence[WeatherObservation],
     *,
@@ -275,6 +276,11 @@ def join_nearest_weather(
         maximum_age_seconds=float(maximum_age_seconds),
         missing_reasons=nearest.missing_reasons,
     )
+
+
+# Compatibility alias for lifecycle artifacts and callers created before the
+# latest-prior temporal contract was named explicitly.
+join_nearest_weather = join_latest_prior_weather
 
 
 def runway_relative_wind_components(

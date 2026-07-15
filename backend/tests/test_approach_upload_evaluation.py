@@ -71,7 +71,7 @@ def test_fixture_evaluates_without_model_and_returns_exact_rules_dto(service):
     assert set(response) == {
         "schema_version", "release_id", "reference_sha256", "dataset_digest",
         "upload_sha256", "raw_rows", "canonical_rows", "duplicate_rows_collapsed",
-        "operations", "attempts", "status_counts", "results",
+        "operations", "attempts", "status_counts", "rejection_reasons", "results",
     }
     assert response["schema_version"] == "approach_upload_evaluation_v1"
     assert response["release_id"] == "approach-fixture-v1"
@@ -143,6 +143,15 @@ def test_no_attempt_is_an_empty_bounded_result_not_an_error(service):
     assert response["attempts"] == 0
     assert response["status_counts"] == {}
     assert response["results"] == []
+    assert response["rejection_reasons"] == [{
+        "code": "no_supported_approach_attempt",
+        "message": (
+            "The operation did not contain a supported LEMD final-corridor visit; "
+            "no holding, diversion, or intent label was inferred."
+        ),
+        "count": 1,
+        "operation_id": response["rejection_reasons"][0]["operation_id"],
+    }]
 
 
 def test_hard_input_row_operation_attempt_trajectory_and_response_bounds(service, monkeypatch):

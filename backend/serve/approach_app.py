@@ -10,7 +10,9 @@ from __future__ import annotations
 
 import asyncio
 import os
+import threading
 import time
+from collections import deque
 from pathlib import Path
 from typing import Annotated, Literal
 
@@ -41,6 +43,9 @@ RELEASE_DIR = Path(
 EVALUATION_ENABLED = os.getenv("SADAR_ENABLE_EVALUATION", "").strip().lower() in {
     "1", "true",
 }
+EVALUATION_RATE_WINDOW_S = 60
+EVALUATION_GLOBAL_LIMIT = int(os.getenv("SADAR_EVALUATION_GLOBAL_LIMIT", "10"))
+EVALUATION_CLIENT_LIMIT = int(os.getenv("SADAR_EVALUATION_CLIENT_LIMIT", "5"))
 MAX_MULTIPART_BYTES = MAX_INPUT_BYTES + 64 * 1024
 
 RELEASE = load_release_directory(RELEASE_DIR)
@@ -115,6 +120,48 @@ class EvaluationBodyLimitMiddleware:
         await self.app(scope, bounded_receive, send)
 
 
+class EvaluationAdmissionLimiter:
+    """Bound anonymous evaluation starts without retaining uploaded data."""
+
+    def __init__(self, *, window_seconds: int, global_limit: int, client_limit: int):
+        if min(window_seconds, global_limit, client_limit) <= 0:
+            raise ValueError("evaluation admission limits must be positive")
+        self.window_seconds = window_seconds
+        self.global_limit = global_limit
+        self.client_limit = client_limit
+        self._global: deque[float] = deque()
+        self._clients: dict[str, deque[float]] = {}
+        self._lock = threading.Lock()
+
+    def admit(self, client_id: str, *, now: float | None = None) -> int | None:
+        observed = time.monotonic() if now is None else now
+        cutoff = observed - self.window_seconds
+        with self._lock:
+            while self._global and self._global[0] <= cutoff:
+                self._global.popleft()
+            for existing_id, existing in list(self._clients.items()):
+                while existing and existing[0] <= cutoff:
+                    existing.popleft()
+                if not existing:
+                    del self._clients[existing_id]
+            client = self._clients.setdefault(client_id, deque())
+            while client and client[0] <= cutoff:
+                client.popleft()
+            global_full = len(self._global) >= self.global_limit
+            client_full = len(client) >= self.client_limit
+            if global_full or client_full:
+                oldest = max(
+                    self._global[0] if global_full else cutoff,
+                    client[0] if client_full else cutoff,
+                )
+                if not client:
+                    del self._clients[client_id]
+                return max(1, int(self.window_seconds - (observed - oldest)) + 1)
+            self._global.append(observed)
+            client.append(observed)
+            return None
+
+
 app = FastAPI(
     title="SADAR Analyst Console",
     description=(
@@ -129,6 +176,11 @@ app.add_middleware(
     total_seconds=60.0,
 )
 EVALUATION_LOCK = asyncio.Lock()
+EVALUATION_LIMITER = EvaluationAdmissionLimiter(
+    window_seconds=EVALUATION_RATE_WINDOW_S,
+    global_limit=EVALUATION_GLOBAL_LIMIT,
+    client_limit=EVALUATION_CLIENT_LIMIT,
+)
 
 
 ApproachLimit = Annotated[int, Query(ge=0, le=5000)]
@@ -164,12 +216,17 @@ def _summary(record: dict) -> dict:
     assessment = record["assessment"]
     attempt = assessment.get("attempt") or {}
     quality = assessment.get("quality") or {}
+    inference = assessment.get("runway_inference") or {}
     return {
         "attempt_id": record["attempt_id"],
         "operation_ref": record["operation_id"],
         "status": record["status"],
         "direction": record.get("runway_direction"),
         "runway": record.get("runway"),
+        "geometry_runway": inference.get("geometry_runway"),
+        "runway_specificity": inference.get("specificity"),
+        "runway_confidence": inference.get("confidence"),
+        "runway_score_margin": inference.get("score_margin"),
         "failed_criteria": list(record.get("failed_criteria") or []),
         "outcome": record.get("outcome"),
         "observed_samples": attempt.get("observed_samples"),
@@ -318,6 +375,8 @@ def research() -> dict:
 async def evaluate_upload(request: Request) -> dict:
     if not EVALUATION_ENABLED:
         _api_error(404, "evaluation_disabled", "Evaluation is not enabled on this deployment.")
+    if EVALUATION_LOCK.locked():
+        _api_error(429, "analysis_busy", "Another approach evaluation is in progress.", retry_after=1)
     declared = request.headers.get("content-length")
     if declared:
         try:
@@ -328,6 +387,15 @@ async def evaluate_upload(request: Request) -> dict:
             _api_error(400, "invalid_content_length", "Content-Length cannot be negative.")
         if declared_bytes > MAX_MULTIPART_BYTES:
             _api_error(413, "request_too_large", "The upload exceeds the 10 MiB limit.")
+    client_id = request.client.host if request.client is not None else "unknown"
+    retry_after = EVALUATION_LIMITER.admit(client_id)
+    if retry_after is not None:
+        _api_error(
+            429,
+            "evaluation_rate_limited",
+            "The public evaluation budget is temporarily exhausted.",
+            retry_after=retry_after,
+        )
 
     try:
         async with request.form(max_files=1, max_fields=0, max_part_size=MAX_INPUT_BYTES + 1) as form:

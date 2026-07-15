@@ -70,7 +70,7 @@ def p95(samples: list[float]) -> float:
 
 
 def synthetic_csv(*, rows: int, segments: int) -> bytes:
-    """Expand the tracked trajectory into bounded exact-duplicate stress fixtures."""
+    """Expand the tracked trajectory into unique bounded stress observations."""
     source = list(
         csv.DictReader(
             (ROOT / "frontend/public/evaluation-synthetic-sample.csv").read_text(
@@ -80,18 +80,24 @@ def synthetic_csv(*, rows: int, segments: int) -> bytes:
     )
     if not source or rows < 1 or segments < 1:
         raise AssertionError("synthetic stress fixture parameters are invalid")
+    counts = [rows // segments] * segments
+    for index in range(rows % segments):
+        counts[index] += 1
     unique = []
     for segment in range(segments):
-        for source_row in source:
-            row = dict(source_row)
+        count = counts[segment]
+        for point in range(count):
+            source_index = round(
+                point * (len(source) - 1) / max(1, count - 1)
+            )
+            row = dict(source[source_index])
             row["icao24"] = f"{0xA10000 + segment:06x}"
-            row["time"] = str(int(row["time"]) + segment * 3600)
+            row["time"] = str(int(source[0]["time"]) + segment * 3600 + point)
             unique.append(row)
     output = io.StringIO(newline="")
     writer = csv.DictWriter(output, fieldnames=list(source[0]))
     writer.writeheader()
-    for index in range(rows):
-        writer.writerow(unique[index % len(unique)])
+    writer.writerows(unique)
     return output.getvalue().encode("utf-8")
 
 
@@ -163,7 +169,7 @@ def evaluation_performance() -> dict[str, float | int]:
     if warm_p95 > WARM_EVALUATION_SECONDS:
         raise AssertionError(f"5,000-row evaluation p95 exceeded 10s gate: {warm_p95:.3f}s")
 
-    maximum_data = synthetic_csv(rows=50_000, segments=25)
+    maximum_data = synthetic_csv(rows=50_000, segments=250)
     outcome: dict[str, object] = {}
 
     def evaluate_maximum() -> None:
@@ -186,12 +192,12 @@ def evaluation_performance() -> dict[str, float | int]:
     if "error" in outcome:
         raise outcome["error"]  # type: ignore[misc]
     first_evaluation, response_bytes, first_elapsed = outcome["value"]  # type: ignore[misc]
-    assert_evaluation_shape(first_evaluation, rows=50_000, segments=25)
+    assert_evaluation_shape(first_evaluation, rows=50_000, segments=250)
     largest_response = max(largest_response, response_bytes)
     maximum_samples = [first_elapsed]
     for _ in range(2):
         evaluation, response_bytes, elapsed = upload_csv(maximum_data)
-        assert_evaluation_shape(evaluation, rows=50_000, segments=25)
+        assert_evaluation_shape(evaluation, rows=50_000, segments=250)
         largest_response = max(largest_response, response_bytes)
         maximum_samples.append(elapsed)
     if any(sample > MAX_EVALUATION_SECONDS for sample in maximum_samples):

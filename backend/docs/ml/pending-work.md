@@ -41,6 +41,10 @@ Closing this iteration means:
 | PW-006 | P1 | The cohort is Monday-heavy, misses Sunday, and uses 2020 as a temporally unusual test period. | Expand calendar coverage and use later operations for the next untouched holdout. |
 | PW-007 | P1 | Go-arounds and 7700 emergencies are useful external events but are not ground truth for unauthorized-drone behavior. | Seek stronger event data; keep claims limited to trajectory conformance. |
 | PW-008 | P2 | The demo is retrospective, ADS-B-only, and has detailed case files for a curated subset. | Treat it as a course audit tool, not a production counter-drone system. |
+| PW-009 | P2 | The optional historical research benchmark lacks a fully versioned attempt-to-segment mapping contract. | Keep it verdict-independent; version the mapping before adding another benchmark implementation. |
+| PW-010 | P2 | FastAPI currently documents generic response objects for the public approach/evaluation endpoints. | Add typed request/response schemas and freeze generated OpenAPI fixtures before external API consumers depend on them. |
+| PW-011 | P2 | Upload parsing and request-limit middleware remain coupled to the approach service module. | Extract neutral, shared boundaries only when a second evaluator needs them; preserve the current tested behavior first. |
+| PW-012 | P1 | Midpoint weather is retrospective attempt-level context and can postdate early attempt rows. | Use start-time/per-row causal joins before any real-time or time-local weather claim. |
 
 ## Findings
 
@@ -169,6 +173,16 @@ gate, U-Space match, streaming model, monitoring, or operational safety case.
 **Resume work.** Only pursue production work after revalidating the problem framing. Candidate
 work includes complete case storage, monitoring and drift policy, streaming-capable inference,
 and integration with identity/flight-plan evidence.
+
+### PW-009 to PW-012 - Contract and temporal-context follow-ups
+
+The schema-v3 product review found no release blocker in these areas, but it identified four
+boundaries that should be explicit before the demonstrator grows. The historical LSTM benchmark
+needs a versioned attempt/segment mapping if it is ever expanded. External API use needs typed
+OpenAPI schemas rather than framework-inferred generic objects. Parser/middleware extraction is
+justified only by real reuse, not as a pre-emptive refactor. Finally, the current latest-prior
+midpoint weather join is suitable for retrospective attempt context, but not for per-row causal or
+real-time claims; those require a start-time or row-level temporal join.
 
 ## Restart order
 

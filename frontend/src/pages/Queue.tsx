@@ -66,7 +66,7 @@ export default function Queue() {
   const [retry, setRetry] = useState(0);
 
   const filters = useMemo<ApproachFilters>(() => ({
-    limit: 500,
+    limit: 5000,
     status: searchParams.get("status") ?? undefined,
     direction: searchParams.get("direction") ?? undefined,
     criterion: searchParams.get("criterion") ?? undefined,
@@ -157,8 +157,8 @@ export default function Queue() {
             <label>Criterion
               <select value={filters.criterion ?? "all"} onChange={(event) => setFilter("criterion", event.target.value)}>
                 <option value="all">All criteria</option>
-                <option value="lateral_path_proxy">Lateral path</option>
-                <option value="barometric_path_proxy">Barometric path</option>
+                <option value="lateral_path_proxy">Ground-track proxy</option>
+                <option value="barometric_path_proxy">Barometric-path proxy</option>
                 <option value="observed_descent_rate">Descent rate</option>
                 <option value="observed_ground_speed_envelope">Ground speed</option>
                 <option value="late_track_correction">Late track correction</option>
@@ -169,6 +169,7 @@ export default function Queue() {
                 <option value="all">All outcomes</option>
                 <option value="landing_observed">Landing observed</option>
                 <option value="go_around">Go-around pattern</option>
+                <option value="touch_and_go">Touch-and-go pattern</option>
                 <option value="final_gate_observed">Final gate observed</option>
                 <option value="incomplete">Incomplete record</option>
               </select>

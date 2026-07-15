@@ -305,7 +305,14 @@ def _supported_gate_runs(
     groups: list[list[int]] = [[int(indices[0])]]
     for index in indices[1:]:
         index = int(index)
-        if time[index] - time[groups[-1][-1]] > config.attempt_reentry_gap_s:
+        previous = groups[-1][-1]
+        outside_rows = index - previous - 1
+        outside_seconds = time[index] - time[previous]
+        supported_exit = (
+            outside_rows >= config.persistence_rows
+            and outside_seconds >= config.persistence_s
+        )
+        if outside_seconds > config.attempt_reentry_gap_s or supported_exit:
             groups.append([index])
         else:
             groups[-1].append(index)
@@ -434,7 +441,29 @@ def _attempt_outcome(
     near_ground = onground & (relative.threshold_distance_m <= 2_000.0)
     if near_ground.any():
         index = int(np.flatnonzero(near_ground)[0])
-        return "landing_observed", [{"name": "landing_observed", "index": index, "time": int(frame.iloc[index]["time"])}]
+        altitude_valid = _observed(frame, "baroaltitude").to_numpy() & altitude_usable
+        later_airborne = np.flatnonzero(
+            altitude_valid[index + 1:] & ~onground[index + 1:]
+        ) + index + 1
+        if len(later_airborne) >= 3:
+            altitude = frame["baroaltitude"].to_numpy(dtype="float64")
+            climb = float(np.nanmax(altitude[later_airborne]) - altitude[index])
+            airborne_span = int(
+                frame.iloc[later_airborne[-1]]["time"]
+                - frame.iloc[later_airborne[0]]["time"]
+            )
+            if climb >= 150.0 and airborne_span >= 20:
+                return "touch_and_go", [{
+                    "name": "touch_and_go",
+                    "index": index,
+                    "time": int(frame.iloc[index]["time"]),
+                    "observed_climb_after_contact_m": round(climb, 1),
+                }]
+        return "landing_observed", [{
+            "name": "landing_observed",
+            "index": index,
+            "time": int(frame.iloc[index]["time"]),
+        }]
 
     altitude_valid = _observed(frame, "baroaltitude").to_numpy() & altitude_usable
     near = np.flatnonzero((relative.threshold_distance_m <= 5_000.0) & altitude_valid)
@@ -518,11 +547,24 @@ def assess_approach(
     extended_end = int(
         np.searchsorted(observations["time"].to_numpy(), extension_limit, side="right") - 1
     )
-    attempt = observations.iloc[indices[0]:extended_end + 1].reset_index(drop=True)
+    full_attempt = observations.iloc[indices[0]:extended_end + 1].reset_index(drop=True)
+    full_relative = runway_relative(full_attempt["lat"], full_attempt["lon"], runway)
+    initial_quality = _quality(full_attempt, config)
+    initial_altitude_usable = (
+        "barometric_altitude" not in initial_quality["channel_advisories"]
+    )
+    outcome, maneuvers = _attempt_outcome(
+        full_attempt, full_relative, altitude_usable=initial_altitude_usable,
+    )
+    criterion_end_index = (
+        int(maneuvers[0]["index"])
+        if maneuvers and outcome in {"go_around", "touch_and_go"}
+        else len(full_attempt) - 1
+    )
+    attempt = full_attempt.iloc[:criterion_end_index + 1].reset_index(drop=True)
     relative = runway_relative(attempt["lat"], attempt["lon"], runway)
     quality = _quality(attempt, config)
     altitude_usable = "barometric_altitude" not in quality["channel_advisories"]
-    outcome, maneuvers = _attempt_outcome(attempt, relative, altitude_usable=altitude_usable)
     terminal_position = relative.threshold_distance_m <= config.terminal_distance_m
     terminal_altitude_observed = _observed(attempt, "baroaltitude").to_numpy()
     terminal_height_ok = (
@@ -535,7 +577,7 @@ def assess_approach(
     )
     terminal = bool(
         np.any(terminal_position & terminal_height_ok)
-        or outcome in {"landing_observed", "go_around"}
+        or outcome in {"landing_observed", "go_around", "touch_and_go"}
     )
     if not terminal:
         quality["fatal_reasons"].append("terminal_gate_not_reached")
@@ -650,13 +692,17 @@ def assess_approach(
         "reasons": quality["fatal_reasons"],
         "attempt": {
             "start_time": int(attempt["time"].iloc[0]),
-            "end_time": int(attempt["time"].iloc[-1]),
+            "end_time": int(full_attempt["time"].iloc[-1]),
+            "criterion_end_time": int(attempt["time"].iloc[-1]),
             "outcome": (
                 "final_gate_observed" if terminal and outcome == "closest_approach"
                 else outcome if terminal else "incomplete"
             ),
-            "observed_samples": len(attempt),
-            "minimum_threshold_distance_m": round(float(np.min(relative.threshold_distance_m)), 1),
+            "observed_samples": len(full_attempt),
+            "criterion_observed_samples": len(attempt),
+            "minimum_threshold_distance_m": round(
+                float(np.min(full_relative.threshold_distance_m)), 1
+            ),
         },
         "quality": quality,
         "altitude_reference": {"bias_m": round(bias, 1) if bias is not None else None, "source": bias_source},

@@ -12,6 +12,9 @@ export const APPROACH_HEALTH: Health = {
   operations: 2,
   attempts: 2,
   evaluation_enabled: true,
+  context_enabled: true,
+  qualification: "not_qualified_no_independent_labels_or_fresh_holdout",
+  allowed_role: "research_and_evidence_labeling_demonstrator",
   release_id: "approach-release-33",
   schema_version: 3,
   status_counts: { review_required: 1, partial_observation: 1 },
@@ -39,7 +42,10 @@ export const PARTIAL_ATTEMPT: ApproachSummary = {
   operation_ref: "OP-LEMD-002",
   status: "partial_observation",
   direction: "18",
-  runway: "18R",
+  runway: "18_pair",
+  geometry_runway: "18R",
+  runway_specificity: "direction",
+  runway_confidence: 0.54,
   failed_criteria: [],
   outcome: "final_gate_observed",
   observed_samples: 31,
@@ -126,5 +132,20 @@ export const APPROACH_UPLOAD: ApproachUploadResponse = {
   attempt_count: 1,
   rejected_operations: 1,
   rejection_reasons: [{ code: "terminal_gate_not_reached", message: "One record did not reach the final gate.", count: 1 }],
-  attempts: [{ ...REVIEW_ATTEMPT, criteria: APPROACH_DETAIL.criteria }],
+  attempts: [{
+    ...REVIEW_ATTEMPT,
+    criteria: APPROACH_DETAIL.criteria,
+    context: {
+      weather: {
+        qnh_hpa: 1003,
+        wind_from_direction_deg: 180,
+        wind_speed_mps: 5,
+      },
+      aircraft: {
+        typecode: "ZZZZ",
+        reference_fallbacks: ["unknown_speed_class"],
+      },
+      unavailable: ["aircraft_configuration", "actual_mass", "atc_clearance"],
+    },
+  }],
 };

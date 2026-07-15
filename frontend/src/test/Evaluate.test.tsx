@@ -30,6 +30,8 @@ describe("rules-first upload", () => {
     expect(input).toBeEnabled();
     expect(screen.queryByText(/prepare model/i)).not.toBeInTheDocument();
     expect(screen.getByText(/Missing channels abstain/i)).toBeInTheDocument();
+    expect(screen.getByText("qnh_hpa")).toBeInTheDocument();
+    expect(screen.getByText(/not qualified no independent labels or fresh holdout/i)).toBeInTheDocument();
   });
 
   it("retains the selected filename and returns attempt vocabulary", async () => {
@@ -43,6 +45,8 @@ describe("rules-first upload", () => {
     expect(screen.getByText(/partial evidence retained/i)).toBeInTheDocument();
     await userEvent.click(screen.getByText("Inspect criterion evidence"));
     expect(screen.getByText(/46 observed rows/i)).toBeInTheDocument();
+    expect(screen.getByText(/QNH 1003.0 hPa/i)).toBeInTheDocument();
+    expect(screen.getByText(/type ZZZZ · unknown reference fallback/i)).toBeInTheDocument();
   });
 
   it("focuses bounded field errors and keeps the file for retry", async () => {

@@ -13,13 +13,13 @@ smoke = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(smoke)
 
 
-def test_boundary_fixture_is_bounded_and_exercises_25_segments_and_50k_rows():
-    data = smoke.synthetic_csv(rows=50_000, segments=25)
+def test_boundary_fixture_is_bounded_and_exercises_250_operations_and_50k_unique_rows():
+    data = smoke.synthetic_csv(rows=50_000, segments=250)
     rows = list(csv.DictReader(io.StringIO(data.decode("utf-8"))))
 
     assert len(rows) == 50_000
-    assert len({row["icao24"] for row in rows}) == 25
-    assert len({(row["icao24"], row["time"]) for row in rows}) == 25 * 31
+    assert len({row["icao24"] for row in rows}) == 250
+    assert len({(row["icao24"], row["time"]) for row in rows}) == 50_000
     assert len(data) < 10 * 1024 * 1024
 
 

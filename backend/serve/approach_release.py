@@ -35,6 +35,7 @@ ALLOWED_FILES = REQUIRED_FILES | OPTIONAL_FILES
 
 MAX_MANIFEST_BYTES = 1 * 1024 * 1024
 MAX_TOTAL_BYTES = 256 * 1024 * 1024
+MAX_RELEASE_ATTEMPTS = 5_000
 FILE_LIMITS = {
     "attempts.json": 64 * 1024 * 1024,
     "cases.json": 160 * 1024 * 1024,
@@ -255,6 +256,10 @@ def _validate_payloads(payloads: dict[str, Any]) -> None:
             raise ApproachReleaseFormatError(f"{path} has an unsupported schema_version")
     if not isinstance(attempts.get("attempts"), list):
         raise ApproachReleaseFormatError("attempts.json attempts must be an array")
+    if len(attempts["attempts"]) > MAX_RELEASE_ATTEMPTS:
+        raise ApproachReleaseFormatError(
+            f"release may contain at most {MAX_RELEASE_ATTEMPTS} attempts"
+        )
     if not isinstance(cases.get("cases"), list):
         raise ApproachReleaseFormatError("cases.json cases must be an array")
     if not isinstance(operations.get("operations"), list):
@@ -285,6 +290,14 @@ def _validate_payloads(payloads: dict[str, Any]) -> None:
         if values != sorted(values) or len(values) != len(set(values)):
             raise ApproachReleaseFormatError(f"{name} IDs must be unique and sorted")
     attempt_set, case_set, operation_set = set(attempt_ids), set(case_ids), set(operation_ids)
+    allowed_statuses = {
+        "review_required", "partial_observation", "criteria_observed", "not_assessable",
+    }
+    attempts_by_id = {item["attempt_id"]: item for item in attempts["attempts"]}
+    cases_by_id = {item["case_id"]: item for item in cases["cases"]}
+    operations_by_id = {
+        item["operation_id"]: item for item in operations["operations"]
+    }
     case_attempts = [item.get("attempt_id") for item in cases["cases"]]
     if set(case_attempts) != attempt_set or len(case_attempts) != len(set(case_attempts)):
         raise ApproachReleaseFormatError("cases must cover attempts exactly once")
@@ -293,22 +306,56 @@ def _validate_payloads(payloads: dict[str, Any]) -> None:
             raise ApproachReleaseFormatError("attempt references an unknown case")
         if attempt.get("operation_id") not in operation_set:
             raise ApproachReleaseFormatError("attempt references an unknown operation")
+        if attempt.get("status") not in allowed_statuses:
+            raise ApproachReleaseFormatError("attempt has an unsupported status")
+        assessment = attempt.get("assessment")
+        if not isinstance(assessment, dict):
+            raise ApproachReleaseFormatError("attempt assessment must be an object")
+        if assessment.get("status") != attempt["status"]:
+            raise ApproachReleaseFormatError("attempt and assessment status disagree")
+        if not isinstance(attempt.get("failed_criteria"), list):
+            raise ApproachReleaseFormatError("attempt failed_criteria must be an array")
     for case in cases["cases"]:
         if case.get("attempt_id") not in attempt_set:
             raise ApproachReleaseFormatError("case references an unknown attempt")
         if not isinstance(case.get("observations"), list):
             raise ApproachReleaseFormatError("case observations must be an array")
-    grouped = {
+        attempt = attempts_by_id[case["attempt_id"]]
+        if attempt.get("case_id") != case["case_id"]:
+            raise ApproachReleaseFormatError("attempt and case links are not reciprocal")
+        if attempt.get("operation_id") != case.get("operation_id"):
+            raise ApproachReleaseFormatError("attempt and case operation ownership disagree")
+    grouped = [
         attempt_id
         for operation in operations["operations"]
         for attempt_id in operation.get("attempt_ids", [])
-    }
-    if grouped != attempt_set:
+    ]
+    if set(grouped) != attempt_set or len(grouped) != len(set(grouped)):
         raise ApproachReleaseFormatError("operation attempt grouping does not cover attempts exactly")
+    grouped_cases = [
+        case_id
+        for operation in operations["operations"]
+        for case_id in operation.get("case_ids", [])
+    ]
+    if set(grouped_cases) != case_set or len(grouped_cases) != len(set(grouped_cases)):
+        raise ApproachReleaseFormatError("operation case grouping does not cover cases exactly")
+    for operation_id, operation in operations_by_id.items():
+        if not isinstance(operation.get("attempt_ids"), list) or not isinstance(
+            operation.get("case_ids"), list
+        ):
+            raise ApproachReleaseFormatError("operation group IDs must be arrays")
+        if operation.get("attempt_count") != len(operation["attempt_ids"]):
+            raise ApproachReleaseFormatError("operation attempt_count is inconsistent")
+        for attempt_id in operation["attempt_ids"]:
+            if attempts_by_id[attempt_id].get("operation_id") != operation_id:
+                raise ApproachReleaseFormatError("grouped attempt has the wrong operation owner")
+        for case_id in operation["case_ids"]:
+            if cases_by_id[case_id].get("operation_id") != operation_id:
+                raise ApproachReleaseFormatError("grouped case has the wrong operation owner")
 
 
-def validate_release_directory(path: Path | str) -> dict[str, Any]:
-    """Validate exact layout, canonical JSON, byte integrity, and cross references."""
+def _load_validated_release(path: Path | str) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Load and validate the release once, returning its canonical payloads."""
     root = Path(path)
     if root.is_symlink() or not root.is_dir():
         raise ApproachReleaseFormatError("release root must be a real directory")
@@ -354,20 +401,18 @@ def validate_release_directory(path: Path | str) -> dict[str, Any]:
             raise ApproachReleaseFormatError(f"{relative} is not canonical JSON")
         payloads[relative] = value
     _validate_payloads(payloads)
+    return manifest, payloads
+
+
+def validate_release_directory(path: Path | str) -> dict[str, Any]:
+    """Validate exact layout, canonical JSON, byte integrity, and cross references."""
+    manifest, _payloads = _load_validated_release(path)
     return manifest
 
 
 def load_release_directory(path: Path | str) -> dict[str, Any]:
     """Validate first, then load the bounded schema-v3 payload for serving."""
-    root = Path(path)
-    manifest = validate_release_directory(root)
-    payloads = {
-        record["path"]: read_canonical_json(
-            root.joinpath(*PurePosixPath(record["path"]).parts),
-            limit=FILE_LIMITS[record["path"]],
-        )
-        for record in manifest["files"]
-    }
+    manifest, payloads = _load_validated_release(path)
     return {
         "manifest": manifest,
         "attempts": payloads["attempts.json"]["attempts"],

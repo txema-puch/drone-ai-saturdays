@@ -77,6 +77,10 @@ export interface ApproachSummary {
   status: ApproachStatus;
   direction?: string | null;
   runway?: string | null;
+  geometry_runway?: string | null;
+  runway_specificity?: string | null;
+  runway_confidence?: number | null;
+  runway_score_margin?: number | null;
   failed_criteria: string[];
   outcome?: string | null;
   observed_samples?: number;
@@ -300,6 +304,7 @@ export interface ApproachUploadResponse {
   status_counts?: Partial<Record<ApproachStatus, number>>;
   rejection_reasons?: ApproachEvaluationRejection[];
   attempts: ApproachUploadAttempt[];
+  native_response?: NativeApproachUploadResponse;
 }
 
 export interface ApproachUploadAttempt extends ApproachSummary {
@@ -327,13 +332,20 @@ interface NativeApproachEvaluationResult {
     observed_samples?: number;
     [key: string]: unknown;
   };
-  runway?: { designator?: string; direction?: string } | null;
+  runway?: {
+    designator?: string;
+    geometry_runway?: string;
+    direction?: string;
+    specificity?: string;
+    confidence?: number;
+  } | null;
   failed_criteria?: string[];
   reasons?: string[];
   criteria?: ApproachCriterion[];
   maneuvers?: Array<Record<string, unknown>>;
   provenance?: Record<string, unknown> | null;
   trajectory?: { points?: ApproachPathPoint[]; [key: string]: unknown } | null;
+  channels?: Record<string, Array<number | boolean | null>>;
   quality?: {
     fatal_reasons?: string[];
     observed_samples?: number;
@@ -346,7 +358,7 @@ interface NativeApproachEvaluationResult {
   } | null;
 }
 
-interface NativeApproachUploadResponse {
+export interface NativeApproachUploadResponse {
   schema_version?: string;
   release_id: string;
   reference_sha256?: string;
@@ -358,6 +370,7 @@ interface NativeApproachUploadResponse {
   operations?: number;
   attempts?: number;
   status_counts?: Partial<Record<ApproachStatus, number>>;
+  rejection_reasons?: ApproachEvaluationRejection[];
   results: NativeApproachEvaluationResult[];
 }
 
@@ -385,12 +398,17 @@ export async function evaluateApproachFile(
     operation_count: payload.operations,
     attempt_count: payload.attempts,
     status_counts: payload.status_counts,
+    rejection_reasons: payload.rejection_reasons,
+    native_response: payload,
     attempts: payload.results.map((result) => ({
       attempt_id: result.evaluation_ref,
       operation_ref: result.operation_id,
       status: result.status,
       direction: result.runway?.direction ?? null,
       runway: result.runway?.designator ?? null,
+      geometry_runway: result.runway?.geometry_runway ?? null,
+      runway_specificity: result.runway?.specificity ?? null,
+      runway_confidence: result.runway?.confidence ?? null,
       failed_criteria: result.failed_criteria ?? [],
       outcome: result.attempt.outcome ?? null,
       observed_samples: result.attempt.observed_samples ?? result.quality?.observed_samples,

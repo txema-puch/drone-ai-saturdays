@@ -55,4 +55,18 @@ describe("attempt dossier", () => {
     expect(await screen.findByText("Assessment withheld.")).toBeInTheDocument();
     expect(screen.getByText(/No normal or abnormal verdict is inferred/i)).toBeInTheDocument();
   });
+
+  it("separates pair-level inference from the provisional geometry anchor", async () => {
+    vi.mocked(api.getApproach).mockResolvedValueOnce({
+      ...APPROACH_DETAIL,
+      runway: "18_pair",
+      direction: "18",
+      geometry_runway: "18L",
+      runway_specificity: "direction",
+    });
+    renderCase();
+    expect(await screen.findByText(/18_pair · pair-level/i)).toBeInTheDocument();
+    expect(screen.getByText(/18L · provisional computation only/i)).toBeInTheDocument();
+    expect(screen.getByText(/not a claim that the aircraft used that exact runway/i)).toBeInTheDocument();
+  });
 });

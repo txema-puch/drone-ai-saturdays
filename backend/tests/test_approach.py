@@ -112,6 +112,43 @@ def test_descend_then_climb_is_reported_as_go_around():
     assert result["maneuvers"][0]["name"] == "go_around"
 
 
+def test_post_go_around_turn_does_not_create_failed_criterion_evidence():
+    frame = _fixture()
+    low = 55
+    frame["baroaltitude"] = np.r_[
+        np.linspace(800.0, 150.0, low + 1),
+        np.linspace(180.0, 650.0, len(frame) - low - 1),
+    ]
+    frame.loc[low + 1:, "heading"] = (frame.loc[low + 1:, "heading"] + 45) % 360
+
+    result = assess_approach(frame)
+
+    assert result["attempt"]["outcome"] == "go_around"
+    assert result["attempt"]["criterion_observed_samples"] == low + 1
+    assert "late_track_correction" not in result["failed_criteria"]
+    correction = next(
+        item for item in result["criteria"] if item["name"] == "late_track_correction"
+    )
+    assert correction["evidence"] == []
+
+
+def test_ground_contact_followed_by_observed_climb_is_touch_and_go():
+    frame = _fixture()
+    contact = 70
+    frame.loc[contact, "onground"] = True
+    frame.loc[contact + 1:, "baroaltitude"] = np.linspace(
+        frame.loc[contact, "baroaltitude"] + 20,
+        frame.loc[contact, "baroaltitude"] + 420,
+        len(frame) - contact - 1,
+    )
+
+    result = assess_approach(frame)
+
+    assert result["attempt"]["outcome"] == "touch_and_go"
+    assert result["maneuvers"][0]["name"] == "touch_and_go"
+    assert result["attempt"]["criterion_observed_samples"] == contact + 1
+
+
 def test_later_corridor_reentry_becomes_a_second_attempt():
     first = _fixture().iloc[:65].copy()
     second = _fixture().copy()

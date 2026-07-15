@@ -133,21 +133,3 @@ def runway_relative(
         haversine_dist(lat_values, lon_values, runway.lat, runway.lon), dtype="float64"
     )
     return RunwayRelative(along, cross, distance)
-
-
-def bearing_to_threshold_deg(
-    lat: pd.Series | np.ndarray,
-    lon: pd.Series | np.ndarray,
-    runway: RunwayThreshold,
-) -> np.ndarray:
-    """Initial true bearing from each observation to the runway threshold."""
-    lat_values = np.radians(np.asarray(lat, dtype="float64"))
-    lon_values = np.radians(np.asarray(lon, dtype="float64"))
-    target_lat = math.radians(runway.lat)
-    target_lon = math.radians(runway.lon)
-    delta_lon = target_lon - lon_values
-    y = np.sin(delta_lon) * math.cos(target_lat)
-    x = np.cos(lat_values) * math.sin(target_lat) - (
-        np.sin(lat_values) * math.cos(target_lat) * np.cos(delta_lon)
-    )
-    return (np.degrees(np.arctan2(y, x)) + 360.0) % 360.0

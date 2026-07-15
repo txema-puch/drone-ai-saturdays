@@ -37,6 +37,8 @@ started_at="$(python3 -c 'import time; print(time.time())')"
 docker run --detach --rm \
   --name "$NAME" \
   --env SADAR_ENABLE_EVALUATION=true \
+  --env SADAR_EVALUATION_GLOBAL_LIMIT=100 \
+  --env SADAR_EVALUATION_CLIENT_LIMIT=100 \
   --read-only \
   --cap-drop ALL \
   --security-opt no-new-privileges \
