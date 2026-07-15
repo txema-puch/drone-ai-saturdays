@@ -30,6 +30,9 @@ describe("attempt dossier", () => {
     expect(screen.getByRole("img", { name: /relative to runway 32L/i })).toBeInTheDocument();
     expect(screen.getByText("-9.2 m/s · limit -7.6", { exact: false })).toBeInTheDocument();
     expect(screen.getByText("config012345")).toBeInTheDocument();
+    expect(screen.getByText("1003 hPa")).toBeInTheDocument();
+    expect(screen.getByText("A320")).toBeInTheDocument();
+    expect(screen.getByText(/Actual mass.*ATC clearance.*remain unavailable/i)).toBeInTheDocument();
   });
 
   it("keeps the historical model collapsed and explicitly outside the verdict", async () => {

@@ -227,6 +227,7 @@ def _detail(record: dict) -> dict:
         "provenance": assessment.get("provenance"),
         "geometry": assessment.get("geometry"),
         "reference": assessment.get("reference"),
+        "context": assessment.get("context"),
         "schema_version": assessment.get("schema_version"),
         "engine_version": assessment.get("engine_version"),
         "observations_downsampled": case.get("observations_downsampled", False),

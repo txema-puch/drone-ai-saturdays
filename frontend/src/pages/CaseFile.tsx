@@ -212,8 +212,34 @@ export default function CaseFile() {
           {detail.quality ? Object.entries(detail.quality).map(([key, value]) => (
             <div className="rail-record" key={key}><span>{humanize(key)}</span><b>{renderValue(value)}</b></div>
           )) : <p>No quality detail was returned.</p>}
+          {detail.context?.weather && (
+            <>
+              <h2>Weather context</h2>
+              {[
+                ["Observation", detail.context.weather.observed_at],
+                ["QNH", detail.context.weather.qnh_hpa == null ? null : `${detail.context.weather.qnh_hpa} hPa`],
+                ["Wind from", detail.context.weather.wind_from_direction_deg == null ? null : `${detail.context.weather.wind_from_direction_deg}°`],
+                ["Wind speed", detail.context.weather.wind_speed_mps == null ? null : `${detail.context.weather.wind_speed_mps} m/s`],
+                ["Headwind", detail.context.weather.headwind_mps == null ? null : `${Number(detail.context.weather.headwind_mps).toFixed(1)} m/s`],
+                ["Crosswind from right", detail.context.weather.crosswind_from_right_mps == null ? null : `${Number(detail.context.weather.crosswind_from_right_mps).toFixed(1)} m/s`],
+              ].map(([label, value]) => (
+                <div className="rail-record" key={String(label)}><span>{String(label)}</span><b>{value == null ? "Unavailable" : String(value)}</b></div>
+              ))}
+              <p>Airport weather is nearest-time context. QNH supplies a pressure-altitude proxy; wind does not create a verdict.</p>
+            </>
+          )}
+          {detail.context?.aircraft && (
+            <>
+              <h2>Aircraft context</h2>
+              <div className="rail-record"><span>Type</span><b className="mono">{renderValue(detail.context.aircraft.typecode)}</b></div>
+              <div className="rail-record"><span>Model</span><b>{renderValue(detail.context.aircraft.model)}</b></div>
+              <p>Registry metadata may not represent the aircraft at the historical operation date.</p>
+            </>
+          )}
           <h2>Missing context</h2>
-          <p>Weather, QNH, mass, configuration and ATC intent are not inferred unless explicitly supplied by this release.</p>
+          <p>{detail.context?.unavailable?.length
+            ? `${detail.context.unavailable.map(humanize).join(", ")} remain unavailable.`
+            : "Weather, QNH, mass, configuration and ATC intent are not inferred unless explicitly supplied by this release."}</p>
           <h2>Reproducibility</h2>
           {Object.entries(provenance).map(([key, value]) => (
             <div className="rail-record" key={key}><span>{humanize(key)}</span><b className="mono" title={typeof value === "string" ? value : undefined}>{shortDigest(value)}</b></div>

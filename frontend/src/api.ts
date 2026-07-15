@@ -102,6 +102,11 @@ export interface ApproachDetail extends ApproachSummary {
   provenance?: Record<string, unknown> | null;
   geometry?: Record<string, unknown> | null;
   reference?: Record<string, unknown> | null;
+  context?: {
+    weather?: Record<string, unknown> | null;
+    aircraft?: Record<string, unknown> | null;
+    unavailable?: string[];
+  } | null;
   schema_version?: string;
   engine_version?: string;
   research_benchmark?: ApproachResearchBenchmark | null;

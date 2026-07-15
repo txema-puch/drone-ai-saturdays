@@ -10,6 +10,7 @@ import pytest
 
 from backend.core.approach_geometry import EARTH_RADIUS_M, load_lemd_geometry
 from backend.scripts import build_approach_release as builder
+from backend.scripts import build_contextual_approach_release as contextual_builder
 from backend.serve import approach_release
 
 
@@ -73,6 +74,42 @@ def test_builder_is_deterministic_and_emits_bounded_schema_v3(tmp_path: Path) ->
     assert (left / "attempts.json").read_bytes() == approach_release.canonical_json_bytes(
         json.loads((left / "attempts.json").read_text())
     )
+
+
+def test_contextual_builder_embeds_explicit_weather_type_and_qualification(tmp_path: Path) -> None:
+    input_path = tmp_path / "audited-2025.parquet"
+    frame = _approach_frame()
+    frame.to_parquet(input_path, index=False)
+    weather_dir = tmp_path / "weather"
+    weather_dir.mkdir()
+    (weather_dir / "lemd_isd_2023.csv").write_text(
+        '"STATION","DATE","REPORT_TYPE","WND","TMP","DEW","MA1","REM"\n'
+        '"08221099999","2023-11-14T22:13:20","FM-15",'
+        '"180,1,N,0050,1","+0100,1","+0050,1",'
+        '"10030,1,99999,9","METAR LEMD Q1003="\n'
+    )
+    aircraft_dir = tmp_path / "aircraft"
+    aircraft_dir.mkdir()
+    (aircraft_dir / "aircraftDatabase.part00").write_text(
+        '"icao24","typecode","manufacturername","model","categoryDescription"\n'
+        '"abc123","A320","Airbus","A320","Large"\n'
+    )
+    release_dir = tmp_path / "context-release"
+
+    manifest = contextual_builder.build_contextual_release(
+        input_path,
+        output=release_dir,
+        weather_dir=weather_dir,
+        aircraft_parts_dir=aircraft_dir,
+    )
+
+    assert approach_release.validate_release_directory(release_dir) == manifest
+    attempts = json.loads((release_dir / "attempts.json").read_text())["attempts"]
+    assert attempts[0]["assessment"]["engine_version"] == "approach_context_v1"
+    assert attempts[0]["assessment"]["context"]["weather"]["qnh_hpa"] == 1003.0
+    assert attempts[0]["assessment"]["context"]["aircraft"]["typecode"] == "A320"
+    config = json.loads((release_dir / "config/approach-config.json").read_text())
+    assert config["context_sources"]["qualification"].startswith("not_qualified")
 
 
 def test_validator_rejects_corruption_extras_and_symlinks(tmp_path: Path) -> None:

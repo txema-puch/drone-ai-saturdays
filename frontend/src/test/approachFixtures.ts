@@ -92,6 +92,18 @@ export const APPROACH_DETAIL: ApproachDetail = {
   },
   geometry: { artifact_sha256: "geometry0123456789" },
   reference: { artifact_sha256: "reference0123456789" },
+  context: {
+    weather: {
+      observed_at: "2026-03-16T10:00:00+00:00",
+      qnh_hpa: 1003,
+      wind_from_direction_deg: 180,
+      wind_speed_mps: 5,
+      headwind_mps: 4.8,
+      crosswind_from_right_mps: -1.2,
+    },
+    aircraft: { typecode: "A320", model: "Airbus A320" },
+    unavailable: ["aircraft_configuration", "actual_mass", "atc_clearance"],
+  },
   research_benchmark: {
     model_id: "historical-lstm-ae",
     segment_id: "legacy-segment-1",

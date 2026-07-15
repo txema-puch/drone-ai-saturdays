@@ -28,6 +28,11 @@ from backend.core.approach import (
 )
 from backend.core.approach_geometry import GEOMETRY_PATH, load_lemd_geometry
 from backend.core.approach_reference import REFERENCE_PATH, load_approach_reference
+from backend.core.contextual_approach import (
+    CONTEXT_ENGINE_VERSION,
+    CONTEXT_SCHEMA_VERSION,
+    assess_contextual_operation,
+)
 from backend.serve.approach_release import (
     ApproachReleaseError,
     canonical_json_bytes,
@@ -170,6 +175,7 @@ def build_payloads(
     reference: dict[str, Any],
     geometry_payload: dict[str, Any],
     benchmark: dict[str, Any] | None = None,
+    contextual: dict[str, Any] | None = None,
     max_case_observations: int = MAX_CASE_OBSERVATIONS,
 ) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
     """Assess every candidate operation and return payloads, source, and contracts."""
@@ -178,14 +184,18 @@ def build_payloads(
     if missing:
         raise ValueError(f"dataset missing required columns: {sorted(missing)}")
     geometry = load_lemd_geometry()
+    engine_version = CONTEXT_ENGINE_VERSION if contextual is not None else ENGINE_VERSION
     config_payload = {
         "schema_version": "approach_config_v1",
         "assessment_schema_version": ASSESSMENT_SCHEMA_VERSION,
-        "engine_version": ENGINE_VERSION,
+        "engine_version": engine_version,
         "reconstruction_policy_version": RECONSTRUCTION_POLICY_VERSION,
         "reconstruction_policy": RECONSTRUCTION_POLICY,
         "config": asdict(DEFAULT_CONFIG),
     }
+    if contextual is not None:
+        config_payload["context_schema_version"] = CONTEXT_SCHEMA_VERSION
+        config_payload["context_sources"] = contextual["sources"]
 
     attempt_records: list[dict[str, Any]] = []
     case_records: list[dict[str, Any]] = []
@@ -197,6 +207,20 @@ def build_payloads(
         operation_attempt_ids: list[str] = []
         operation_case_ids: list[str] = []
         operation_statuses: list[str] = []
+        contextual_assessments = None
+        if contextual is not None:
+            raw_icao24 = (_first_text(operation_frame, "icao24") or raw_id.split("_", 1)[0]).lower()
+            contextual_assessments = assess_contextual_operation(
+                operation_frame,
+                operation_id=operation_id,
+                weather=contextual["weather"],
+                aircraft_metadata=contextual["aircraft"].get(raw_icao24),
+                reference=reference,
+                geometry=geometry,
+                config=DEFAULT_CONFIG,
+            )["attempts"]
+            if len(contextual_assessments) != len(extracted):
+                raise ValueError("context changed release attempt reconstruction")
         for sequence, attempt_frame in enumerate(extracted, start=1):
             start_time = int(attempt_frame["time"].iloc[0])
             end_time = int(attempt_frame["time"].iloc[-1])
@@ -208,13 +232,21 @@ def build_payloads(
             }
             attempt_id = _identity("a", identity)
             case_id = _identity("c", identity)
-            assessment = _json_value(assess_approach(
-                attempt_frame,
-                operation_id=attempt_id,
-                geometry=geometry,
-                config=DEFAULT_CONFIG,
-                reference=reference,
-            ))
+            if contextual_assessments is None:
+                raw_assessment = assess_approach(
+                    attempt_frame,
+                    operation_id=attempt_id,
+                    geometry=geometry,
+                    config=DEFAULT_CONFIG,
+                    reference=reference,
+                )
+            else:
+                raw_assessment = contextual_assessments[sequence - 1]
+                raw_assessment["operation_id"] = attempt_id
+                raw_assessment["provenance"]["context_sources_sha256"] = hashlib.sha256(
+                    canonical_json_bytes(contextual["sources"])
+                ).hexdigest()
+            assessment = _json_value(raw_assessment)
             observations, downsampled = _case_observations(
                 attempt_frame, assessment, limit=max_case_observations
             )
@@ -291,7 +323,11 @@ def build_payloads(
         "limitations": [
             "Retrospective ADS-B-observable screening; not live monitoring or ATC decision support.",
             "Review-required means an observable proxy crossed a provisional criterion; it is not a certified unstable-approach finding.",
-            "Weather, QNH, wind, mass, configuration, clearance and intent are absent from this ADS-B-only release.",
+            (
+                "QNH, airport wind and current-registry aircraft type are contextual proxies; actual mass, configuration, clearance and intent remain unavailable."
+                if contextual is not None
+                else "Weather, QNH, wind, mass, configuration, clearance and intent are absent from this ADS-B-only release."
+            ),
             "Parallel runway assignment may remain direction-level where observed geometry is ambiguous.",
             "The historical LSTM is optional research evidence and never changes the approach verdict or queue priority.",
         ],
@@ -311,13 +347,17 @@ def build_payloads(
         payloads["research/benchmark.json"] = benchmark
     contracts = {
         "assessment_schema_version": ASSESSMENT_SCHEMA_VERSION,
-        "engine_version": ENGINE_VERSION,
+        "engine_version": engine_version,
         "reconstruction_policy_version": RECONSTRUCTION_POLICY_VERSION,
         "case_observation_limit": max_case_observations,
         "approach_config_sha256": hashlib.sha256(canonical_json_bytes(config_payload)).hexdigest(),
         "geometry_source_sha256": geometry.artifact_sha256,
         "reference_sha256": reference["artifact_sha256"],
     }
+    if contextual is not None:
+        contracts["context_sources_sha256"] = hashlib.sha256(
+            canonical_json_bytes(contextual["sources"])
+        ).hexdigest()
     source = {
         "input_sha256": input_sha256,
         "rows": len(frame),
