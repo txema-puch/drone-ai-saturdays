@@ -62,6 +62,9 @@ contextual_iteration:
   deploy:
     allowed_role: "research_and_evidence_labeling_demonstrator"
     operational_claims: "blocked"
+    publication: "published_verified"
+    hf_revision: "1f1ac1bd2e8ca2cf6ff868d372e7508b902cfc13"
+    archive_sha256: "52e4cbd799c62ba40c701d6d07a9b9c48cdcb031e288108f455a6eeb26e8b182"
 
 # Gate ledger — append, never rewrite.
 gates:

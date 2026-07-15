@@ -49,7 +49,7 @@ gates:
     artifact: "backend/docs/ml/iterations/approach-context/07-eval.md"
     reason: "no_independent_labels_or_fresh_holdout"
   deploy:
-    status: "research_candidate"
+    status: "published_research_candidate"
     artifact: "backend/docs/ml/iterations/approach-context/08-deploy.md"
     operational_claims: "blocked"
 
@@ -81,7 +81,11 @@ release_candidate:
   context_sources_sha256: "eef2a7a32ee55ee079d4263dc5c7eb339aa250837256c2e00325b5d5b401402e"
   input_sha256: "8256c65f95135597f3db07413941380fc2a0c6bbfc429b07b12b10478f7e2c10"
   source_commit: "6e5237f1baca8d1a93703f1dd939e4d7dcc69c59"
-  publication: "pending_review"
+  publication: "published_verified"
+  hf_revision: "1f1ac1bd2e8ca2cf6ff868d372e7508b902cfc13"
+  archive_sha256: "52e4cbd799c62ba40c701d6d07a9b9c48cdcb031e288108f455a6eeb26e8b182"
+  published_at: "2026-07-15T10:41:58Z"
+  anonymous_install_verified: true
   opensky_publication_notice: "owner_action_required_after_live_publication"
 
 promotion_gate:

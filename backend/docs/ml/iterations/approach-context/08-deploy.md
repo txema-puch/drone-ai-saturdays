@@ -24,9 +24,13 @@ Allowed: inspect evidence, test the analyst workflow, export review packets, and
 Blocked: operational monitoring, emergency detection, stabilized-approach certification, ATC
 decision support, safety-performance claims, or claims that context improves accuracy.
 
-## Publication gate
+## Publication record
 
-Publication to the existing immutable Hugging Face artifact repository and Fly deployment may
-occur only after code review, full tests, strict anonymous artifact installation, container
-smoke testing, and live QA. Promotion beyond research requires independent labels and another
-precommitted untouched cohort.
+The candidate was published to `Txemapuch/sadar-demo-release` on 2026-07-15 at immutable
+revision `1f1ac1bd2e8ca2cf6ff868d372e7508b902cfc13`. The deterministic archive SHA-256 is
+`52e4cbd799c62ba40c701d6d07a9b9c48cdcb031e288108f455a6eeb26e8b182`. Both the publisher's
+anonymous redownload and the independent CI fetch path installed and strictly validated release
+`df22ce72488273f28c8a`.
+
+Fly deployment, remote container smoke, and live QA remain the delivery gate. Promotion beyond
+research requires independent labels and another precommitted untouched cohort.
