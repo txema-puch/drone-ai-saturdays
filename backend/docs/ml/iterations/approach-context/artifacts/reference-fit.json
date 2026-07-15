@@ -1,18 +1,18 @@
 {
-  "accepted_attempts": 3779,
+  "accepted_attempts": 3792,
   "candidate_operations": 8594,
   "diagnostics": {
     "direction": {
       "18": 599,
-      "32": 3180
+      "32": 3193
     },
     "speed_class": {
       "A20N": 20,
       "A306": 8,
       "A310": 5,
       "A318": 2,
-      "A319": 442,
-      "A320": 872,
+      "A319": 445,
+      "A320": 878,
       "A321": 377,
       "A332": 154,
       "A333": 90,
@@ -21,22 +21,22 @@
       "A359": 15,
       "A388": 12,
       "A400": 2,
-      "AT76": 69,
+      "AT76": 70,
       "B38M": 4,
       "B733": 6,
       "B734": 25,
       "B735": 2,
       "B737": 17,
-      "B738": 846,
+      "B738": 847,
       "B739": 19,
       "B744": 6,
       "B752": 15,
-      "B763": 44,
+      "B763": 45,
       "B764": 15,
       "B772": 19,
       "B773": 1,
       "B77W": 10,
-      "B788": 93,
+      "B788": 94,
       "B789": 72,
       "BCS1": 3,
       "BCS3": 13,
@@ -73,11 +73,11 @@
       "unknown": 19
     },
     "year": {
-      "2017": 1782,
+      "2017": 1795,
       "2018": 1997
     }
   },
-  "eligible_attempts": 3789,
+  "eligible_attempts": 3804,
   "exact_type_cells": 90,
   "exact_typecodes": [
     "A319",
@@ -96,25 +96,25 @@
     "E195"
   ],
   "reference_cells": 100,
-  "reference_sha256": "93903a371728257390b2099aae44bf040f1ea212714d85f80dc6b47dcf0e2f24",
+  "reference_sha256": "68ea1a974a077e0b2ef8322564d7799c5fd52cbd21db42b8d5bf1badad57d328",
   "rejected_attempts": {
     "go_around": 22,
-    "quality_or_coverage": 460
+    "quality_or_coverage": 463
   },
   "schema_version": "approach_context_reference_fit_v1",
-  "source_commit": "6e5237f1baca8d1a93703f1dd939e4d7dcc69c59",
+  "source_commit": "305166924590940b6fad9ad62dd0a736fcd698ee",
   "top_typecodes": [
     [
       "A320",
-      873
+      879
     ],
     [
       "B738",
-      846
+      847
     ],
     [
       "A319",
-      443
+      446
     ],
     [
       "A321",
@@ -134,7 +134,7 @@
     ],
     [
       "B788",
-      93
+      94
     ],
     [
       "A333",
@@ -150,19 +150,19 @@
     ],
     [
       "AT76",
-      69
+      70
     ],
     [
       "B763",
-      44
+      45
+    ],
+    [
+      "unknown",
+      27
     ],
     [
       "B734",
       26
-    ],
-    [
-      "unknown",
-      25
     ],
     [
       "A20N",
@@ -185,6 +185,6 @@
       15
     ]
   ],
-  "typed_attempt_rate": 0.9934,
+  "typed_attempt_rate": 0.9929,
   "unknown_fallback_cells": 10
 }

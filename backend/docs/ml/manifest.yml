@@ -53,8 +53,8 @@ contextual_iteration:
   lifecycle_manifest: "backend/docs/ml/iterations/approach-context/manifest.yml"
   sources_passed: ["weather_qnh", "aircraft_type"]
   sources_failed: ["wind_coverage", "aircraft_configuration", "actual_mass", "atc_clearance"]
-  reference_sha256: "93903a371728257390b2099aae44bf040f1ea212714d85f80dc6b47dcf0e2f24"
-  release_candidate: "df22ce72488273f28c8a"
+  reference_sha256: "68ea1a974a077e0b2ef8322564d7799c5fd52cbd21db42b8d5bf1badad57d328"
+  release_candidate: "491f81fb1d896b0d793e"
   eval:
     decision: "not_qualified_no_independent_labels_or_fresh_holdout"
     independent_labels: false
@@ -62,9 +62,8 @@ contextual_iteration:
   deploy:
     allowed_role: "research_and_evidence_labeling_demonstrator"
     operational_claims: "blocked"
-    publication: "published_verified"
-    hf_revision: "1f1ac1bd2e8ca2cf6ff868d372e7508b902cfc13"
-    archive_sha256: "52e4cbd799c62ba40c701d6d07a9b9c48cdcb031e288108f455a6eeb26e8b182"
+    publication: "pending_review"
+    superseded_release: "df22ce72488273f28c8a"
 
 # Gate ledger — append, never rewrite.
 gates:

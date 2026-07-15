@@ -1,6 +1,6 @@
 {
   "aircraft_metadata_sha256": "d40c8a7b3825dfca896fe234de56040a70e7a215ee34a895468116e51e1afcae",
-  "attempts": 4272,
+  "attempts": 4290,
   "availability_gates": {
     "actual_mass": "failed_no_observed_source",
     "aircraft_configuration": "failed_no_observed_source",
@@ -11,14 +11,14 @@
   },
   "cohort": "train",
   "coverage": {
-    "aircraft_metadata_rate": 0.992,
-    "aircraft_typecode_rate": 0.992,
+    "aircraft_metadata_rate": 0.9916,
+    "aircraft_typecode_rate": 0.9916,
     "barometric_path_current_rate": 0.5368,
     "barometric_path_qnh_context_upper_bound_rate": 0.9972,
     "qnh_rate": 0.9972,
     "weather_match_rate": 0.9972,
-    "wind_components_rate": 0.8146,
-    "wind_direction_rate": 0.8146,
+    "wind_components_rate": 0.8145,
+    "wind_direction_rate": 0.8145,
     "wind_speed_rate": 0.9972
   },
   "interpretation_limits": [
@@ -33,23 +33,23 @@
   "schema_version": "approach_context_audit_v1",
   "source_sha256": "97344b4ab03af7ef0a404d26591ba3e0303198b21cf3528a4faaa007637cb478",
   "status_counts": {
-    "criteria_observed": 2026,
-    "not_assessable": 460,
-    "partial_observation": 1506,
-    "review_required": 280
+    "criteria_observed": 2035,
+    "not_assessable": 463,
+    "partial_observation": 1510,
+    "review_required": 282
   },
   "top_typecodes": [
     [
       "A320",
-      1008
+      1014
     ],
     [
       "B738",
-      940
+      942
     ],
     [
       "A319",
-      501
+      503
     ],
     [
       "A321",
@@ -57,11 +57,11 @@
     ],
     [
       "CRJX",
-      225
+      226
     ],
     [
       "A332",
-      173
+      174
     ],
     [
       "E195",
@@ -77,19 +77,19 @@
     ],
     [
       "B788",
-      97
+      98
     ],
     [
       "AT76",
-      76
+      77
     ],
     [
       "B789",
-      75
+      76
     ],
     [
       "B763",
-      47
+      48
     ],
     [
       "B734",
@@ -122,7 +122,7 @@
   ],
   "weather_missing_reason_counts": {
     "latest_prior_weather_observation_too_old": 12,
-    "wind_direction_missing_or_variable": 780
+    "wind_direction_missing_or_variable": 784
   },
   "weather_source_sha256": {
     "lemd_isd_2017.csv": "ab3171338ad1db3b42f00c979d4baba3485f2ae46e2ddaf963bf882713a3a056",

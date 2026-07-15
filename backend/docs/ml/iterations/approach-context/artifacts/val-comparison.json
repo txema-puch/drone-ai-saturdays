@@ -68,7 +68,7 @@
       "within_limit": 2360
     }
   },
-  "context_reference_sha256": "93903a371728257390b2099aae44bf040f1ea212714d85f80dc6b47dcf0e2f24",
+  "context_reference_sha256": "68ea1a974a077e0b2ef8322564d7799c5fd52cbd21db42b8d5bf1badad57d328",
   "context_review_rate_among_assessable": 0.1536,
   "context_status_counts": {
     "criteria_observed": 1348,
@@ -89,7 +89,7 @@
     "context_only": 134
   },
   "schema_version": "approach_context_comparison_v1",
-  "source_commit": "6e5237f1baca8d1a93703f1dd939e4d7dcc69c59",
+  "source_commit": "305166924590940b6fad9ad62dd0a736fcd698ee",
   "source_sha256": "97344b4ab03af7ef0a404d26591ba3e0303198b21cf3528a4faaa007637cb478",
   "status_transition_counts": {
     "criteria_observed->criteria_observed": 1256,

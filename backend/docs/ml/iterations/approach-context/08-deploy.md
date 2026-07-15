@@ -2,10 +2,10 @@
 
 ## Candidate contract
 
-The local immutable schema-v3 candidate is release `df22ce72488273f28c8a` with:
+The local immutable schema-v3 candidate is release `491f81fb1d896b0d793e` with:
 
 - engine `approach_context_v1`;
-- reference digest `93903a371728257390b2099aae44bf040f1ea212714d85f80dc6b47dcf0e2f24`;
+- reference digest `68ea1a974a077e0b2ef8322564d7799c5fd52cbd21db42b8d5bf1badad57d328`;
 - context-source contract digest
   `eef2a7a32ee55ee079d4263dc5c7eb339aa250837256c2e00325b5d5b401402e`;
 - 388 newer-source attempts: 124 not assessable, 163 partial, 51 criteria observed, and
@@ -26,11 +26,10 @@ decision support, safety-performance claims, or claims that context improves acc
 
 ## Publication record
 
-The candidate was published to `Txemapuch/sadar-demo-release` on 2026-07-15 at immutable
-revision `1f1ac1bd2e8ca2cf6ff868d372e7508b902cfc13`. The deterministic archive SHA-256 is
-`52e4cbd799c62ba40c701d6d07a9b9c48cdcb031e288108f455a6eeb26e8b182`. Both the publisher's
-anonymous redownload and the independent CI fetch path installed and strictly validated release
-`df22ce72488273f28c8a`.
+Release `df22ce72488273f28c8a` was published to `Txemapuch/sadar-demo-release` on 2026-07-15,
+then superseded before deployment when final red-team review found a prompt re-approach boundary
+defect. It remains immutable provenance but must not be deployed. Replacement candidate
+`491f81fb1d896b0d793e` is pending publication and independent anonymous installation.
 
 Fly deployment, remote container smoke, and live QA remain the delivery gate. Promotion beyond
 research requires independent labels and another precommitted untouched cohort.
