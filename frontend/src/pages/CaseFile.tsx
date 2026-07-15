@@ -217,7 +217,7 @@ export default function CaseFile() {
           </details>
         </div>
 
-        <aside className="context-rail dossier-rail sans" aria-label="Quality and provenance">
+        <aside className="context-rail dossier-rail sans" aria-label="Quality and provenance" tabIndex={0}>
           <h2>Quality gate</h2>
           {detail.quality ? Object.entries(detail.quality).map(([key, value]) => (
             <div className="rail-record" key={key}><span>{humanize(key)}</span><b>{renderValue(value)}</b></div>
