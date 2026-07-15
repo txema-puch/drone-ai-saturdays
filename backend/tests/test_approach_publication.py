@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import shutil
 from datetime import UTC, datetime
 from pathlib import Path
@@ -11,7 +12,9 @@ from backend.serve.approach_release import load_release_directory
 
 
 REPO = Path(__file__).resolve().parents[2]
-SOURCE = REPO / "backend/models/sadar_approach_v3"
+SOURCE = Path(
+    os.environ.get("SADAR_APPROACH_RELEASE_DIR", REPO / "backend/models/sadar_approach_v3")
+)
 REVISION = "a" * 40
 URL = (
     "https://huggingface.co/Txemapuch/sadar-demo-release/resolve/"

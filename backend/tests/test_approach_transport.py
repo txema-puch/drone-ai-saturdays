@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import gzip
 import io
+import os
 import tarfile
 from pathlib import Path
 
@@ -12,7 +13,9 @@ from backend.serve.approach_release import load_release_directory
 
 
 REPO = Path(__file__).resolve().parents[2]
-SOURCE = REPO / "backend/models/sadar_approach_v3"
+SOURCE = Path(
+    os.environ.get("SADAR_APPROACH_RELEASE_DIR", REPO / "backend/models/sadar_approach_v3")
+)
 
 
 def test_archive_is_deterministic_and_extracts_exact_release(tmp_path: Path):
