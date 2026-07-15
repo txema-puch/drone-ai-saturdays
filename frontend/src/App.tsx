@@ -9,18 +9,20 @@ import "./pages/approach.css";
 export default function App() {
   return (
     <div className="app-shell">
-      <header className="app-nav sans">
-        <NavLink className="app-brand" to="/" aria-label="SADAR Analyst Console home">
-          SADAR <span>/ ANALYST CONSOLE</span>
-        </NavLink>
-        <nav aria-label="Primary navigation">
-          <NavLink to="/" end>Attempts</NavLink>
-          <NavLink to="/evaluate">Evaluate data</NavLink>
-        </nav>
-      </header>
-      <div className="app-qualification sans" role="note" aria-label="Research qualification">
-        <b>Research candidate</b>
-        <span>Not operationally qualified. Use for evidence inspection and labeling only.</span>
+      <div className="app-chrome">
+        <header className="app-nav sans">
+          <NavLink className="app-brand" to="/" aria-label="SADAR Analyst Console home">
+            SADAR <span>/ ANALYST CONSOLE</span>
+          </NavLink>
+          <nav aria-label="Primary navigation">
+            <NavLink to="/" end>Attempts</NavLink>
+            <NavLink to="/evaluate">Evaluate data</NavLink>
+          </nav>
+        </header>
+        <div className="app-qualification sans" role="note" aria-label="Research qualification">
+          <b>Research candidate</b>
+          <span>Not operationally qualified. Use for evidence inspection and labeling only.</span>
+        </div>
       </div>
       <div className="app-content">
         <Routes>
