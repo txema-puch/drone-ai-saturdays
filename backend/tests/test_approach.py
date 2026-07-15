@@ -161,3 +161,21 @@ def test_later_corridor_reentry_becomes_a_second_attempt():
     assert [item["operation_id"] for item in result["attempts"]] == [
         "fixture:attempt-1", "fixture:attempt-2"
     ]
+
+
+def test_outcome_extension_does_not_merge_a_prompt_corridor_reentry():
+    first = _fixture().iloc[:65].copy()
+    exit_rows = first.iloc[-3:].copy()
+    exit_rows["time"] = np.arange(1, 4) * 10 + int(first["time"].iloc[-1])
+    exit_rows["lat"] = 41.0
+    exit_rows["lon"] = -2.5
+    second = _fixture().copy()
+    second["time"] += int(exit_rows["time"].iloc[-1] - second["time"].iloc[0] + 10)
+    operation = pd.concat([first, exit_rows, second], ignore_index=True)
+
+    attempts = extract_approach_attempts(operation)
+    result = assess_operation(operation, operation_id="prompt-reentry")
+
+    assert len(attempts) == 2
+    assert attempts[0]["time"].max() < attempts[1]["time"].min()
+    assert result["attempt_count"] == 2

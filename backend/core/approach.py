@@ -340,27 +340,32 @@ def extract_approach_attempts(
     if observations.empty:
         return []
     time = observations["time"].to_numpy(dtype="int64")
-    candidates: list[tuple[int, int]] = []
+    supported_candidates: list[tuple[int, int]] = []
     for runway in geometry.landing_thresholds:
         for start, supported_end in _supported_gate_runs(observations, runway, config):
-            extension_limit = time[supported_end] + config.outcome_extension_s
-            end = int(np.searchsorted(time, extension_limit, side="right") - 1)
-            candidates.append((start, max(supported_end, end)))
-    if not candidates:
+            supported_candidates.append((start, supported_end))
+    if not supported_candidates:
         return []
 
-    candidates.sort()
+    supported_candidates.sort()
     clusters: list[list[tuple[int, int]]] = []
-    for candidate in candidates:
+    for candidate in supported_candidates:
         if not clusters or candidate[0] > max(end for _, end in clusters[-1]):
             clusters.append([candidate])
         else:
             clusters[-1].append(candidate)
 
     attempts = []
-    for cluster in clusters:
-        start = min(item[0] for item in cluster)
-        end = max(item[1] for item in cluster)
+    cluster_bounds = [
+        (min(item[0] for item in cluster), max(item[1] for item in cluster))
+        for cluster in clusters
+    ]
+    for cluster_index, (start, supported_end) in enumerate(cluster_bounds):
+        extension_limit = time[supported_end] + config.outcome_extension_s
+        end = int(np.searchsorted(time, extension_limit, side="right") - 1)
+        if cluster_index + 1 < len(cluster_bounds):
+            end = min(end, cluster_bounds[cluster_index + 1][0] - 1)
+        end = max(supported_end, end)
         candidate = observations.iloc[start:end + 1].reset_index(drop=True)
         if infer_runway(candidate, geometry=geometry, config=config).get("geometry_runway"):
             attempts.append(candidate)
