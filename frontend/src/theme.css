@@ -41,6 +41,11 @@
   --s3: 14px;
   --s4: 18px;
   --s5: 28px;
+
+  /* desktop sticky stack: 54px navigation + 44px qualification boundary */
+  --app-chrome-height: 98px;
+  --sticky-context-top: 124px;
+  --sticky-context-clearance: 148px;
 }
 
 * {
@@ -56,6 +61,11 @@ body,
 
 .app-shell {
   min-height: 100%;
+}
+.app-chrome {
+  position: sticky;
+  top: 0;
+  z-index: 30;
 }
 .app-nav {
   height: 54px;
@@ -112,6 +122,10 @@ body,
 .app-qualification b { color: var(--amber); }
 .app-content {
   min-height: calc(100vh - 98px);
+}
+
+@media (max-width: 767px) {
+  .app-chrome { position: static; }
 }
 
 html {

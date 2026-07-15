@@ -223,7 +223,7 @@ export default function Queue() {
           )}
         </section>
 
-        <aside className="context-rail sans" aria-label="Cohort status summary">
+        <aside className="context-rail queue-rail sans" aria-label="Cohort status summary">
           <h2>Status scope</h2>
           {STATUS_OPTIONS.map((status) => (
             <button key={status} onClick={() => setFilter("status", status)} aria-pressed={filters.status === status}>

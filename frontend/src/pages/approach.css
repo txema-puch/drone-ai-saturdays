@@ -410,7 +410,16 @@
 .research-benchmark dt { color: var(--mut); font-size: 11px; }
 .research-benchmark dd { margin: 5px 0 0; color: var(--ink); overflow-wrap: anywhere; }
 
-.dossier-rail { position: sticky; top: 76px; max-height: calc(100vh - 96px); overflow-y: auto; }
+.dossier-rail,
+.queue-rail {
+  position: sticky;
+  top: var(--sticky-context-top);
+  align-self: start;
+  max-height: calc(100vh - var(--sticky-context-clearance));
+  max-height: calc(100dvh - var(--sticky-context-clearance));
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+}
 .rail-record { padding: 10px 0; border-bottom: 1px solid var(--edge); }
 .rail-record span { display: block; color: var(--mut); font-size: 11px; }
 .rail-record b { display: block; margin-top: 4px; overflow-wrap: anywhere; color: var(--ink); font-size: 12px; font-weight: 500; }
@@ -458,11 +467,24 @@
 .operation-attempts time { color: var(--mut); font-family: var(--sans); font-size: 12px; }
 .operation-index { color: var(--mut); }
 
+@media (min-width: 1360px) {
+  .attempt-filters {
+    position: sticky;
+    top: var(--app-chrome-height);
+    z-index: 20;
+    padding-top: 14px;
+    background: var(--bg);
+  }
+
+  .attempt-record { scroll-margin-top: 220px; }
+}
+
 @media (max-width: 1199px) {
   .queue-layout,
   .dossier-layout,
   .evaluate-layout { grid-template-columns: 1fr; }
   .context-rail { margin-top: 12px; }
+  .queue-rail,
   .dossier-rail { position: static; max-height: none; overflow: visible; }
   .context-rail > button { max-width: 520px; }
 }
