@@ -76,8 +76,9 @@ When the team makes a decision (use case, modality, dataset), record it in `back
   labels exist.
 - Current immutable artifact: release `491f81fb1d896b0d793e`, Hugging Face revision
   `db1a1a9232b3b96276a169a070852f619eec7c21`. Operational and safety claims remain blocked.
-- Issue #33 is published on branch `feature/approach-conformance-reframe`; the pull request is
-  pending. See `backend/docs/tasks/33-approach-conformance-reframe.md`.
+- Issue #33 is merged into `develop` and the research candidate is live at
+  `https://sadar-analyst-console.fly.dev`. PRs #34–#36 contain the implementation and final UI
+  follow-ups. See `backend/docs/tasks/33-approach-conformance-reframe.md`.
 
 ## Historical project snapshot (2026-05-23)
 

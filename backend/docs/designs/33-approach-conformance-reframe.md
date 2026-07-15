@@ -1,8 +1,8 @@
 # SADAR approach-conformance reframe
 
-**Status:** implemented; qualification failed; operational deploy blocked
+**Status:** research deployment live; qualification failed; operational use blocked
 **Date:** 2026-07-14
-**Branch:** `feature/approach-conformance-reframe`
+**Implementation branch:** `feature/approach-conformance-reframe` (merged into `develop` via PR #34)
 
 ## Decision
 
@@ -340,8 +340,7 @@ channels and rejection reasons.
 - [x] Queue, case file, filters, exports, and copy are approach-first.
 - [x] The LSTM is benchmark-only and cannot affect the verdict.
 - [x] Deterministic backend and frontend regression suites pass.
-- [ ] Clean container build and HTTP smoke test pass in CI/remote builder; the local Docker
-  daemon is unavailable.
+- [x] Clean container build and HTTP smoke test pass in GitHub Actions and the Fly remote builder.
 - [x] README, architecture, ML limitations, and design documentation match the candidate behavior.
 
 ## Qualification outcome
@@ -428,7 +427,7 @@ parallel, then converge for contract and end-to-end tests.
 - [x] **T2 (P1)** — Fit, validate and serialize source-stratified empirical references.
 - [x] **T3 (P1)** — Generate schema-v3 approach evidence and migrate serving/upload contracts.
 - [x] **T4 (P1)** — Build the validated analyst information architecture and evidence views.
-- [ ] **T5 (P1)** — Complete lifecycle artifacts, review, live QA and PR handoff.
+- [x] **T5 (P1)** — Complete lifecycle artifacts, review, live QA and PR handoff.
 - [x] **T6 (P2)** — Run the contextual data/reference lifecycle and record failed qualification.
 
 ## GSTACK REVIEW REPORT

@@ -1,8 +1,8 @@
 ---
 id: 33
 title: Approach-conformance product and ML lifecycle reframe
-status: contextual_research_candidate_published_pr_pending
-branch: feature/approach-conformance-reframe
+status: deployed_research_candidate_operational_use_blocked
+branch: develop
 created: 2026-07-14
 ---
 
@@ -40,7 +40,8 @@ own the result; the old LSTM is research context only.
 - [x] Record the failed qualification: 63.1% retention vs 65%; precision unknown.
 - [x] Update product, architecture, lifecycle and limitation documentation.
 - [x] Run `/review` and `/qa`; push the branch and publish the immutable release artifacts.
-- [ ] Complete `/ship` and open a PR.
+- [x] Complete `/ship`, merge the implementation PR, deploy the research candidate and verify
+  the public analyst workflow.
 
 ## Subsequent contextual iteration
 
@@ -70,6 +71,12 @@ own the result; the old LSTM is research context only.
 - Contextual 2025 audit: QNH 96.39% (pass), wind 78.09% (fail), type 84.28% (pass); review
   status 40→50 and barometric-path observability 1→337, with correctness unknown because labels
   are absent.
+- Research deployment: PR #34 merged into `develop`; UI follow-ups #35 and #36 merged; Fly
+  release v3 serves image `deployment-01KXK13NEF7M109WK0W1KF9Y4C` at
+  `https://sadar-analyst-console.fly.dev` with release `491f81fb1d896b0d793e`.
+- Live QA: queue, dossier, health contract, responsive sticky context, sample CSV evaluation and
+  evidence export completed without browser-console errors. The sample returned one partial
+  observation from 31/31 accepted rows.
 - Context lifecycle: `backend/docs/ml/iterations/approach-context/manifest.yml`.
 
 ## Risks

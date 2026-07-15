@@ -11,8 +11,9 @@ Three lifecycle tracks are preserved explicitly:
   product verdict.
 - **Approach-screening v1:** implementation and schema-v3 artifact complete. The sealed 2026
   evaluation retained 63.1% of attempts against a 65% target and has no independent precision
-  labels. Qualification failed and operational deployment is blocked. The console may only be
-  presented as a post-flight research and evidence-labeling demonstrator.
+  labels. Qualification failed and operational use is blocked. The research console is live at
+  `https://sadar-analyst-console.fly.dev` and may only be presented as a post-flight research and
+  evidence-labeling demonstrator.
 - **Contextual approach v1:** NOAA QNH and OpenSky aircraft type pass development coverage gates;
   latest-prior airport wind reaches 78.09% and misses its 80% gate. The evidence is packaged as an
   explicit research candidate. Context changes coverage and workload, but no independent labels

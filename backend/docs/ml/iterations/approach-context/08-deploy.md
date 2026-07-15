@@ -35,5 +35,25 @@ Corrected release `491f81fb1d896b0d793e` was published at immutable revision
 `1f135728a0c235c245b5107a509cb73f1757ac4ced7346f123a1ea70a732c093`. Both the publisher and
 the independent CI fetch path anonymously installed and strictly validated that release.
 
-Fly deployment, remote container smoke, and live QA remain the delivery gate. Promotion beyond
-research requires independent labels and another precommitted untouched cohort.
+## Deployment record
+
+The research candidate was deployed on Fly.io on 2026-07-15 after PR #34 merged into `develop`.
+UI follow-ups #35 and #36 added scroll-persistent analyst context and keyboard-scrollable evidence
+rails before the final rollout. Fly release v3 serves image
+`deployment-01KXK13NEF7M109WK0W1KF9Y4C` from source commit `ad4fab9` at
+`https://sadar-analyst-console.fly.dev`.
+
+Remote delivery evidence is complete:
+
+- GitHub clean-checkout backend, frontend, image-stage and distributed-image HTTP smoke checks
+  passed for the implementation and both UI follow-ups;
+- Fly reports machine `7814251f390958` healthy in `cdg`, with one passing service check;
+- `/api/health` reports schema 3, release `491f81fb1d896b0d793e`, reference digest
+  `68ea1a974a077e0b2ef8322564d7799c5fd52cbd21db42b8d5bf1badad57d328`, and evaluation/context
+  enabled;
+- live browser QA covered the queue, a review-required dossier, responsive layouts, sticky queue
+  context, sample CSV evaluation and JSON evidence export without console errors;
+- the working sample accepted 31/31 rows and returned one partial-observation attempt.
+
+This closes the research-delivery gate only. Promotion beyond research still requires independent
+labels and another precommitted untouched cohort.
