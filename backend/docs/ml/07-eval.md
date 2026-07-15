@@ -1,9 +1,9 @@
 # Phase 7 - Evaluation
 
-**Status:** passed  
-**Date:** 2026-06-02  
-**Issue:** #29  
-**Test set:** burned once  
+**Status:** passed
+**Date:** 2026-06-02
+**Issue:** #29
+**Test set:** burned once
 **Provenance:** Git commit `7b7bbf3` (`feat(phase7): burn sealed test + blind
 real-anomaly head-to-head - close eval gate`)
 

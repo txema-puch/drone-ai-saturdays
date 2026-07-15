@@ -5,7 +5,7 @@
 > thresholds. A contextual or replacement release needs independent labels and another untouched
 > release-gate cohort. Earlier LSTM findings below remain historical inputs.
 
-**Snapshot date:** 2026-07-11  
+**Snapshot date:** 2026-07-11
 **Purpose:** close the current course-project iteration without losing the findings needed
 to restart the work responsibly. This is a future-work register, not an active sprint.
 
