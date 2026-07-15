@@ -97,11 +97,20 @@ def apply_filter_b(df: pd.DataFrame) -> pd.DataFrame:
     return df.loc[df["flight_id"].isin(keep_ids)].copy()
 
 
-def apply_derivations(df: pd.DataFrame) -> pd.DataFrame:
+def apply_derivations(
+    df: pd.DataFrame,
+    *,
+    diagnostics: dict[str, int] | None = None,
+) -> pd.DataFrame:
     """Apply the per-row derivations + Filter B (trajectory level).
 
     Mirrors `OpenSkyService.build_master_table`'s derivation block.
     """
+    if diagnostics is not None:
+        diagnostics["input_rows"] = int(len(df))
+        diagnostics["outside_radius_rows"] = 0
+        diagnostics["filter_b_rows"] = 0
+        diagnostics["filter_b_trajectories"] = 0
     if df.empty:
         return pd.DataFrame(columns=OUTPUT_COLUMNS)
 
@@ -116,13 +125,24 @@ def apply_derivations(df: pd.DataFrame) -> pd.DataFrame:
     df["dist_to_runway_m"] = distance_to_closest_runway(df["lat"], df["lon"])
 
     # Exact 200 km haversine filter (the bbox was a cheap pre-cut).
-    df = df.loc[df["dist_to_runway_m"] <= MAX_RADIUS_M].copy()
+    in_radius = df["dist_to_runway_m"] <= MAX_RADIUS_M
+    if diagnostics is not None:
+        diagnostics["outside_radius_rows"] = int((~in_radius).sum())
+    df = df.loc[in_radius].copy()
     if df.empty:
         return pd.DataFrame(columns=OUTPUT_COLUMNS)
 
     df = add_flight_id(df)
 
+    before_filter_b = df
     df = apply_filter_b(df)
+    if diagnostics is not None:
+        kept_ids = set(df["flight_id"].astype(str))
+        rejected = ~before_filter_b["flight_id"].astype(str).isin(kept_ids)
+        diagnostics["filter_b_rows"] = int(rejected.sum())
+        diagnostics["filter_b_trajectories"] = int(
+            before_filter_b.loc[rejected, "flight_id"].nunique()
+        )
     if df.empty:
         return pd.DataFrame(columns=OUTPUT_COLUMNS)
 
@@ -135,4 +155,7 @@ def apply_derivations(df: pd.DataFrame) -> pd.DataFrame:
         if c not in df.columns:
             df[c] = None
 
+    if diagnostics is not None:
+        diagnostics["output_rows"] = int(len(df))
+        diagnostics["output_trajectories"] = int(df["flight_id"].nunique())
     return df[OUTPUT_COLUMNS]

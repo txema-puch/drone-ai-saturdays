@@ -1,0 +1,286 @@
+/*
+ * SADAR Analyst Console — Direction C "Forensic Dossier".
+ * Token source of truth: /DESIGN.md (repo root). This file is the React
+ * implementation of those tokens. Real font faces (deferred a11y TODO from
+ * DESIGN.md) are bundled via @fontsource imports in main.tsx — no external CDN.
+ *
+ * Contrast (DESIGN.md fix #5): --mut #8b8e98 verified ≈5.5:1 on --bg and
+ * ≈5.1:1 on --panel — both pass WCAG-AA (≥4.5:1) for normal text.
+ */
+
+:root {
+  --bg: #13161c;       /* page — dark slate, NOT radar-green */
+  --panel: #191d25;    /* cards */
+  --panel2: #1c212b;   /* inputs / nested surfaces */
+  --map-bg: #11141a;   /* chart/map canvas (slightly under --bg) */
+  --edge: #2b313d;     /* borders / rules */
+  --control-edge: #687386; /* interactive boundaries — ≥3:1 on --panel2 */
+  --chart-grid: #303847;
+  --chart-context: #586477; /* meaningful non-text evidence — ≥3:1 on --map-bg */
+  --chart-muted: #9da3ae; /* small chart labels — ≥4.5:1 on --map-bg */
+  --ink: #e7e3d8;      /* primary text — paper-cream */
+  --mut: #9b9da6;      /* secondary text */
+  --accent: #c9a25a;   /* gold — interactive / case numbers */
+  --visited: #aa9168;  /* subdued bronze — previously visited navigation */
+  --amber: #e0a93b;    /* severity: elevated / go-around */
+  --red: #e0564f;      /* severity: high / emergency */
+  --blue: #6f8fb5;     /* observed trajectory evidence */
+  --status-review: #e0564f;
+  --status-partial: #e0a93b;
+  --status-observed: #8fa395;
+  --status-unavailable: #778294;
+
+  /* type */
+  --serif: "Newsreader", Georgia, "Times New Roman", serif;
+  --sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+
+  /* spacing scale: 6 / 9 / 14 / 18 / 28 */
+  --s1: 6px;
+  --s2: 9px;
+  --s3: 14px;
+  --s4: 18px;
+  --s5: 28px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+.app-shell {
+  min-height: 100%;
+}
+.app-nav {
+  height: 54px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 0 28px;
+  border-bottom: 1px solid var(--edge);
+  background: var(--bg);
+}
+.app-nav .app-brand {
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: .1em;
+}
+.app-brand span {
+  color: var(--mut);
+  font-weight: 400;
+}
+.app-nav nav {
+  display: flex;
+  align-items: stretch;
+  align-self: stretch;
+  gap: 22px;
+}
+.app-nav nav a {
+  display: flex;
+  align-items: center;
+  border-bottom: 2px solid transparent;
+  color: var(--mut);
+  font-size: 13px;
+}
+.app-nav nav a:hover,
+.app-nav nav a.active {
+  color: var(--ink);
+  border-bottom-color: var(--accent);
+}
+.app-qualification {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 8px 28px;
+  border-bottom: 1px solid var(--edge);
+  background: var(--panel);
+  color: var(--mut);
+  font-size: 16px;
+  line-height: 1.35;
+}
+.app-qualification b { color: var(--amber); }
+.app-content {
+  min-height: calc(100vh - 98px);
+}
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--serif);
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+.sans {
+  font-family: var(--sans);
+}
+.mono {
+  font-family: var(--mono);
+}
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+}
+a:visited {
+  color: var(--visited);
+}
+
+/* uppercase micro-labels — section headers only, never running text */
+.microlabel {
+  font-family: var(--sans);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--mut);
+  font-weight: 600;
+}
+
+button {
+  font-family: var(--sans);
+  cursor: pointer;
+}
+
+button,
+select,
+input[type="file"]::file-selector-button {
+  min-height: 44px;
+}
+
+button,
+input[type="file"]::file-selector-button {
+  padding: 10px 14px;
+  border: 1px solid var(--accent);
+  border-radius: 3px;
+  background: transparent;
+  color: var(--ink);
+  font-weight: 600;
+}
+
+button:hover,
+input[type="file"]::file-selector-button:hover {
+  background: rgba(201, 162, 90, .09);
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: .5;
+}
+
+select {
+  padding: 9px 34px 9px 10px;
+  border: 1px solid var(--control-edge);
+  border-radius: 3px;
+  background: var(--panel2);
+  color: var(--ink);
+  font: inherit;
+  text-transform: none;
+}
+
+.secondary-button,
+.text-button {
+  border-color: var(--control-edge);
+}
+
+.text-button {
+  padding-inline: 8px;
+  border-color: transparent;
+  color: var(--accent);
+}
+
+/* focus ring — keyboard nav (DESIGN.md a11y) */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* visually-hidden but available to screen readers (chart data-table fallback) */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* shared card */
+.card {
+  background: var(--panel);
+  border: 1px solid var(--edge);
+  border-radius: 10px;
+  padding: var(--s3) 16px;
+}
+.card h2 {
+  font-family: var(--sans);
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  color: var(--mut);
+  text-transform: uppercase;
+  margin: 0 0 12px;
+  font-weight: 600;
+}
+.card h2 .ro {
+  float: right;
+  text-transform: none;
+  letter-spacing: 0.02em;
+  color: var(--ink);
+  font-weight: 500;
+}
+
+/* severity stamps */
+.stamp {
+  font-family: var(--sans);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  font-weight: 700;
+  padding: 4px 9px;
+  border: 1.5px solid;
+  border-radius: 3px;
+  text-transform: uppercase;
+}
+.stamp.normal {
+  color: var(--mut);
+  border-color: var(--control-edge);
+}
+.stamp.go_around {
+  color: var(--amber);
+  border-color: rgba(224, 169, 59, 0.5);
+}
+.stamp.emergency {
+  color: var(--red);
+  border-color: rgba(224, 86, 79, 0.55);
+  background: rgba(224, 86, 79, 0.07);
+}
+
+@media (max-width: 767px) {
+  .app-nav {
+    height: auto;
+    min-height: 64px;
+    padding: 0 16px;
+  }
+  .app-brand span { display: none; }
+  .app-nav nav { gap: 14px; }
+  .app-nav nav a { min-height: 54px; font-size: 12px; }
+  .app-content { min-height: calc(100vh - 64px); }
+}

@@ -1,0 +1,116 @@
+{
+  "aircraft": {
+    "license_scope": "non-profit research and non-profit education only unless separately licensed",
+    "logical_bytes": 94509542,
+    "logical_sha256": "d40c8a7b3825dfca896fe234de56040a70e7a215ee34a895468116e51e1afcae",
+    "parts": [
+      {
+        "bytes": 10000000,
+        "local_file_mtime_utc": "2026-07-15T07:08:30Z",
+        "path": "data/raw/aircraft_metadata/aircraftDatabase.part00",
+        "sha256": "e13f7505f151e92ed9c2d0b5900861f3e4bbec70ffa0ed23b0c6ff3bf30c40bf"
+      },
+      {
+        "bytes": 10000000,
+        "local_file_mtime_utc": "2026-07-15T07:08:35Z",
+        "path": "data/raw/aircraft_metadata/aircraftDatabase.part01",
+        "sha256": "60f27b91a6ed048046cad92f288a7c248b8334989a90ab0fbb6a75689bbbd976"
+      },
+      {
+        "bytes": 10000000,
+        "local_file_mtime_utc": "2026-07-15T07:08:39Z",
+        "path": "data/raw/aircraft_metadata/aircraftDatabase.part02",
+        "sha256": "323b43568251f601c907ab6852481ba232ac21c56807874e877655e52867a929"
+      },
+      {
+        "bytes": 10000000,
+        "local_file_mtime_utc": "2026-07-15T07:08:45Z",
+        "path": "data/raw/aircraft_metadata/aircraftDatabase.part03",
+        "sha256": "8b42aecdfa52b1cf6e965b3767b1a632f575710552a28fd5a4ab1253d8b4fecb"
+      },
+      {
+        "bytes": 10000000,
+        "local_file_mtime_utc": "2026-07-15T07:08:54Z",
+        "path": "data/raw/aircraft_metadata/aircraftDatabase.part04",
+        "sha256": "af1aee4e0897ccfb841866b7dd75b9c2adb22c5e31d6d793f5befb32bf97e810"
+      },
+      {
+        "bytes": 10000000,
+        "local_file_mtime_utc": "2026-07-15T07:08:59Z",
+        "path": "data/raw/aircraft_metadata/aircraftDatabase.part05",
+        "sha256": "4fb088eb1957da6deba5e735b476a1b6fae45e82cd1244054618edc9bb3354e8"
+      },
+      {
+        "bytes": 10000000,
+        "local_file_mtime_utc": "2026-07-15T07:09:03Z",
+        "path": "data/raw/aircraft_metadata/aircraftDatabase.part06",
+        "sha256": "e8d1b8d43a1eac579fca29077ec6edac63201f981b8b1fab3068742af31fe7d7"
+      },
+      {
+        "bytes": 10000000,
+        "local_file_mtime_utc": "2026-07-15T07:09:13Z",
+        "path": "data/raw/aircraft_metadata/aircraftDatabase.part07",
+        "sha256": "156a1d2ece4145cb529889c293183018d459f0b15da7e542bd5b6069c85cc9b3"
+      },
+      {
+        "bytes": 10000000,
+        "local_file_mtime_utc": "2026-07-15T07:09:26Z",
+        "path": "data/raw/aircraft_metadata/aircraftDatabase.part08",
+        "sha256": "291b5e0374a15243875595e2e2dc8356c9297d3423fc5b78771e8e5c3fbb243f"
+      },
+      {
+        "bytes": 4509542,
+        "local_file_mtime_utc": "2026-07-15T07:09:42Z",
+        "path": "data/raw/aircraft_metadata/aircraftDatabase.part09",
+        "sha256": "93d02b0b629500f60ab6fc9a3399ebda98df067a76ccb7d9f00fd4323246b1bf"
+      }
+    ],
+    "provider": "OpenSky Network aircraft database",
+    "publication_obligation": "cite OpenSky and provide it a copy or link for public web pages/publications",
+    "snapshot_semantics": "mutable current snapshot",
+    "terms_url": "https://opensky-network.org/about/terms-of-use",
+    "url": "https://opensky-network.org/datasets/metadata/aircraftDatabase.csv"
+  },
+  "generated_at": "2026-07-15T08:57:42Z",
+  "schema_version": "approach_context_sources_v1",
+  "weather": {
+    "access": "public HTTPS",
+    "files": [
+      {
+        "bytes": 9140739,
+        "local_file_mtime_utc": "2026-07-15T07:06:56Z",
+        "path": "data/raw/weather/lemd_isd_2017.csv",
+        "sha256": "ab3171338ad1db3b42f00c979d4baba3485f2ae46e2ddaf963bf882713a3a056",
+        "url": "https://www.ncei.noaa.gov/data/global-hourly/access/2017/08221099999.csv",
+        "year": 2017
+      },
+      {
+        "bytes": 9731237,
+        "local_file_mtime_utc": "2026-07-15T07:07:03Z",
+        "path": "data/raw/weather/lemd_isd_2018.csv",
+        "sha256": "8c3ab37f104a86e706974be1d18c80f67ee41e671079de21611219e70ece9ce7",
+        "url": "https://www.ncei.noaa.gov/data/global-hourly/access/2018/08221099999.csv",
+        "year": 2018
+      },
+      {
+        "bytes": 9321456,
+        "local_file_mtime_utc": "2026-07-15T07:07:06Z",
+        "path": "data/raw/weather/lemd_isd_2019.csv",
+        "sha256": "264227bfb7e32116a2af4197c136a38fea5778302d460281f888e51d91d8d7b3",
+        "url": "https://www.ncei.noaa.gov/data/global-hourly/access/2019/08221099999.csv",
+        "year": 2019
+      },
+      {
+        "bytes": 6526954,
+        "local_file_mtime_utc": "2026-07-15T07:07:09Z",
+        "path": "data/raw/weather/lemd_isd_2025.csv",
+        "sha256": "f18c8cabaaea572d6c46d70328bad40b7f732f3865a06dd865876567783b4939",
+        "url": "https://www.ncei.noaa.gov/data/global-hourly/access/2025/08221099999.csv",
+        "year": 2025
+      }
+    ],
+    "license_note": "U.S. government data; review NOAA/NCEI terms and attribution guidance.",
+    "provider": "NOAA NCEI Global Hourly",
+    "station": "08221099999"
+  }
+}

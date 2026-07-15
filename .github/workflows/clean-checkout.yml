@@ -1,0 +1,91 @@
+name: Clean checkout delivery
+
+on:
+  pull_request:
+  push:
+    branches: [main, develop, task-sadar-merge-c]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: clean-checkout-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  contract-and-tests:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - name: Check out tracked inputs only
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Install the lockfile compiler
+        run: python3 -m pip install --disable-pip-version-check uv==0.11.13
+
+      - name: Validate delivery contracts
+        run: scripts/check-delivery-contract.py
+
+      - name: Prove the Linux serving lock regenerates without drift
+        run: |
+          cp backend/serve/requirements-linux-x86_64.lock /tmp/requirements-linux-x86_64.lock
+          scripts/compile-serving-lock.sh
+          cmp /tmp/requirements-linux-x86_64.lock backend/serve/requirements-linux-x86_64.lock
+
+      - name: Fetch the immutable releases for backend integration tests
+        run: |
+          python3 -m backend.scripts.fetch_demo_bundle \
+            --lock backend/serve/demo_bundle.lock.json \
+            --destination /tmp/sadar-ci-demo-release
+          python3 -m backend.scripts.fetch_approach_release \
+            --lock backend/serve/approach_bundle.lock.json \
+            --destination /tmp/sadar-ci-approach-release
+
+      - name: Run the full backend suite against the immutable release
+        env:
+          SADAR_RELEASE_DIR: /tmp/sadar-ci-demo-release
+          SADAR_APPROACH_RELEASE_DIR: /tmp/sadar-ci-approach-release
+        run: uv run --project backend pytest
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Run frontend suite
+        working-directory: frontend
+        run: npm test
+
+      - name: Build frontend
+        working-directory: frontend
+        run: npm run build
+
+  image-stages:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    needs: contract-and-tests
+    steps:
+      - name: Check out tracked inputs only
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Enforce the immutable approach-release gate
+        run: |
+          if ! test -f backend/serve/approach_bundle.lock.json; then
+            echo '::error::Publish and redownload-verify schema v3, then commit backend/serve/approach_bundle.lock.json.'
+            echo 'Final image build and smoke were not claimed.' >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+
+      - name: Build the digest-pinned frontend stage
+        run: docker build --platform linux/amd64 --target frontend-build --tag sadar-frontend:${{ github.sha }} .
+
+      - name: Build the hashed Python dependency stage
+        run: docker build --platform linux/amd64 --target python-deps --tag sadar-python:${{ github.sha }} .
+
+      - name: Build the final linux/amd64 image
+        run: >-
+          docker build --platform linux/amd64 --target runtime
+          --build-arg SOURCE_COMMIT=${{ github.sha }}
+          --tag sadar:${{ github.sha }} .
+
+      - name: Smoke the distributed image
+        run: scripts/container-smoke.sh sadar:${{ github.sha }}

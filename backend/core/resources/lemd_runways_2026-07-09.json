@@ -1,0 +1,50 @@
+{
+  "schema_version": "lemd_geometry_v1",
+  "airport": "LEMD",
+  "coordinate_reference": "WGS84",
+  "effective_date": "2026-07-09",
+  "retrieved_at": "2026-07-14",
+  "source": {
+    "publisher": "ENAIRE AIS España",
+    "document": "AIP España, LEMD AD 2.12 Runway Physical Characteristics, AMDT 408/26",
+    "url": "https://aip.enaire.es/AIP/contenido_AIP/AD/AD2/LEMD/LE_AD_2_LEMD_en.pdf",
+    "sha256": "65e114a09a8ce06d50a36b96eb5f7b333ac625effdbfa5c7f78a98524a683d1b"
+  },
+  "historical_applicability": "Current geometry applied to historical observations only as a disclosed prototype assumption until effective historical AIP charts are sourced.",
+  "runway_pairs": {
+    "14L_32R": {
+      "width_m": 60,
+      "physical_length_m": 3500,
+      "end_a": {"lat": 40.494919444, "lon": -3.557869444},
+      "end_b": {"lat": 40.470008333, "lon": -3.532580556}
+    },
+    "14R_32L": {
+      "width_m": 60,
+      "physical_length_m": 3988,
+      "end_a": {"lat": 40.484861111, "lon": -3.576011111},
+      "end_b": {"lat": 40.456477778, "lon": -3.547191667}
+    },
+    "18L_36R": {
+      "width_m": 60,
+      "physical_length_m": 3500,
+      "end_a": {"lat": 40.501102778, "lon": -3.559208333},
+      "end_b": {"lat": 40.532622222, "lon": -3.559380556}
+    },
+    "18R_36L": {
+      "width_m": 60,
+      "physical_length_m": 4179,
+      "end_a": {"lat": 40.492588889, "lon": -3.574622222},
+      "end_b": {"lat": 40.530216667, "lon": -3.574836111}
+    }
+  },
+  "thresholds": {
+    "14L": {"pair": "14L_32R", "lat": 40.494919444, "lon": -3.557869444, "true_bearing_deg": 142.21, "elevation_m": 592.0, "displaced_m": 0, "landing_available": false},
+    "32R": {"pair": "14L_32R", "lat": 40.473569444, "lon": -3.536194444, "true_bearing_deg": 322.22, "elevation_m": 574.8, "tdz_elevation_m": 579.9, "displaced_m": 500, "landing_available": true},
+    "14R": {"pair": "14R_32L", "lat": 40.484861111, "lon": -3.576011111, "true_bearing_deg": 142.20, "elevation_m": 608.0, "displaced_m": 0, "landing_available": false},
+    "32L": {"pair": "14R_32L", "lat": 40.463083333, "lon": -3.553894444, "true_bearing_deg": 322.21, "elevation_m": 589.1, "tdz_elevation_m": 594.2, "displaced_m": 928, "landing_available": true},
+    "18L": {"pair": "18L_36R", "lat": 40.528116667, "lon": -3.559355556, "true_bearing_deg": 179.76, "elevation_m": 585.9, "tdz_elevation_m": 587.7, "displaced_m": 500, "landing_available": true},
+    "36R": {"pair": "18L_36R", "lat": 40.501102778, "lon": -3.559208333, "true_bearing_deg": 359.76, "elevation_m": 592.0, "displaced_m": 0, "landing_available": false},
+    "18R": {"pair": "18R_36L", "lat": 40.522888889, "lon": -3.574797222, "true_bearing_deg": 179.76, "elevation_m": 606.9, "tdz_elevation_m": 606.9, "displaced_m": 814, "landing_available": true},
+    "36L": {"pair": "18R_36L", "lat": 40.492588889, "lon": -3.574622222, "true_bearing_deg": 359.76, "elevation_m": 605.0, "displaced_m": 0, "landing_available": false}
+  }
+}

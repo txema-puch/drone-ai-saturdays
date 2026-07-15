@@ -5,13 +5,26 @@ Add a row when something is decided. Link to the discussion (Discord, PR, etc.) 
 
 ---
 
+## Current product decision
+
+**D-015 — Rules-first whole-arrival approach screening** supersedes D-001 through D-004 as the
+served product direction. The schema-v3 candidate is implemented, but its sealed qualification
+failed (63.1% retention vs 65%; precision unknown), so it is limited to research and evidence
+labeling. See
+[`../ml/decisions/D-015-rules-first-approach-screening.md`](../ml/decisions/D-015-rules-first-approach-screening.md)
+and [`../ml/iterations/approach-screening/07-eval.md`](../ml/iterations/approach-screening/07-eval.md).
+
 ## Open decisions
 
-*(None — all four core decisions resolved on 2026-04-11)*
+The contextual-data iteration must decide which external sources pass availability, licensing,
+time-alignment, missingness and leakage gates. Configuration, mass and ATC clearance remain open
+source-availability questions.
 
 ---
 
 ## Decided
+
+D-001 through D-004 below are the historical initial course scope, not the current product.
 
 | ID | Decision | Rationale | Date | Owner |
 |---|---|---|---|---|

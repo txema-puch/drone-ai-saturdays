@@ -88,6 +88,8 @@ Thumbs.db
 # Otros                                #
 ########################################
 *.lock
+# The serving image is deliberately resolved and hash-locked for Linux/amd64.
+!backend/serve/requirements-linux-x86_64.lock
 .claude
 .docs
 .data
@@ -102,3 +104,11 @@ Thumbs.db
 .context/
 AGENTS.md
 .gstack/
+
+########################################
+# Vendored upstream (SADAR)            #
+########################################
+# external/ holds the vendored SADAR repo (devrup404, MIT) read during the
+# merge. We copy only what we reuse into frontend/ with attribution; the full
+# clone must never be committed.
+external/

@@ -2,16 +2,70 @@
 # Lives at backend/docs/ml/manifest.yml (project convention; CLAUDE.md documents the path).
 # Read by /ml-lifecycle and /develop to know which phase we're in and which gates passed.
 
-project_name: "Drone Trajectory Anomaly Detection (LEMD)"
-problem_type: "anomaly_detection"
-model_track: "dl"   # tentative — LSTM Autoencoder primary, Isolation Forest baseline.
-                    # Confirmed in Phase 6 once we see whether the LSTM AE meaningfully
-                    # beats IF. If not, we flip to "ml" and ship IF.
+project_name: "SADAR Analyst Console — LEMD approach screening"
+problem_type: "post_flight_rules_first_screening"
+model_track: "deterministic_reference_no_supervised_model"
+current_phase: "contextual_research_deploy_candidate"
+active_iteration: "backend/docs/ml/iterations/approach-context/manifest.yml"
+historical_lstm_iteration:
+  phase: "deploy_closed"
+  model_track: "dl"
+  note: "Preserved below in the historical gate ledger; it is not the current product verdict."
 
-current_phase: "eval"   # Phase 6 (train) passed 2026-06-01; Phase-7 ENTRY is a pending
-                        # go/loop-back decision — val AUROC 0.664 « 0.85 target. The eval
-                        # gate stays pending and the TEST set stays sealed until that call.
-                        # See gates.train.summary + 07-train.md "Phase-7 entry decision".
+pending_work:
+  status: "iteration_closed_with_findings"
+  recorded_at: "2026-07-11"
+  artifact: "backend/docs/ml/pending-work.md"
+  review_before_next_iteration: true
+  summary: "Twelve deferred findings (PW-001..PW-012). Phase-7 provenance is reconciled; secure a fresh holdout before any redesigned-pipeline performance claim."
+
+next_iteration:
+  status: "eval_failed_deploy_blocked"
+  opened_at: "2026-07-14"
+  name: "LEMD whole-arrival approach screening"
+  design: "backend/docs/designs/33-approach-conformance-reframe.md"
+  decision: "backend/docs/ml/decisions/D-015-rules-first-approach-screening.md"
+  lifecycle_manifest: "backend/docs/ml/iterations/approach-screening/manifest.yml"
+  model_unit: "one observed approach attempt nested in a candidate flight_id record"
+  baseline: "deterministic observable criteria + train-only empirical reference envelopes"
+  historical_model_role: "research benchmark only; no verdict or priority effect"
+  fresh_holdout:
+    candidate: "lemd_20260310_to_20260314__snapshot_2026-05-11"
+    sha256: "16f1bd2cbdbd519ce7bde6fbbc8df5012b188b54c5598bffc310cef34b0c6899"
+    status: "burned_once_failed_qualification"
+    source_commit: "7e52fc05eae72159c5d4616f4b2538ff8e5341e7"
+  eval:
+    artifact: "backend/docs/ml/iterations/approach-screening/07-eval.md"
+    report: "backend/docs/ml/iterations/approach-screening/artifacts/2026-holdout-burn.json"
+    retention: 0.6313
+    retention_target: 0.65
+    precision: "unknown_no_independent_labels"
+    decision: "qualification_failed"
+  deploy:
+    status: "blocked_for_operational_claims"
+    allowed_role: "research_and_evidence_labeling_demonstrator"
+  supervised_model_gate: "independent labels + agreement + incremental value over rules"
+
+contextual_iteration:
+  status: "research_candidate_failed_qualification"
+  opened_at: "2026-07-15"
+  name: "LEMD contextual approach screening"
+  lifecycle_manifest: "backend/docs/ml/iterations/approach-context/manifest.yml"
+  sources_passed: ["weather_qnh", "aircraft_type"]
+  sources_failed: ["wind_coverage", "aircraft_configuration", "actual_mass", "atc_clearance"]
+  reference_sha256: "68ea1a974a077e0b2ef8322564d7799c5fd52cbd21db42b8d5bf1badad57d328"
+  release_candidate: "491f81fb1d896b0d793e"
+  eval:
+    decision: "not_qualified_no_independent_labels_or_fresh_holdout"
+    independent_labels: false
+    fresh_holdout: false
+  deploy:
+    allowed_role: "research_and_evidence_labeling_demonstrator"
+    operational_claims: "blocked"
+    publication: "published_verified"
+    hf_revision: "db1a1a9232b3b96276a169a070852f619eec7c21"
+    archive_sha256: "1f135728a0c235c245b5107a509cb73f1757ac4ced7346f123a1ea70a732c093"
+    superseded_release: "df22ce72488273f28c8a"
 
 # Gate ledger — append, never rewrite.
 gates:
@@ -227,33 +281,20 @@ gates:
       Layer 6) is the contest that matters. Firewall-semantics change = D-009 implementation
       amendment. See 07-train.md §4b + "Phase-7 entry decision".
   eval:
-    status: "pending"
+    status: "passed"
     gate_semantics: "one_shot"
-    passed_at: null
-    artifact: null
-    holdout_score: null
-    holdout_ci: null
+    passed_at: "2026-06-02"
+    artifact: "backend/docs/ml/07-eval.md"
+    holdout_score: "AE synthetic test AUROC 0.731 (D-012 mix); AE real-event ROC 0.667"
+    holdout_ci: "AE synthetic AUROC 95% CI [0.714, 0.745]"
+    track_confirmed: true
     summary: |
-      Phase 7 entry decision pending. Two artifacts feed this gate:
-
-      1. backend/docs/ml/07-eval-prep.md — synthetic anomaly injection
-         calibration (Layer 2 of D-008 validation stack). Research synthesis
-         from FAA UAS Sightings + Bard + Spanish news, ~2,200 incidents,
-         2026-05-10. Headline changes: asymmetric upward altitude shift
-         (not symmetric ±300m), sustained-loiter variant (60-300s alongside
-         30s), demoted speed spike (1.5-2x, ≤10% of mix), 40%
-         zone-violation share, add final-approach-intercept and multi-drone
-         types.
-
-      2. D-008 — multi-layer output validation (added 2026-05-23). The
-         reconstruction-error number has no semantic meaning until external
-         evidence grounds it. Validation stack: (1) sanity, (2) discriminative
-         AUROC on synthetic injections per D-005, (3) realism via geofence +
-         safety-net rules baseline, (4) **external** via OpenSky Dataset #6
-         (Olive et al., 2020) — real 7700-squawk emergency flights the
-         model never trained on or saw injected, (5) qualitative top-K
-         review of model-flagged "normal" flights. Layers 4 and 5 protocols
-         live in 07-eval-prep.md > "Validating beyond synthetic discrimination."
+      Phase 7 closed 2026-06-02 in commit 7b7bbf3. The sealed 2020 fold was burned once.
+      Synthetic test: AE 0.731 [0.714,0.745], kNN 0.786, IF 0.717. Real held-aside
+      go-around/emergency vs test-normal: AE ROC/PR 0.667/0.088, kNN 0.595/0.067,
+      IF 0.495/0.043. The pre-registered real-event criterion selected the AE. The
+      primary AUROC>0.85 target was not met. See 07-eval.md for full provenance and
+      post-burn limitations.
   deploy:
     status: "pending"
     gate_semantics: "one_shot"   # course-project demo, not a production deploy.
@@ -287,9 +328,15 @@ test_set:
     (D-009 + eng-review-2 amendment)."
   holdout_path: "backend/models/phase6/split_ids.json"   # test = 4,285 clean segments (2020)
   count: 4285
-  burned: false                  # flips ONCE, in Phase 7 — STILL SEALED
-  burned_at: null
-  burn_reason: null
+  burned: true
+  burned_at: "2026-06-02"
+  burn_reason: |
+    Phase-7 final evaluation in provenance commit 7b7bbf3. The sealed 2020 fold was scored
+    once with AE, kNN, and IF on the D-012 synthetic mix and the real-event cohort versus
+    test-normal. Threshold and representative-selection rules were fixed before the burn.
+    Results: backend/docs/ml/07-eval.md and phase7_burn_results.json. The cohort was later
+    inspected for D-014 deployment findings and cannot be reused as an untouched holdout for
+    a redesigned pipeline.
 
 # LLM-track sets unused (model_track is dl).
 llm_sets:
@@ -357,3 +404,13 @@ decisions:
     decided_at: 2026-06-01
     title: "Real-derived synthetic anomalies from Dataset #6 non-LEMD emergencies (onset-anchored maneuver transplant); firewall split non-LEMD→Layer2, LEMD-area→Layer4. Phase-7 stretch; feasibility gate verified (per-timestamp squawk)."
     path: backend/docs/ml/decisions/D-011-real-derived-synthetic-anomalies.md
+  - id: D-014
+    phase: eval
+    decided_at: 2026-06-04
+    title: "Gate/data artifacts surface as top anomalies (deployment-merge finding): 4 classes — first-T truncation of long arrivals, neighbour-field traffic (LECU/LEGT/LETO clip the 10km gate), altitude-blind overflights, and >1500m altitude glitches (no relative-jump cleaning rule). All depress (not inflate) the real-anomaly ROC — 0.666→0.673 cleaned — so Phase-7/ch.11 stand. Demo mitigation: unified 'LEMD operations only' terminal_op filter + case banner + map distance-rings/airfield-markers. RECOMMENDATION: future cycle redo the model (conjunctive Filter D + rate-of-change cleaning + approach-anchored window → retrain+re-eval)."
+    path: backend/docs/ml/decisions/D-014-window-truncation-of-long-arrivals.md
+  - id: D-015
+    phase: problem
+    decided_at: 2026-07-14
+    title: "Rules-first whole-arrival approach screening; empirical reference baseline; supervised ML gated on labels and incremental value"
+    path: backend/docs/ml/decisions/D-015-rules-first-approach-screening.md

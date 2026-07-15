@@ -1,0 +1,13 @@
+# Minimal runtime dependency surface for the SADAR Docker image.
+#
+# Regenerate on Linux/amd64 with:
+#   scripts/compile-serving-lock.sh
+#
+# Publication tooling and the repository's notebook/training dependencies do not
+# belong here. Keep this list limited to imports reachable from backend.serve.
+fastapi==0.136.1
+numpy==2.4.4
+pandas==3.0.2
+pyarrow==24.0.0
+python-multipart==0.0.22
+uvicorn==0.46.0

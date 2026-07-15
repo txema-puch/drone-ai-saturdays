@@ -47,9 +47,13 @@ cd .claude/skills/gstack && ./setup
 
 ### ML lifecycle artifacts (read by `/ml-lifecycle` and `/develop`)
 - `backend/docs/ml/manifest.yml` — single source of truth for which lifecycle phase we're in and which gates have passed. **The skill defaults to looking at `docs/ml/manifest.yml` at repo root — pass `backend/docs/ml/manifest.yml` explicitly when invoking `/ml-lifecycle` so it finds our manifest.**
+- `backend/docs/designs/33-approach-conformance-reframe.md` — active rules-first product and lifecycle contract.
+- `backend/docs/ml/iterations/approach-screening/manifest.yml` — sealed ADS-B-only approach-screening iteration.
+- `backend/docs/ml/iterations/approach-context/manifest.yml` — active contextual research iteration.
+- `backend/docs/ml/model-card.md` — Hugging Face card for the current and historical release archives.
 - `backend/docs/ml/01-problem.md` — Phase 1 problem definition (closed 2026-05-07)
 - `backend/docs/ml/02-data.md` — Phase 2 data audit doc (closed 2026-05-11, cyclic gate)
-- `backend/docs/ml/07-eval-prep.md` — Phase 7 anomaly-injection research synthesis (prep notes, Phase 7 not started)
+- `backend/docs/ml/07-eval.md` — closed evaluation of the historical LSTM anomaly experiment.
 - `backend/docs/ml/decisions/` — ADR-style records for high-stakes ML decisions (D-001, D-005, D-006, …)
 
 The data gate has `gate_semantics: "cyclic"` — passed means audit discipline operational, NOT data complete. Future cycles append to `manifest.yml > gates.data.dataset_hash` and to `02-data.md`'s snapshot log without re-passing the gate. See `references/lifecycle-map.md > Gate semantics` in the `/ml-lifecycle` skill.
@@ -60,7 +64,22 @@ The data gate has `gate_semantics: "cyclic"` — passed means audit discipline o
 
 When the team makes a decision (use case, modality, dataset), record it in `backend/docs/decisions/README.md`. ML-methodology decisions (metric choice, architecture, split strategy) get an ADR under `backend/docs/ml/decisions/` AND a pointer in `backend/docs/ml/manifest.yml > decisions[]`.
 
-## Project status (as of 2026-05-23)
+## Current project status (2026-07-15)
+
+- The served product is **SADAR Analyst Console**, a post-flight, rules-first screen for
+  ADS-B-observable approach evidence at LEMD. The historical LSTM autoencoder is benchmark
+  evidence only and cannot affect current statuses or queue priority.
+- The ADS-B-only schema-v3 qualification failed: 387 of 613 reconstructed attempts were
+  assessable (63.1%) against a 65% target, and independent review precision is unknown.
+- Contextual approach v1 is an unqualified research candidate. QNH and aircraft-type coverage
+  passed development gates; wind coverage missed its gate, and no fresh holdout or independent
+  labels exist.
+- Current immutable artifact: release `491f81fb1d896b0d793e`, Hugging Face revision
+  `db1a1a9232b3b96276a169a070852f619eec7c21`. Operational and safety claims remain blocked.
+- Issue #33 is published on branch `feature/approach-conformance-reframe`; the pull request is
+  pending. See `backend/docs/tasks/33-approach-conformance-reframe.md`.
+
+## Historical project snapshot (2026-05-23)
 
 **ML lifecycle position:** Phase 2 still `passed` (cyclic gate); cycle 3 closed via a new data-source path (D-007). `current_phase: preprocess`. Phase 3 design coaching not yet started.
 
@@ -179,3 +198,18 @@ Key routing rules:
 - Architecture review → invoke plan-eng-review
 - Save progress, checkpoint, resume → invoke checkpoint
 - Code quality, health check → invoke health
+
+## Deploy Configuration (configured by /setup-deploy)
+- Platform: Fly.io
+- Production URL: https://sadar-analyst-console.fly.dev
+- Deploy workflow: `scripts/deploy-fly.sh`
+- Deploy status command: `fly status --app sadar-analyst-console`
+- Merge method: merge commit
+- Project type: web app + API
+- Post-deploy health check: https://sadar-analyst-console.fly.dev/api/health
+
+### Custom deploy hooks
+- Pre-merge: `uv run --project backend python scripts/check-delivery-contract.py && uv run --project backend pytest && npm --prefix frontend test -- --run && npm --prefix frontend run build`
+- Deploy trigger: `scripts/deploy-fly.sh`
+- Deploy status: `fly status --app sadar-analyst-console`
+- Health check: `curl -fsS https://sadar-analyst-console.fly.dev/api/health`

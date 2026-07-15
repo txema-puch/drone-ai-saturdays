@@ -1,130 +1,111 @@
-# Drone AI — Saturdays.AI
+# SADAR Analyst Console
 
-Collaborative project for Saturdays.AI Madrid Deep Learning course.
+SADAR Analyst Console is a research demonstrator for post-flight screening of
+ADS-B-observable approach attempts at Madrid-Barajas Airport (LEMD). It reconstructs attempts,
+checks telemetry quality, infers a runway direction where the observed geometry supports it, and
+shows deterministic criterion evidence on a synchronized trajectory and timeline.
+
+- **Application:** <https://sadar-analyst-console.fly.dev>
+- **Immutable approach-screening artifact:** <https://huggingface.co/Txemapuch/sadar-demo-release>
+- **Model card:** [release artifacts and limitations](backend/docs/ml/model-card.md)
+- **Source:** <https://github.com/txema-puch/drone-ai-saturdays>
+
+This is not emergency detection, stabilized-approach certification, ATC decision support, or a
+safety verdict. The sealed 2026 evaluation retained 63.1% of reconstructed attempts, below the
+precommitted 65% target, and no independent labels exist to measure review precision. The
+candidate therefore failed operational qualification. It remains useful for inspecting evidence,
+collecting labels, and learning what additional context is required.
+
+Uploaded files and results are not intentionally retained by the application. Fly may preserve
+Machine memory during suspension; do not upload confidential or proprietary data.
+
+## What is served
+
+1. **Observed-row reconstruction** — canonicalizes bounded OpenSky-style CSV or Parquet data and
+   separates approach attempts inside each operation record.
+2. **Quality and runway inference** — abstains on coverage gaps, telemetry conflicts, missing
+   terminal evidence, or unsupported runway direction.
+3. **Rules-first evidence** — evaluates lateral-path, barometric-path proxy, observed descent
+   rate, ground-speed envelope, and late track correction. When loaded, the contextual research
+   candidate can
+   use supplied QNH for the pressure-altitude proxy, show airport-wind components, and select
+   supported aircraft-type reference cells. It still does not infer airspeed, mass, configuration,
+   clearance, or intent.
+4. **Analyst workflow** — queue, attempt dossier, operation context, and ephemeral upload results.
+
+The historical LSTM autoencoder is research history only. It is not required by the current
+release and cannot change a status or queue position.
+
+## Run the research candidate locally
+
+```bash
+docker build --platform linux/amd64 -t sadar-analyst-console .
+docker run --rm -p 7860:7860 -e SADAR_ENABLE_EVALUATION=true sadar-analyst-console
+```
+
+Open <http://localhost:7860>. The tracked [`fly.toml`](fly.toml) enables bounded evaluation and
+uses Fly autostart with zero minimum running Machines.
+
+For local development:
+
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+uv sync
+cp .env.example .env
+
+cd frontend
+npm ci
+npm run dev
+```
+
+## Evidence and lifecycle
+
+- [Active design](backend/docs/designs/33-approach-conformance-reframe.md)
+- [Rules-first decision](backend/docs/ml/decisions/D-015-rules-first-approach-screening.md)
+- [Approach-screening lifecycle](backend/docs/ml/iterations/approach-screening/manifest.yml)
+- [Contextual lifecycle](backend/docs/ml/iterations/approach-context/manifest.yml)
+- [Context source manifest](backend/docs/ml/iterations/approach-context/source-manifest.json)
+- [Sealed evaluation](backend/docs/ml/iterations/approach-screening/07-eval.md)
+- [Project workspace](backend/docs/README.md)
+
+The original course scope—unauthorized-drone detection with an identity gate and LSTM anomaly
+scorer—is preserved as historical research in
+[`backend/docs/architecture/design-trajectory-anomaly-detection.md`](backend/docs/architecture/design-trajectory-anomaly-detection.md).
+The notebooks under [`notebooks/`](notebooks/) remain reproducible evidence: they informed the
+data audit, exposed limitations in terminal coverage, and provide independent checks against the
+new attempt reconstruction.
+
+Context inputs use NOAA NCEI Global Hourly weather and the OpenSky Network aircraft database.
+OpenSky data are used only for this non-profit research/education demonstrator under its
+[data terms](https://opensky-network.org/about/terms-of-use). Citation: Matthias Schäfer, Martin
+Strohmeier, Vincent Lenders, Ivan Martinovic and Matthias Wilhelm, “Bringing up OpenSky: A
+large-scale ADS-B sensor network for research,” ACM/IEEE IPSN, 2014. No raw source database is
+redistributed in the release artifact.
 
 ## Team
+
+Collaborative Saturdays.AI Madrid Deep Learning course project:
+
 - Monica Gomez
 - Pablo Rodriguez Campos
 - Roberto Molero
 - Txema Puch
-  
 
-## Project
+Team members independently explored different implementations and ways to productize the shared
+course problem. This repository is Txema Puch's analyst-workflow implementation.
 
-Unauthorized drone detection system anchored to Madrid-Barajas Airport (LEMD), built for the Saturdays.AI Madrid Deep Learning course.
+## Repository layout
 
-**Two-layer approach:**
-1. **Identity gate** — checks ICAO24 transponder codes against the OpenSky aircraft registry and U-Space flight plans. Known aircraft pass instantly. Unknown transponders go to Layer 2.
-2. **LSTM Autoencoder anomaly scorer** — trained on months of normal ADS-B trajectories around LEMD. Flags trajectories whose reconstruction error exceeds the 95th percentile of the validation set. Anomaly score is per-trajectory MSE.
-
-The system takes live ADS-B data from OpenSky Network and outputs a risk score + identity gate status for each track. A Streamlit demo (`demo.py`) visualizes trajectories on a Folium map with green/yellow/red color coding.
-
-**What we're NOT doing:** visual/camera-based detection (cut for timeline) and Android Remote ID (stretch goal only after Week 4).
-
-Full design: [`docs/architecture/design-trajectory-anomaly-detection.md`](docs/architecture/design-trajectory-anomaly-detection.md)
-
-## Setup
-
-This project uses [`uv`](https://docs.astral.sh/uv/) to manage Python dependencies.
-
-```bash
-# 1. Install uv (if you haven't)
-curl -LsSf https://astral.sh/uv/install.sh | sh
-
-# 2. Clone the repo
-git clone https://github.com/txema-puch/drone-ai-saturdays.git
-cd drone-ai-saturdays
-
-# 3. Install dependencies and activate environment
-uv sync
-
-# 4. Copy secrets template
-cp .env.example .env
-# Edit .env and fill in your values
+```text
+backend/core/       approach geometry, reconstruction, quality and criteria
+backend/serve/      immutable release loading, API and upload evaluation
+backend/docs/       decisions, lifecycle evidence, designs and historical research
+backend/tests/      deterministic and contract tests
+frontend/src/       React analyst console
+notebooks/          data, pipeline, training and evaluation investigations
+data/               local working data; gitignored
+backend/models/     local release artifacts; gitignored
 ```
 
-## Tasks
-
-Week-by-week task boards live in [`docs/tasks/`](docs/tasks/). Each file lists what needs to happen that week — objectives, deliverables, and checkboxes. No person assignments, no prescribed implementation. Start here each session, pick up what makes sense for you, and figure out the code together.
-
-| Week | Focus | File |
-|---|---|---|
-| 1 | Data recon + Streamlit skeleton | [`docs/tasks/week1.md`](docs/tasks/week1.md) |
-| 2 | Pipeline, features, identity gate, IF baseline | [`docs/tasks/week2.md`](docs/tasks/week2.md) |
-| 3 | LSTM Autoencoder training | [`docs/tasks/week3.md`](docs/tasks/week3.md) |
-| 4 | Evaluation, demo polish, offline check | [`docs/tasks/week4.md`](docs/tasks/week4.md) |
-| 5 | Writeup, rehearsal, repo cleanup, v1.0 tag | [`docs/tasks/week5.md`](docs/tasks/week5.md) |
-
-## Notebooks
-
-Reference notebooks are in `notebooks/` — one per week, covering the same scope as the task boards. They are one possible implementation, not the prescribed one. Use them as inspiration if you're stuck, or ignore them and build your own approach.
-
-Run in Google Colab (T4 GPU for Week 3). Data lives in a shared Google Drive folder — mount it when prompted.
-
-| Notebook | Week | Scope |
-|---|---|---|
-| `notebooks/01_data_recon.ipynb` | 1 | OpenSky ADS-B query for LEMD bounding box, EDA |
-| `notebooks/02_pipeline.ipynb` | 2 | Trajectory segmentation, feature engineering, Isolation Forest |
-| `notebooks/03_lstm.ipynb` | 3 | LSTM Autoencoder training, anomaly threshold |
-| `notebooks/04_evaluation.ipynb` | 4 | Full metrics, PR curve, ablation |
-
-## Data
-
-Large files are not committed. Everything lives in Google Drive: `drone-ai-saturdays/data/`.
-
-Mount in Colab:
-```python
-from google.colab import drive
-drive.mount('/content/drive')
-DATA_DIR = '/content/drive/MyDrive/drone-ai-saturdays/data'
-```
-
-Locally, put files under `data/` (gitignored). Trained model weights go in `models/` (also gitignored — share via Drive or Hugging Face Hub link in the release README).
-
-## Structure
-
-```
-notebooks/      # Colab-ready notebooks (01–04)
-src/            # Source modules (imported by notebooks)
-docs/
-  architecture/ # System design doc
-  tasks/        # Week-by-week task boards (plain language, no code)
-  decisions/    # Key decisions log
-  research/     # Dataset notes, links, papers
-  weekly/       # Session notes
-demo.py         # Streamlit animated map (Week 1 skeleton, wired in Week 2+)
-data/           # Not committed — too large for git
-models/         # Not committed — share via Drive
-```
-
-## Working with Claude Code + gstack
-
-This project is set up for AI-assisted development with [Claude Code](https://docs.anthropic.com/en/docs/claude-code) (Anthropic's CLI coding assistant).
-
-**Install Claude Code:**
-```bash
-npm install -g @anthropic-ai/claude-code
-```
-Then open it in the project folder: `claude` — it will pick up `CLAUDE.md` automatically.
-
-**[gstack](https://github.com/garrytan/gstack)** is a set of AI slash-command skills already included in this repo at `.claude/skills/gstack/`. After cloning, build it once:
-```bash
-# Requires bun: https://bun.sh/
-curl -fsSL https://bun.sh/install | bash
-cd .claude/skills/gstack && ./setup
-```
-
-Useful gstack commands inside Claude Code:
-- `/browse <url>` — open a URL in a headless browser for testing
-- `/qa <url>` — automated QA testing with bug reports
-- `/review` — code review of your current branch before a PR
-- `/investigate` — systematic debugging when something is broken
-- `/retro` — weekly summary of what the team shipped
-
-See `CLAUDE.md` at the root for the full skill list.
-
-## Contributing
-
-- Work on feature branches, not directly on `main`
-- Open a Pull Request to merge changes — teammates review before merging
-- Never commit `.env` or large files — see `.gitignore`
+Large data and model artifacts are not committed. Work on feature branches, keep secrets in
+`.env`, and open a pull request for teammate review.
