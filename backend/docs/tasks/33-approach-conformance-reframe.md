@@ -1,7 +1,7 @@
 ---
 id: 33
 title: Approach-conformance product and ML lifecycle reframe
-status: contextual_research_candidate_review_pending
+status: contextual_research_candidate_published_pr_pending
 branch: feature/approach-conformance-reframe
 created: 2026-07-14
 ---
@@ -39,7 +39,8 @@ own the result; the old LSTM is research context only.
 - [x] Run lifecycle validation on development data and burn the sealed 2026 holdout once.
 - [x] Record the failed qualification: 63.1% retention vs 65%; precision unknown.
 - [x] Update product, architecture, lifecycle and limitation documentation.
-- [ ] Run `/review`, `/qa` and `/ship`; push the branch and open a PR.
+- [x] Run `/review` and `/qa`; push the branch and publish the immutable release artifacts.
+- [ ] Complete `/ship` and open a PR.
 
 ## Subsequent contextual iteration
 
