@@ -414,11 +414,13 @@
 .queue-rail {
   position: sticky;
   top: var(--sticky-context-top);
+  z-index: 10;
   align-self: start;
   max-height: calc(100vh - var(--sticky-context-clearance));
   max-height: calc(100dvh - var(--sticky-context-clearance));
   overflow-y: auto;
   scrollbar-gutter: stable;
+  background: var(--bg);
 }
 .rail-record { padding: 10px 0; border-bottom: 1px solid var(--edge); }
 .rail-record span { display: block; color: var(--mut); font-size: 11px; }
