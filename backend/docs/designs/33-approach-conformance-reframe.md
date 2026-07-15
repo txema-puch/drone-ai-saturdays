@@ -135,10 +135,11 @@ historical data use is disclosed unless an effective historical chart is sourced
 implementation records the source URL, retrieval date, units, and file digest in every generated
 assessment artifact.
 
-The v1 vertical path uses a per-attempt bias estimated from trustworthy on-ground or
-threshold-adjacent samples; otherwise it abstains. The schema reserves independently supplied
-QNH/pressure-corrected height and consistent geometric altitude for the contextual iteration.
-Barometric altitude minus airport elevation alone is never treated as height above runway.
+The ADS-B-only vertical path uses a per-attempt bias estimated from trustworthy on-ground or
+threshold-adjacent samples; otherwise it abstains. Context engine v1 may instead apply an
+independently supplied QNH first-order pressure-altitude correction, with the proxy source and
+value serialized. It remains distinct from geometric/radio altitude. Barometric altitude minus
+airport elevation alone is never treated as height above runway.
 
 ## Edge-case policy
 
@@ -202,6 +203,21 @@ manufactured; the incompatible units are stated in the API and UI.
 Holdout order is fixed: record the 2026 file hash and eligible-operation count; keep it unread by
 the assessment/training scripts; lock geometry, reconstruction, rules, envelope, sampling plan and
 metrics on historical/2025 data; tag the candidate release; then perform one scripted 2026 burn.
+
+### Contextual iteration result
+
+The follow-on lifecycle is recorded at
+`backend/docs/ml/iterations/approach-context/manifest.yml`. NOAA NCEI Global Hourly QNH and the
+OpenSky current aircraft registry pass development coverage gates; latest-prior wind reaches
+78.09% and misses its 80% gate. Actual configuration, mass, and ATC clearance fail
+source-availability gates and are not inferred. QNH recovers a barometric-path proxy; wind is
+optional display-only evidence; supported ICAO types select attempt-balanced train-only reference
+cells with an explicit unknown fallback.
+
+The 2019/2025 comparisons show changed coverage and workload, not correctness. Independent
+labels and a fresh holdout do not exist, so contextual qualification fails and operational claims
+remain blocked. A schema-v3 contextual release may be served only as a research and
+evidence-labeling candidate with these limitations visible.
 
 ## UX contract
 
@@ -312,7 +328,8 @@ persistence settings, empirical reference, cohort definition and assessment engi
 - [x] Queue, case file, filters, exports, and copy are approach-first.
 - [x] The LSTM is benchmark-only and cannot affect the verdict.
 - [x] Deterministic backend and frontend regression suites pass.
-- [x] Clean build and deployed-like HTTP smoke test pass (Docker daemon unavailable locally).
+- [ ] Clean container build and HTTP smoke test pass in CI/remote builder; the local Docker
+  daemon is unavailable.
 - [x] README, architecture, ML limitations, and design documentation match the candidate behavior.
 
 ## Qualification outcome
@@ -400,7 +417,7 @@ parallel, then converge for contract and end-to-end tests.
 - [x] **T3 (P1)** — Generate schema-v3 approach evidence and migrate serving/upload contracts.
 - [x] **T4 (P1)** — Build the validated analyst information architecture and evidence views.
 - [ ] **T5 (P1)** — Complete lifecycle artifacts, review, live QA and PR handoff.
-- [ ] **T6 (P2)** — Start the contextual data/model lifecycle after ADS-B-only release closure.
+- [x] **T6 (P2)** — Run the contextual data/reference lifecycle and record failed qualification.
 
 ## GSTACK REVIEW REPORT
 

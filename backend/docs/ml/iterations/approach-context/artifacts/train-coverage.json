@@ -1,0 +1,131 @@
+{
+  "aircraft_metadata_sha256": "d40c8a7b3825dfca896fe234de56040a70e7a215ee34a895468116e51e1afcae",
+  "attempts": 4272,
+  "availability_gates": {
+    "actual_mass": "failed_no_observed_source",
+    "aircraft_configuration": "failed_no_observed_source",
+    "aircraft_type": "passed",
+    "atc_clearance": "failed_no_observed_source",
+    "weather_qnh": "passed",
+    "wind_direction": "passed"
+  },
+  "cohort": "train",
+  "coverage": {
+    "aircraft_metadata_rate": 0.992,
+    "aircraft_typecode_rate": 0.992,
+    "barometric_path_current_rate": 0.5379,
+    "barometric_path_qnh_context_upper_bound_rate": 0.9972,
+    "qnh_rate": 0.9972,
+    "weather_match_rate": 0.9972,
+    "wind_components_rate": 0.8146,
+    "wind_direction_rate": 0.8146,
+    "wind_speed_rate": 0.9972
+  },
+  "interpretation_limits": [
+    "QNH correction is a first-order pressure-altitude proxy, not geometric or radio altitude.",
+    "OpenSky metadata is a current registry snapshot and can mismatch historical aircraft identity.",
+    "Wind and type coverage do not establish that either feature improves review precision.",
+    "Configuration, actual mass, and ATC clearance are not present in these public observations."
+  ],
+  "maximum_weather_age_s": 1800,
+  "operations": 8594,
+  "reference_sha256": "b485f747154ea8d84ba6b5c980501e3a22bca9caff40c41711de107b03496c56",
+  "schema_version": "approach_context_audit_v1",
+  "source_sha256": "97344b4ab03af7ef0a404d26591ba3e0303198b21cf3528a4faaa007637cb478",
+  "status_counts": {
+    "criteria_observed": 2009,
+    "not_assessable": 478,
+    "partial_observation": 1504,
+    "review_required": 281
+  },
+  "top_typecodes": [
+    [
+      "A320",
+      1008
+    ],
+    [
+      "B738",
+      940
+    ],
+    [
+      "A319",
+      501
+    ],
+    [
+      "A321",
+      428
+    ],
+    [
+      "CRJX",
+      225
+    ],
+    [
+      "A332",
+      173
+    ],
+    [
+      "E195",
+      139
+    ],
+    [
+      "A333",
+      102
+    ],
+    [
+      "A346",
+      99
+    ],
+    [
+      "B788",
+      97
+    ],
+    [
+      "AT76",
+      76
+    ],
+    [
+      "B789",
+      75
+    ],
+    [
+      "B763",
+      47
+    ],
+    [
+      "B734",
+      29
+    ],
+    [
+      "A20N",
+      21
+    ],
+    [
+      "B772",
+      20
+    ],
+    [
+      "B739",
+      20
+    ],
+    [
+      "B737",
+      19
+    ],
+    [
+      "BCS3",
+      16
+    ],
+    [
+      "A359",
+      15
+    ]
+  ],
+  "weather_missing_reason_counts": {
+    "latest_prior_weather_observation_too_old": 12,
+    "wind_direction_missing_or_variable": 780
+  },
+  "weather_source_sha256": {
+    "lemd_isd_2017.csv": "ab3171338ad1db3b42f00c979d4baba3485f2ae46e2ddaf963bf882713a3a056",
+    "lemd_isd_2018.csv": "8c3ab37f104a86e706974be1d18c80f67ee41e671079de21611219e70ece9ce7"
+  }
+}

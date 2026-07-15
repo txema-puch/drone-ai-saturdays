@@ -1,0 +1,90 @@
+iteration: "approach-context-v1"
+opened_at: "2026-07-15"
+current_phase: "research_deploy_candidate"
+problem_type: "rules_first_screening_with_contextual_empirical_reference"
+parent_iteration: "backend/docs/ml/iterations/approach-screening/manifest.yml"
+qualification: "not_qualified_no_independent_labels_or_fresh_holdout"
+allowed_role: "research_and_evidence_labeling_demonstrator"
+
+sources:
+  provenance_manifest: "backend/docs/ml/iterations/approach-context/source-manifest.json"
+  weather_station: "08221099999"
+  weather: "NOAA NCEI Global Hourly"
+  aircraft_type: "OpenSky aircraft database current snapshot"
+  unavailable:
+    airport_wind: "failed_newer_source_coverage_0.7809_below_0.80"
+    aircraft_configuration: "failed_no_observed_public_source"
+    actual_mass: "failed_no_observed_public_source"
+    atc_clearance: "failed_no_observed_public_source"
+
+gates:
+  problem:
+    status: "passed"
+    passed_at: "2026-07-15"
+    artifact: "backend/docs/ml/iterations/approach-context/01-problem.md"
+  data:
+    status: "passed_with_failed_optional_sources"
+    passed_at: "2026-07-15"
+    artifact: "backend/docs/ml/iterations/approach-context/02-data.md"
+  preprocess:
+    status: "passed"
+    passed_at: "2026-07-15"
+    artifact: "backend/docs/ml/iterations/approach-context/03-preprocess.md"
+  eda:
+    status: "passed"
+    passed_at: "2026-07-15"
+    artifact: "backend/docs/ml/iterations/approach-context/04-eda.md"
+  features:
+    status: "passed_for_research"
+    passed_at: "2026-07-15"
+    artifact: "backend/docs/ml/iterations/approach-context/05-features.md"
+  train:
+    status: "passed_reference_only"
+    passed_at: "2026-07-15"
+    artifact: "backend/docs/ml/iterations/approach-context/06-train.md"
+    reference_sha256: "53c6998329131d7fc6a86334b7b4e14f749a8e6c64b0944bd769f5ad123bb1cf"
+  eval:
+    status: "failed_qualification"
+    evaluated_at: "2026-07-15"
+    artifact: "backend/docs/ml/iterations/approach-context/07-eval.md"
+    reason: "no_independent_labels_or_fresh_holdout"
+  deploy:
+    status: "research_candidate"
+    artifact: "backend/docs/ml/iterations/approach-context/08-deploy.md"
+    operational_claims: "blocked"
+
+development_evidence:
+  train_attempts: 4272
+  validation_attempts: 2740
+  newer_source_attempts: 388
+  newer_source_context_coverage:
+    qnh: 0.9639
+    wind_components: 0.7809
+    aircraft_type: 0.8428
+    any_exact_type_reference: 0.8428
+    all_reference_cells_exact_type: 0.8376
+  newer_source_status_counts:
+    not_assessable: 124
+    partial_observation: 163
+    criteria_observed: 51
+    review_required: 50
+  artifact_sha256:
+    train_coverage: "614419a2b0e4ad1dbcbaa800ef499e1a226a8ded78e8015df006ea29aeecb0ac"
+    validation_coverage: "0da2c5aed8e71d3831821d4dd0ac3e2b2e166d67d5b4e6d729f0c1976eac1fb0"
+    newer_source_coverage: "74fb2873464379456277b8169f1a855024877d4293be73630bc4682f2a9b91d1"
+    validation_comparison: "bd89cf03c48079b5bccd277f11ce861728d0ccfd3c615eaafa282a2fe8b7865c"
+    newer_source_comparison: "bfc3fd15a5bf1e493ea9111ab5c2da437aa7c9a607385a078033300c9e2dcdff"
+
+release_candidate:
+  release_id: "541006baf9ed3748aea3"
+  engine_version: "approach_context_v1"
+  context_sources_sha256: "eef2a7a32ee55ee079d4263dc5c7eb339aa250837256c2e00325b5d5b401402e"
+  input_sha256: "8256c65f95135597f3db07413941380fc2a0c6bbfc429b07b12b10478f7e2c10"
+  publication: "pending_review"
+  opensky_publication_notice: "owner_action_required_after_live_publication"
+
+promotion_gate:
+  independent_labels: "required"
+  fresh_holdout: "required"
+  incremental_value_over_adsb_only: "required"
+  status: "not_met"

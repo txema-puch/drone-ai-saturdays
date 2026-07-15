@@ -2,13 +2,15 @@
 # Lives at backend/docs/ml/manifest.yml (project convention; CLAUDE.md documents the path).
 # Read by /ml-lifecycle and /develop to know which phase we're in and which gates passed.
 
-project_name: "Drone Trajectory Anomaly Detection (LEMD)"
-problem_type: "anomaly_detection"
-model_track: "dl"   # Confirmed by the Phase-7 real-event head-to-head (2026-06-02).
-
-current_phase: "deploy"   # Historical LSTM iteration only: Phase 7 passed and the test was
-                          # burned once on 2026-06-02 (issue #29). See next_iteration for the
-                          # active approach-screening result; its qualification failed.
+project_name: "SADAR Analyst Console — LEMD approach screening"
+problem_type: "post_flight_rules_first_screening"
+model_track: "deterministic_reference_no_supervised_model"
+current_phase: "contextual_research_deploy_candidate"
+active_iteration: "backend/docs/ml/iterations/approach-context/manifest.yml"
+historical_lstm_iteration:
+  phase: "deploy_closed"
+  model_track: "dl"
+  note: "Preserved below in the historical gate ledger; it is not the current product verdict."
 
 pending_work:
   status: "iteration_closed_with_findings"
@@ -43,6 +45,23 @@ next_iteration:
     status: "blocked_for_operational_claims"
     allowed_role: "research_and_evidence_labeling_demonstrator"
   supervised_model_gate: "independent labels + agreement + incremental value over rules"
+
+contextual_iteration:
+  status: "research_candidate_failed_qualification"
+  opened_at: "2026-07-15"
+  name: "LEMD contextual approach screening"
+  lifecycle_manifest: "backend/docs/ml/iterations/approach-context/manifest.yml"
+  sources_passed: ["weather_qnh", "aircraft_type"]
+  sources_failed: ["wind_coverage", "aircraft_configuration", "actual_mass", "atc_clearance"]
+  reference_sha256: "53c6998329131d7fc6a86334b7b4e14f749a8e6c64b0944bd769f5ad123bb1cf"
+  release_candidate: "541006baf9ed3748aea3"
+  eval:
+    decision: "not_qualified_no_independent_labels_or_fresh_holdout"
+    independent_labels: false
+    fresh_holdout: false
+  deploy:
+    allowed_role: "research_and_evidence_labeling_demonstrator"
+    operational_claims: "blocked"
 
 # Gate ledger — append, never rewrite.
 gates:

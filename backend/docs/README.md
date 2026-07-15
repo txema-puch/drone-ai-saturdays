@@ -4,7 +4,7 @@ Versioned working space for the SADAR course project and its product iterations.
 
 ## Current status — 2026-07-15
 
-Two lifecycle tracks are preserved explicitly:
+Three lifecycle tracks are preserved explicitly:
 
 - **Historical LSTM anomaly experiment:** closed after its one-time 2020 evaluation. Its model,
   metrics, notebooks and decisions remain immutable research history; it is not the current
@@ -13,14 +13,19 @@ Two lifecycle tracks are preserved explicitly:
   evaluation retained 63.1% of attempts against a 65% target and has no independent precision
   labels. Qualification failed and operational deployment is blocked. The console may only be
   presented as a post-flight research and evidence-labeling demonstrator.
+- **Contextual approach v1:** NOAA QNH and OpenSky aircraft type pass development coverage gates;
+  latest-prior airport wind reaches 78.09% and misses its 80% gate. The evidence is packaged as an
+  explicit research candidate. Context changes coverage and workload, but no independent labels
+  or fresh holdout exist, so it is not qualified as an accuracy improvement or operational product.
 
 ## Start here
 
 1. [Issue #33 design](./designs/33-approach-conformance-reframe.md)
 2. [D-015 rules-first decision](./ml/decisions/D-015-rules-first-approach-screening.md)
 3. [Approach lifecycle manifest](./ml/iterations/approach-screening/manifest.yml)
-4. [Sealed evaluation](./ml/iterations/approach-screening/07-eval.md)
-5. [Data workflow](./workflow/data-pipeline.md)
+4. [Context lifecycle manifest](./ml/iterations/approach-context/manifest.yml)
+5. [Sealed evaluation](./ml/iterations/approach-screening/07-eval.md)
+6. [Data workflow](./workflow/data-pipeline.md)
 
 ## Navigation
 

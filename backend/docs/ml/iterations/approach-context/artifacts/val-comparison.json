@@ -1,0 +1,105 @@
+{
+  "attempts": 2740,
+  "base_criterion_status_counts": {
+    "barometric_path_proxy": {
+      "not_observed": 1162,
+      "review_required": 5,
+      "within_limit": 1573
+    },
+    "late_track_correction": {
+      "not_observed": 320,
+      "within_limit": 2420
+    },
+    "lateral_path_proxy": {
+      "not_observed": 22,
+      "review_required": 29,
+      "within_limit": 2689
+    },
+    "observed_descent_rate": {
+      "not_observed": 6,
+      "review_required": 52,
+      "within_limit": 2682
+    },
+    "observed_ground_speed_envelope": {
+      "not_observed": 6,
+      "review_required": 272,
+      "within_limit": 2462
+    }
+  },
+  "base_reference_sha256": "b485f747154ea8d84ba6b5c980501e3a22bca9caff40c41711de107b03496c56",
+  "base_review_rate_among_assessable": 0.1122,
+  "base_status_counts": {
+    "criteria_observed": 1350,
+    "not_assessable": 485,
+    "partial_observation": 652,
+    "review_required": 253
+  },
+  "cohort": "val",
+  "context_coverage": {
+    "aircraft_type": 0.985,
+    "all_reference_cells_exact_type": 0.831,
+    "any_exact_type_reference": 0.85,
+    "qnh": 1.0,
+    "wind_components": 0.8504
+  },
+  "context_criterion_status_counts": {
+    "barometric_path_proxy": {
+      "not_observed": 788,
+      "review_required": 61,
+      "within_limit": 1891
+    },
+    "late_track_correction": {
+      "not_observed": 320,
+      "within_limit": 2420
+    },
+    "lateral_path_proxy": {
+      "not_observed": 22,
+      "review_required": 29,
+      "within_limit": 2689
+    },
+    "observed_descent_rate": {
+      "not_observed": 6,
+      "review_required": 60,
+      "within_limit": 2674
+    },
+    "observed_ground_speed_envelope": {
+      "not_observed": 6,
+      "review_required": 372,
+      "within_limit": 2362
+    }
+  },
+  "context_reference_sha256": "53c6998329131d7fc6a86334b7b4e14f749a8e6c64b0944bd769f5ad123bb1cf",
+  "context_review_rate_among_assessable": 0.153,
+  "context_status_counts": {
+    "criteria_observed": 1348,
+    "not_assessable": 485,
+    "partial_observation": 562,
+    "review_required": 345
+  },
+  "decision": "not_qualified_no_independent_labels_or_fresh_holdout",
+  "interpretation_limits": [
+    "Status transitions measure rule/reference behavior, not correctness.",
+    "No independent labels exist to estimate precision or incremental analyst value.",
+    "The 2026 cohort is already burned and is not accessed by this comparison.",
+    "A successor requires another untouched release cohort before qualification."
+  ],
+  "review_overlap": {
+    "base_only": 39,
+    "both": 214,
+    "context_only": 131
+  },
+  "schema_version": "approach_context_comparison_v1",
+  "source_commit": "c077d970c70b5c6f80ce85920155596cac8367f8",
+  "source_sha256": "97344b4ab03af7ef0a404d26591ba3e0303198b21cf3528a4faaa007637cb478",
+  "status_transition_counts": {
+    "criteria_observed->criteria_observed": 1259,
+    "criteria_observed->review_required": 91,
+    "not_assessable->not_assessable": 485,
+    "partial_observation->criteria_observed": 62,
+    "partial_observation->partial_observation": 550,
+    "partial_observation->review_required": 40,
+    "review_required->criteria_observed": 27,
+    "review_required->partial_observation": 12,
+    "review_required->review_required": 214
+  }
+}

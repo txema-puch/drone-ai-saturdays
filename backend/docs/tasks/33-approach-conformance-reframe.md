@@ -1,7 +1,7 @@
 ---
 id: 33
 title: Approach-conformance product and ML lifecycle reframe
-status: qualification_failed_review_pending
+status: contextual_research_candidate_review_pending
 branch: feature/approach-conformance-reframe
 created: 2026-07-14
 ---
@@ -43,12 +43,18 @@ own the result; the old LSTM is research context only.
 
 ## Subsequent contextual iteration
 
-- [ ] Source and audit time-aligned METAR/QNH/wind and aircraft-type joins.
-- [ ] Search lawful reproducible sources for configuration, mass and ATC clearance; gate each
+- [x] Source and audit time-aligned METAR/QNH/wind and aircraft-type joins.
+- [x] Search lawful reproducible sources for configuration, mass and ATC clearance; gate each
   independently on availability, join quality, leakage and licensing.
-- [ ] Rebuild contextual features and candidate models through the same lifecycle stages.
-- [ ] Compare contextual and ADS-B-only systems on a newly precommitted holdout.
-- [ ] Promote contextual evidence only when it adds measured analyst value.
+- [x] Rebuild contextual features and the typed empirical reference through lifecycle phases 1–6.
+- [x] Compare contextual and ADS-B-only systems on development cohorts without touching burned
+  or sealed data.
+- [x] Record the failed contextual qualification: independent labels and a fresh holdout do not
+  exist; deployment is research/evidence-labeling only.
+- [ ] Compare on a newly precommitted holdout after another cohort is acquired.
+- [ ] Promote contextual evidence beyond research only when it adds measured analyst value.
+- [ ] After the public contextual deployment is live, provide OpenSky the link/citation notice
+  required by its non-profit research data terms (external owner communication).
 
 ## Validation evidence
 
@@ -60,6 +66,10 @@ own the result; the old LSTM is research context only.
 - Full evidence: `backend/docs/ml/08-approach-feasibility.md`.
 - Sealed 2026 burn: 613 attempts; 387 assessable (63.1%); 82 review-required; qualification
   failed and no independent precision estimate is available.
+- Contextual 2025 audit: QNH 96.39% (pass), wind 78.09% (fail), type 84.28% (pass); review
+  status 40→50 and barometric-path observability 1→337, with correctness unknown because labels
+  are absent.
+- Context lifecycle: `backend/docs/ml/iterations/approach-context/manifest.yml`.
 
 ## Risks
 
