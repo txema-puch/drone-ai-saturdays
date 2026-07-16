@@ -1,111 +1,108 @@
 # SADAR Analyst Console
 
 SADAR Analyst Console is a research demonstrator for post-flight screening of
-ADS-B-observable approach attempts at Madrid-Barajas Airport (LEMD). It reconstructs attempts,
-checks telemetry quality, infers a runway direction where the observed geometry supports it, and
-shows deterministic criterion evidence on a synchronized trajectory and timeline.
+ADS-B-observable approach attempts at Madrid-Barajas Airport (LEMD). It reconstructs
+attempts, checks observation quality, infers runway-relative geometry when supported,
+and presents deterministic criterion evidence in an analyst workflow.
 
-- **Application:** <https://sadar-analyst-console.fly.dev>
-- **Immutable approach-screening artifact:** <https://huggingface.co/Txemapuch/sadar-demo-release>
-- **Model card:** [release artifacts and limitations](backend/docs/ml/model-card.md)
-- **Source:** <https://github.com/txema-puch/drone-ai-saturdays>
+- **Live application:** <https://sadar-analyst-console.fly.dev>
+- **Release registry:** <https://huggingface.co/Txemapuch/sadar-demo-release>
+- **Documentation:** [`docs/`](docs/)
+- **Release card and limitations:** [`docs/product/release-card.md`](docs/product/release-card.md)
 
-This is not emergency detection, stabilized-approach certification, ATC decision support, or a
-safety verdict. The sealed 2026 evaluation retained 63.1% of reconstructed attempts, below the
-precommitted 65% target, and no independent labels exist to measure review precision. The
-candidate therefore failed operational qualification. It remains useful for inspecting evidence,
-collecting labels, and learning what additional context is required.
+This is not emergency detection, stabilized-approach certification, ATC decision
+support, or a safety verdict. The sealed 2026 evaluation retained 63.1% of
+reconstructed attempts, below the precommitted 65% target, and there are no
+independent labels from which to estimate review precision or recall. The application
+is therefore a research and evidence-labeling demonstrator, not an operational system.
 
-Uploaded files and results are not intentionally retained by the application. Fly may preserve
-Machine memory during suspension; do not upload confidential or proprietary data.
+## Current product
 
-## What is served
+The deployed product is rules-first and does not load the historical LSTM model.
 
-1. **Observed-row reconstruction** — canonicalizes bounded OpenSky-style CSV or Parquet data and
-   separates approach attempts inside each operation record.
-2. **Quality and runway inference** — abstains on coverage gaps, telemetry conflicts, missing
-   terminal evidence, or unsupported runway direction.
-3. **Rules-first evidence** — evaluates lateral-path, barometric-path proxy, observed descent
-   rate, ground-speed envelope, and late track correction. When loaded, the contextual research
-   candidate can
-   use supplied QNH for the pressure-altitude proxy, show airport-wind components, and select
-   supported aircraft-type reference cells. It still does not infer airspeed, mass, configuration,
-   clearance, or intent.
-4. **Analyst workflow** — queue, attempt dossier, operation context, and ephemeral upload results.
+1. Bounded OpenSky-style CSV or Parquet rows are canonicalized and separated into
+   operations and approach attempts.
+2. Observation quality and runway inference explicitly abstain on insufficient or
+   conflicting evidence.
+3. Transparent criteria cover lateral path, barometric-path proxy, observed descent
+   rate, ground-speed envelope, and late track correction.
+4. Contextual releases can display supplied QNH, wind components, and supported
+   aircraft-type reference cells. They do not infer mass, configuration, clearance,
+   intent, airspeed, or operational safety.
 
-The historical LSTM autoencoder is research history only. It is not required by the current
-release and cannot change a status or queue position.
+Uploaded files and results are not intentionally retained. Fly may preserve machine
+memory while suspended; do not upload confidential or proprietary data.
 
-## Run the research candidate locally
+## Run locally
+
+The production-equivalent route is the container:
 
 ```bash
 docker build --platform linux/amd64 -t sadar-analyst-console .
 docker run --rm -p 7860:7860 -e SADAR_ENABLE_EVALUATION=true sadar-analyst-console
 ```
 
-Open <http://localhost:7860>. The tracked [`fly.toml`](fly.toml) enables bounded evaluation and
-uses Fly autostart with zero minimum running Machines.
+Open <http://localhost:7860>.
 
-For local development:
+For backend and frontend development:
 
 ```bash
-curl -LsSf https://astral.sh/uv/install.sh | sh
-uv sync
-cp .env.example .env
+uv sync --project backend --group dev
+uv run --project backend sadar-api --port 8077
 
 cd frontend
 npm ci
 npm run dev
 ```
 
-## Evidence and lifecycle
+The API loads the immutable release identified by
+`backend/src/sadar/releases/approach_bundle.lock.json`. Configure an alternate verified
+release or frontend directory through the documented `SADAR_*` environment variables.
 
-- [Active design](backend/docs/designs/33-approach-conformance-reframe.md)
-- [Rules-first decision](backend/docs/ml/decisions/D-015-rules-first-approach-screening.md)
-- [Approach-screening lifecycle](backend/docs/ml/iterations/approach-screening/manifest.yml)
-- [Contextual lifecycle](backend/docs/ml/iterations/approach-context/manifest.yml)
-- [Context source manifest](backend/docs/ml/iterations/approach-context/source-manifest.json)
-- [Sealed evaluation](backend/docs/ml/iterations/approach-screening/07-eval.md)
-- [Project workspace](backend/docs/README.md)
+## Evidence and research history
 
-The original course scope—unauthorized-drone detection with an identity gate and LSTM anomaly
-scorer—is preserved as historical research in
-[`backend/docs/architecture/design-trajectory-anomaly-detection.md`](backend/docs/architecture/design-trajectory-anomaly-detection.md).
-The notebooks under [`notebooks/`](notebooks/) remain reproducible evidence: they informed the
-data audit, exposed limitations in terminal coverage, and provide independent checks against the
-new attempt reconstruction.
+The repository preserves why the product changed direction:
 
-Context inputs use NOAA NCEI Global Hourly weather and the OpenSky Network aircraft database.
-OpenSky data are used only for this non-profit research/education demonstrator under its
-[data terms](https://opensky-network.org/about/terms-of-use). Citation: Matthias Schäfer, Martin
-Strohmeier, Vincent Lenders, Ivan Martinovic and Matthias Wilhelm, “Bringing up OpenSky: A
-large-scale ADS-B sensor network for research,” ACM/IEEE IPSN, 2014. No raw source database is
-redistributed in the release artifact.
+- [`docs/product/`](docs/product/) — current behavior, architecture, design decision,
+  and release limitations.
+- [`docs/research/trajectory-anomaly/`](docs/research/trajectory-anomaly/) — the
+  original LSTM autoencoder and classical-baseline lifecycle.
+- [`docs/research/approach-screening/`](docs/research/approach-screening/) — the
+  rules-first reframe and failed qualification result.
+- [`docs/research/approach-context/`](docs/research/approach-context/) — the subsequent
+  weather and aircraft-context investigation.
+- [`research/trajectory-anomaly/notebooks/`](research/trajectory-anomaly/notebooks/) —
+  executable lifecycle evidence and clearly labeled exploratory archive notebooks.
 
-## Team
-
-Collaborative Saturdays.AI Madrid Deep Learning course project:
-
-- Monica Gomez
-- Pablo Rodriguez Campos
-- Roberto Molero
-- Txema Puch
-
-Team members independently explored different implementations and ways to productize the shared
-course problem. This repository is Txema Puch's analyst-workflow implementation.
+The historical model is benchmark evidence only. It cannot change an Analyst Console
+status, verdict, or queue position.
 
 ## Repository layout
 
 ```text
-backend/core/       approach geometry, reconstruction, quality and criteria
-backend/serve/      immutable release loading, API and upload evaluation
-backend/docs/       decisions, lifecycle evidence, designs and historical research
-backend/tests/      deterministic and contract tests
-frontend/src/       React analyst console
-notebooks/          data, pipeline, training and evaluation investigations
-data/               local working data; gitignored
-backend/models/     local release artifacts; gitignored
+backend/
+  src/sadar/              deployable product distribution
+  research/src/           historical research distribution
+  tests/{product,research,delivery}/
+delivery/container/       generated, hash-locked Linux dependency contract
+frontend/                 React analyst console
+docs/                     curated public documentation and evidence
+research/                 research-track notebooks and replay entrypoints
+scripts/                  repository and delivery checks
 ```
 
-Large data and model artifacts are not committed. Work on feature branches, keep secrets in
-`.env`, and open a pull request for teammate review.
+Git owns source, methodology, decisions, checksums, and artifact locks. Hugging Face
+owns trained weights and generated release archives. Raw datasets, local models,
+collaboration notes, and writeup drafts are intentionally excluded from source Git.
+
+## Data and attribution
+
+The research uses OpenSky Network ADS-B observations around LEMD. Optional contextual
+inputs use NOAA NCEI Global Hourly weather and the OpenSky aircraft database. No raw
+source database is redistributed in the release artifacts. OpenSky data are used for
+non-profit research and education under its terms of use.
+
+This began as a collaborative Saturdays.AI Madrid course project by Monica Gomez,
+Pablo Rodriguez Campos, Roberto Molero, and Txema Puch. Team members independently
+explored implementations and product directions; this repository is Txema Puch's
+analyst-workflow version.

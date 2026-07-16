@@ -11,7 +11,7 @@ POST-HOC analyst-triage UI needs (design doc §4.5), not a live monitor's window
                       RE attribution (which channel drove the score — diagnostic only).
 
 It reuses the FROZEN Phase-6/7 artifacts and the exact scoring contract from
-`backend/scripts/phase7_burn.py` (T=260, loss-masked `reconstruction_error(agg="mean")`,
+`backend/research/src/sadar_research/trajectory_anomaly/evaluation/report_eval.py` (T=260, loss-masked `reconstruction_error(agg="mean")`,
 val-chosen threshold 0.222) — NO re-tuning, NO model change. The cohort = the sealed 2020
 TEST fold (post-hoc audit population) ∪ the held-aside real-anomaly cases (go-around ∪
 emergency) so the queue has genuine anomalies to surface.

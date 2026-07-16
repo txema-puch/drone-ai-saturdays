@@ -17,7 +17,7 @@ What we changed (Direction C "Forensic Dossier", a post-hoc analyst-triage tool)
 - The information architecture is rebuilt from a live-controller **Monitor** into a
   retrospective **ranked queue → case file** flow. Our model scores a whole completed
   segment once, so a live scope would be dishonest (see
-  `backend/docs/architecture/sadar-merge-design.md` §4.5).
+  archived merge-design record listed in `docs/archive-manifest.yml`).
 - The visual language is restyled to the "Forensic Dossier" tokens in `/DESIGN.md`
   (paper-cream on dark slate, editorial serif), replacing his green-on-black radar scope.
 - The model, data, and serve layer are ours (LSTM-AE, OpenSky-LEMD, `backend/serve/`).

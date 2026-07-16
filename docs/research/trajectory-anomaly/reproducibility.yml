@@ -1,0 +1,34 @@
+schema_version: 1
+track: trajectory-anomaly
+status: historical_benchmark_not_served
+question: "Can nominal LEMD ADS-B trajectory segments support useful unsupervised review ranking?"
+distribution: backend/research
+package: sadar_research.trajectory_anomaly
+environment:
+  python: ">=3.11"
+  install: "uv sync --project backend/research --extra data --extra notebooks"
+tests: "uv run --project backend pytest backend/tests/research"
+notebooks: research/trajectory-anomaly/notebooks/lifecycle
+data:
+  authority: external_not_git
+  manifest: docs/research/trajectory-anomaly/lifecycle/manifest.yml
+  cycle3_sha256: 98e38ba5802816a97f17b2086df18570c6f81311d80faeed0492ad87abd662e4
+split:
+  strategy: monday_time_blocks
+  seed: 42
+  sealed_test_year: 2020
+artifacts:
+  training_lock: backend/research/src/sadar_research/trajectory_anomaly/releases/phase6_training_artifacts.lock.json
+  training_revision: fd21b357b7e24a8f1f3f1c8de6c5927cedaab7ad
+  training_archive_sha256: 1bc57e16c03773875335bdf38b94e3c8377250f0b933dfe5bcf149a8f1b946d0
+  demo_lock: backend/research/src/sadar_research/trajectory_anomaly/releases/demo_bundle.lock.json
+  demo_revision: 11f998c76434bbaf443401e51e2070d105be7bdf
+  demo_archive_sha256: 6a8f1df08bd229a52d377578229124f5cb6b705e3a25db65119ec7b62f0d4e57
+evidence:
+  evaluation: docs/research/trajectory-anomaly/lifecycle/07-eval.md
+  model_result: "AE real-event ROC/PR 0.667/0.088; original AUROC target not met"
+limitations:
+  - no independent operational labels
+  - anomaly score has no direct emergency or safety semantics
+  - Monday-heavy historical coverage and synthetic-validation dependence
+successor: docs/research/approach-screening/reproducibility.yml

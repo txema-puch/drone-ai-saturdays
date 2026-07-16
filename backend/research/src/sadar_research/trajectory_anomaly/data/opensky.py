@@ -2,28 +2,28 @@
 
 Dual-use module. Read this before changing any of the math.
 
-1. Production pipeline (Monica's `backend/scripts/export_lemd_2025_sample.py`)
+1. Production pipeline (Monica's `backend/research/src/sadar_research/trajectory_anomaly/data/export_sample.py`)
    Pulls state-vectors via Trino, applies the 200km LEMD radius filter, and
    derives six columns (flight_id, operation, time_utc, velocity_kmh,
    dist_to_runway_m, flight_phase) before writing to Supabase `lemd_*` tables.
 
 2. Audit reference implementation
-   `notebooks/05_phase2_data_validation.ipynb` imports `calculate_flight_phase`
+   `research/trajectory-anomaly/notebooks/lifecycle/05_phase2_data_validation.ipynb` imports `calculate_flight_phase`
    and `distance_to_closest_runway` from this module and re-runs them on the
    Supabase rows to verify the upstream computations still produce the same
-   values. Tolerances are documented in `backend/docs/ml/02-data.md` (D-205).
+   values. Tolerances are documented in `docs/research/trajectory-anomaly/lifecycle/02-data.md` (D-205).
 
 Implication: any change to the derivation functions silently changes the audit's
 consistency check. If the function is updated and past data is rebackfilled,
 the audit passes. If updated without rebackfill, the next cycle's audit flags
 the deltas as inconsistencies. Both outcomes are by design — see
-`backend/docs/workflow/data-pipeline.md > Why opensky.py is dual-use`.
+`docs/research/trajectory-anomaly/data-workflow.md > Why opensky.py is dual-use`.
 
 See also:
-- `backend/crud/supabase_io.py` — Phase 2 audit's I/O helpers (paired with this)
-- `backend/docs/workflow/data-pipeline.md` — full pipeline workflow
-- `backend/docs/ml/02-data.md` — audit methodology and per-cycle log
-- `backend/docs/designs/12-task-phase2-data-validation.md` — Phase 2 design doc
+- `backend/research/src/sadar_research/trajectory_anomaly/data/supabase_io.py` — Phase 2 audit's I/O helpers (paired with this)
+- `docs/research/trajectory-anomaly/data-workflow.md` — full pipeline workflow
+- `docs/research/trajectory-anomaly/lifecycle/02-data.md` — audit methodology and per-cycle log
+- `docs/research/trajectory-anomaly/data-workflow.md` — Phase 2 design doc
 """
 
 from datetime import datetime, timedelta
@@ -37,10 +37,10 @@ from tqdm import tqdm
 from sadar_research.trajectory_anomaly.data.config import settings
 
 # Geo + derivation helpers were extracted to leaf modules (refactor A1,
-# 2026-06-01) so `backend/core/preprocessing.py` and the test-suite can import
+# 2026-06-01) so `backend/research/src/sadar_research/trajectory_anomaly/pipeline/preprocessing.py` and the test-suite can import
 # them without triggering `Settings()` (which this module does at import time).
 # Re-exported here so notebook 05 and `download_opensky_states.py` keep working
-# unchanged: `from backend.crud.opensky import calculate_flight_phase, ...`.
+# unchanged: `from sadar_research.trajectory_anomaly.data.opensky import calculate_flight_phase, ...`.
 from sadar_research.trajectory_anomaly.data.geometry import (  # noqa: F401  (re-export)
     LEMD_RUNWAYS,
     MAX_RADIUS_M,

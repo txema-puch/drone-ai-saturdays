@@ -1,4 +1,4 @@
-"""Tests for Generator A (`backend/core/inject.py`).
+"""Tests for Generator A (`backend/research/src/sadar_research/trajectory_anomaly/pipeline/inject.py`).
 
 CRITICAL guards (the inject-bench firewall):
   ★★★ inject is VAL/TEST only — never the train fold.

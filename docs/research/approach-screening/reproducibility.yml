@@ -1,0 +1,34 @@
+schema_version: 1
+track: approach-screening
+status: research_demonstrator_failed_operational_qualification
+question: "Can observable LEMD approach criteria produce an assessable post-flight review queue?"
+distribution: backend
+package: sadar
+environment:
+  python: ">=3.11"
+  install: "uv sync --project backend --group dev"
+tests: "uv run --project backend pytest backend/tests/product"
+data:
+  authority: external_not_git
+  sealed_holdout: lemd_20260310_to_20260314__snapshot_2026-05-11
+  sealed_holdout_sha256: 16f1bd2cbdbd519ce7bde6fbbc8df5012b188b54c5598bffc310cef34b0c6899
+  burned_at: 2026-07-14
+method:
+  model_track: deterministic_rules_and_train_only_reference
+  supervised_model_gate: independent_labels_and_incremental_value_over_rules
+artifacts:
+  release_lock: backend/src/sadar/releases/approach_bundle.lock.json
+  release_id: 491f81fb1d896b0d793e
+  revision: db1a1a9232b3b96276a169a070852f619eec7c21
+  archive_sha256: 1f135728a0c235c245b5107a509cb73f1757ac4ced7346f123a1ea70a732c093
+evidence:
+  lifecycle: docs/research/approach-screening/lifecycle/manifest.yml
+  evaluation: docs/research/approach-screening/lifecycle/07-eval.md
+  retention: 0.6313
+  retention_target: 0.65
+  precision: unknown_no_independent_labels
+limitations:
+  - ADS-B cannot observe mass, configuration, clearance, intent, or indicated airspeed
+  - runway inference and criteria must abstain when coverage is insufficient
+  - no independent labels for correctness or calibration
+successor: docs/research/approach-context/reproducibility.yml

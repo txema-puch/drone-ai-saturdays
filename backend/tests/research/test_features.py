@@ -1,4 +1,4 @@
-"""Tests for the Phase-5 feature module (`backend/core/features.py`).
+"""Tests for the Phase-5 feature module (`backend/research/src/sadar_research/trajectory_anomaly/pipeline/features.py`).
 
 Covers the shared derivation replay (the injection-bench consistency guarantee), the
 go-around detector (every branch of the geometric rule), and the orchestrator's

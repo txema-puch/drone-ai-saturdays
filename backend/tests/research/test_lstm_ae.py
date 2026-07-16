@@ -1,4 +1,4 @@
-"""Tests for the LSTM Autoencoder (`backend/core/lstm_ae.py`).
+"""Tests for the LSTM Autoencoder (`backend/research/src/sadar_research/trajectory_anomaly/models/lstm_ae.py`).
 
   ★★★ CRITICAL  masked recon loss excludes padding AND imputed rows (zero gradient there).
   ★★            forward/recon shape = (N,T,9); reconstruction_error length = N.

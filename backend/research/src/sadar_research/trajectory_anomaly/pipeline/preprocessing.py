@@ -11,7 +11,7 @@ scaler as arguments and is never called with real values in Phase 3.
 
 Pipeline order is load-bearing (segment/derive before anything crosses a gap; split
 before interpolate). See `preprocess()` for the orchestration and
-`backend/docs/ml/03-preprocess.md` for the prose spec.
+`docs/research/trajectory-anomaly/lifecycle/03-preprocess.md` for the prose spec.
 
 Evidence base (measured numbers the notebook Part 3 validates against):
   - Filter D keeps 18,928 / 19,057 flights (99.3%).

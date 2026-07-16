@@ -1,12 +1,12 @@
 """Per-row + per-trajectory derivations shared by the OpenSky ingestion paths.
 
 Leaf module: numpy/pandas + `sadar_research.trajectory_anomaly.data.geometry` only. No credentials, no Trino,
-no Supabase (see `backend/core/geo.py` docstring for why that matters).
+no Supabase (see `backend/research/src/sadar_research/trajectory_anomaly/data/geometry.py` docstring for why that matters).
 
 Canonical home (refactor A1, 2026-06-01) for:
-  - `calculate_flight_phase`  — was in `backend/crud/opensky.py`
+  - `calculate_flight_phase`  — was in `backend/research/src/sadar_research/trajectory_anomaly/data/opensky.py`
   - `add_flight_id`, `apply_filter_b`, `apply_derivations` — were in
-    `backend/scripts/download_opensky_states.py`
+    `backend/research/src/sadar_research/trajectory_anomaly/data/download.py`
 
 `crud/opensky.py` re-exports `calculate_flight_phase`. The download script keeps
 its own copies of `apply_derivations`/`apply_filter_b`/`add_flight_id` until it
@@ -15,7 +15,7 @@ module is the single source of truth they will converge on.
 
 The derivation math is consumed by the Phase 2 audit (notebook 05) as a
 consistency check — any change here silently changes that check. See
-`backend/docs/workflow/data-pipeline.md > Why opensky.py is dual-use`.
+`docs/research/trajectory-anomaly/data-workflow.md > Why opensky.py is dual-use`.
 """
 
 from __future__ import annotations

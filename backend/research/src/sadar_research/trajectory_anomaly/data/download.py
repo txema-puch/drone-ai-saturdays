@@ -5,7 +5,7 @@ directly from the public S3-hosted "Weekly 24 Hours of State Vector Data
 2017-2022" scientific dataset (https://opensky-network.org/data/scientific),
 applies a two-stage LEMD filter (200 km haversine pre-cut + Filter B at the
 trajectory level), reuses the same per-row derivations as
-`backend/crud/opensky.py`, and writes one parquet file per Monday to
+`backend/research/src/sadar_research/trajectory_anomaly/data/opensky.py`, and writes one parquet file per Monday to
 `data/raw/opensky_states/`.
 
 Why this exists:
@@ -21,7 +21,7 @@ Filter B (LEMD-flight gate, applied per-trajectory):
     min(dist_to_runway_m) < 10_000     AND     min(baroaltitude) < 3_000
 - This removes ~47% of bbox trajectories that are cruise overflights at
   FL350-FL410 transiting central Spain en route between unrelated airports.
-- See `backend/docs/workflow/data-pipeline.md` for the rationale.
+- See `docs/research/trajectory-anomaly/data-workflow.md` for the rationale.
 - Empirically verified on 2019-10-07: 1,174 trajectories kept,
   1,055 cruise overflights excluded (median min_alt 10,668 m, median
   min_dist 55 km).
@@ -39,10 +39,10 @@ Differences vs the Trino path:
   if composing both datasets at training time.
 
 Usage:
-    uv run python backend/scripts/download_opensky_states.py
-    uv run python backend/scripts/download_opensky_states.py --mondays 30
-    uv run python backend/scripts/download_opensky_states.py --include-covid
-    uv run python backend/scripts/download_opensky_states.py --start 2019-01-01 --end 2019-12-31
+    uv run python backend/research/src/sadar_research/trajectory_anomaly/data/download.py
+    uv run python backend/research/src/sadar_research/trajectory_anomaly/data/download.py --mondays 30
+    uv run python backend/research/src/sadar_research/trajectory_anomaly/data/download.py --include-covid
+    uv run python backend/research/src/sadar_research/trajectory_anomaly/data/download.py --start 2019-01-01 --end 2019-12-31
 
 Resumability:
     Re-running skips Mondays whose output parquet already exists. Pass
@@ -50,8 +50,8 @@ Resumability:
     prevent partial files on Ctrl-C.
 
 See also:
-- `backend/crud/opensky.py` — Trino-based ingestion + derivation funcs
-- `backend/docs/workflow/data-pipeline.md` — full pipeline workflow
+- `backend/research/src/sadar_research/trajectory_anomaly/data/opensky.py` — Trino-based ingestion + derivation funcs
+- `docs/research/trajectory-anomaly/data-workflow.md` — full pipeline workflow
 - https://opensky-network.org/data/scientific — dataset listing (entry #1)
 """
 

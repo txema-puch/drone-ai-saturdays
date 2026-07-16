@@ -1,4 +1,4 @@
-"""Tests for the Isolation Forest baseline (`backend/core/baseline.py`).
+"""Tests for the Isolation Forest baseline (`backend/research/src/sadar_research/trajectory_anomaly/models/baseline.py`).
 
   ★★ summary stats are padding-robust (masked) and shape-stable.
   ★★ IF fits on train, scores val/test; an obvious outlier scores higher than normals.

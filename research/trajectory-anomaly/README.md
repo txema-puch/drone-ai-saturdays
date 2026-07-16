@@ -18,7 +18,8 @@ installable `backend/research` package and may be used only as research evidence
   later lifecycle was reached. They are not the prescribed implementation.
 - `backend/research/src/sadar_research/trajectory_anomaly/` — executable research
   pipeline, models, evaluation code, and release contracts.
-- `backend/docs/ml/` — historical lifecycle decisions, gates, and interpretation.
+- `docs/research/trajectory-anomaly/` — historical lifecycle decisions, gates,
+  figures, and interpretation.
 
 ## Environment
 

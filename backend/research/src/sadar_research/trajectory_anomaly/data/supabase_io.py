@@ -1,10 +1,10 @@
 """Supabase I/O helpers for LEMD trajectory data.
 
-Used by Phase 2 data validation (`notebooks/05_phase2_data_validation.ipynb`)
+Used by Phase 2 data validation (`research/trajectory-anomaly/notebooks/lifecycle/05_phase2_data_validation.ipynb`)
 and any future code that needs to discover, load, snapshot, or hash the
 `lemd_YYYY_MM_DD` tables Monica's pipeline writes to Supabase.
 
-Design context: `backend/docs/designs/12-task-phase2-data-validation.md`.
+Design context: `docs/research/trajectory-anomaly/data-workflow.md`.
 """
 
 from __future__ import annotations

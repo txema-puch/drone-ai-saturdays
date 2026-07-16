@@ -1,4 +1,4 @@
-"""Tests for the Phase-3 preprocessing pipeline (`backend/core/preprocessing.py`).
+"""Tests for the Phase-3 preprocessing pipeline (`backend/research/src/sadar_research/trajectory_anomaly/pipeline/preprocessing.py`).
 
 Synthetic hand-built fixtures (committed as code — tiny, reviewable) exercise every
 branch; one real-parquet smoke test runs end-to-end and skips if cycle-3 data is

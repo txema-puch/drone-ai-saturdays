@@ -11,6 +11,11 @@ project changed when its data and operational assumptions were tested.
 3. **Approach context.** Weather and airport context were investigated as additional
    evidence with availability and qualification gates.
 
-Each track receives a versioned `reproducibility.yml` defining its question, status,
-inputs, splits, commands, immutable artifacts, evidence, limitations and successor.
+Each track has a versioned `reproducibility.yml` defining its question, status,
+inputs, splits, commands, immutable artifacts, evidence, limitations, and successor:
+
+- [`trajectory-anomaly/`](trajectory-anomaly/) — historical learned-model experiment;
+- [`approach-screening/`](approach-screening/) — current product decision basis; and
+- [`approach-context/`](approach-context/) — optional contextual evidence iteration.
+
 Private or unavailable inputs remain explicit gates rather than implied dependencies.

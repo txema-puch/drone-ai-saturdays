@@ -1,0 +1,36 @@
+schema_version: 1
+track: approach-context
+status: published_research_candidate_not_qualified
+question: "Do available weather and aircraft context improve approach evidence without hiding missing sources?"
+distribution: backend
+package: sadar
+environment:
+  python: ">=3.11"
+  install: "uv sync --project backend --group dev"
+tests: "uv run --project backend pytest backend/tests/product"
+sources:
+  provenance: docs/research/approach-context/lifecycle/source-manifest.json
+  passed:
+    - noaa_ncei_qnh
+    - opensky_aircraft_type
+  failed_or_unavailable:
+    - airport_wind_coverage_below_target
+    - aircraft_configuration
+    - actual_mass
+    - atc_clearance
+qualification:
+  independent_labels: false
+  fresh_holdout: false
+  operational_claims: blocked
+artifacts:
+  release_lock: backend/src/sadar/releases/approach_bundle.lock.json
+  release_id: 491f81fb1d896b0d793e
+  revision: db1a1a9232b3b96276a169a070852f619eec7c21
+  archive_sha256: 1f135728a0c235c245b5107a509cb73f1757ac4ced7346f123a1ea70a732c093
+evidence:
+  lifecycle: docs/research/approach-context/lifecycle/manifest.yml
+  evaluation: docs/research/approach-context/lifecycle/07-eval.md
+promotion_gate:
+  - independent labels
+  - fresh holdout
+  - incremental value over ADS-B-only rules

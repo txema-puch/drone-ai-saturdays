@@ -1,4 +1,4 @@
-"""Tests for the offline analysis-report helpers (`backend/serve/report.py`).
+"""Tests for the offline analysis-report helpers (`backend/research/src/sadar_research/trajectory_anomaly/evaluation/report.py`).
 
 Pure / deterministic only — no live LLM call (the live prompt-quality check lives in the
 opt-in `serve.report_eval`). Covers the data-quality classifier and the bounded context

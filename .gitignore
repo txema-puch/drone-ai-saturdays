@@ -66,6 +66,7 @@ backend/models/phase6/*
 !backend/models/phase6/knn_frozen_manifest.json
 !backend/models/phase6/split_ids.json
 backend/notebooks/
+/backend/docs/
 
 ########################################
 # Node/Frontend                        #

@@ -1,4 +1,4 @@
-"""Tests for the Phase-6 split + firewall (`backend/core/split.py`).
+"""Tests for the Phase-6 split + firewall (`backend/research/src/sadar_research/trajectory_anomaly/pipeline/split.py`).
 
 The three CRITICAL guards are the Phase-6 firewall — the analogues of Phase 3's
 interpolation-never-crosses-boundary + make_scaler-UNFITTED. They must hold BEFORE any

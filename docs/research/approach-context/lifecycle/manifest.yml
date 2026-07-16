@@ -1,0 +1,99 @@
+iteration: "approach-context-v1"
+opened_at: "2026-07-15"
+current_phase: "research_deploy_candidate"
+problem_type: "rules_first_screening_with_contextual_empirical_reference"
+parent_iteration: "docs/research/approach-screening/lifecycle/manifest.yml"
+qualification: "not_qualified_no_independent_labels_or_fresh_holdout"
+allowed_role: "research_and_evidence_labeling_demonstrator"
+
+sources:
+  provenance_manifest: "docs/research/approach-context/lifecycle/source-manifest.json"
+  weather_station: "08221099999"
+  weather: "NOAA NCEI Global Hourly"
+  aircraft_type: "OpenSky aircraft database current snapshot"
+  unavailable:
+    airport_wind: "failed_newer_source_coverage_0.7809_below_0.80"
+    aircraft_configuration: "failed_no_observed_public_source"
+    actual_mass: "failed_no_observed_public_source"
+    atc_clearance: "failed_no_observed_public_source"
+
+gates:
+  problem:
+    status: "passed"
+    passed_at: "2026-07-15"
+    artifact: "docs/research/approach-context/lifecycle/01-problem.md"
+  data:
+    status: "passed_with_failed_optional_sources"
+    passed_at: "2026-07-15"
+    artifact: "docs/research/approach-context/lifecycle/02-data.md"
+  preprocess:
+    status: "passed"
+    passed_at: "2026-07-15"
+    artifact: "docs/research/approach-context/lifecycle/03-preprocess.md"
+  eda:
+    status: "passed"
+    passed_at: "2026-07-15"
+    artifact: "docs/research/approach-context/lifecycle/04-eda.md"
+  features:
+    status: "passed_for_research"
+    passed_at: "2026-07-15"
+    artifact: "docs/research/approach-context/lifecycle/05-features.md"
+  train:
+    status: "passed_reference_only"
+    passed_at: "2026-07-15"
+    artifact: "docs/research/approach-context/lifecycle/06-train.md"
+    reference_sha256: "68ea1a974a077e0b2ef8322564d7799c5fd52cbd21db42b8d5bf1badad57d328"
+  eval:
+    status: "failed_qualification"
+    evaluated_at: "2026-07-15"
+    artifact: "docs/research/approach-context/lifecycle/07-eval.md"
+    reason: "no_independent_labels_or_fresh_holdout"
+  deploy:
+    status: "published_research_candidate"
+    artifact: "docs/research/approach-context/lifecycle/08-deploy.md"
+    operational_claims: "blocked"
+
+development_evidence:
+  train_attempts: 4272
+  validation_attempts: 2740
+  newer_source_attempts: 388
+  newer_source_context_coverage:
+    qnh: 0.9639
+    wind_components: 0.7809
+    aircraft_type: 0.8428
+    any_exact_type_reference: 0.8428
+    all_reference_cells_exact_type: 0.8376
+  newer_source_status_counts:
+    not_assessable: 124
+    partial_observation: 163
+    criteria_observed: 51
+    review_required: 50
+  artifact_sha256:
+    train_coverage: "3854a4325a9f851785b075a1436dc91c4eb489757099bdf77da14444aac55c81"
+    validation_coverage: "70592c09cdc0a100d0fd37577583a021ba933da0ec3c1de71a70eb1e88f071f9"
+    newer_source_coverage: "548afb45a3d4fecd15088694752061b2c805f6b8b3df85032ecc001ea7cd4911"
+    validation_comparison: "5663763b171be0cefe6309f27fb4c78e7f284d485e3ea8c0192fe1a1930b1922"
+    newer_source_comparison: "0d7bc73010112dbda9010f79b7d37e20dd7a82363b997ae62ac7ccfa328a9353"
+
+release_candidate:
+  release_id: "491f81fb1d896b0d793e"
+  engine_version: "approach_context_v1"
+  context_sources_sha256: "eef2a7a32ee55ee079d4263dc5c7eb339aa250837256c2e00325b5d5b401402e"
+  input_sha256: "8256c65f95135597f3db07413941380fc2a0c6bbfc429b07b12b10478f7e2c10"
+  source_commit: "305166924590940b6fad9ad62dd0a736fcd698ee"
+  publication: "published_verified"
+  hf_revision: "db1a1a9232b3b96276a169a070852f619eec7c21"
+  archive_sha256: "1f135728a0c235c245b5107a509cb73f1757ac4ced7346f123a1ea70a732c093"
+  published_at: "2026-07-15T11:29:14Z"
+  anonymous_install_verified: true
+  superseded_publication:
+    release_id: "df22ce72488273f28c8a"
+    hf_revision: "1f1ac1bd2e8ca2cf6ff868d372e7508b902cfc13"
+    reason: "prompt_reapproach_boundary_fixed_before_deployment"
+  opensky_publication_notice: "owner_action_required_after_live_publication"
+
+promotion_gate:
+  independent_labels: "required"
+  fresh_holdout: "required"
+  incremental_value_over_adsb_only: "required"
+  status: "not_met"
