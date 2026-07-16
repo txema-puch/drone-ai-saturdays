@@ -9,9 +9,9 @@ import pandas as pd
 import pytest
 from sklearn.preprocessing import StandardScaler
 
-from backend.core.lstm_ae import LSTMAutoencoder
-from backend.core.preprocessing import AE_FEATURES, SCALER_FEATURES
-from backend.serve.evaluation import EvaluationError, UploadEvaluationService
+from sadar_research.trajectory_anomaly.models.lstm_ae import LSTMAutoencoder
+from sadar_research.trajectory_anomaly.pipeline.preprocessing import AE_FEATURES, SCALER_FEATURES
+from sadar_research.trajectory_anomaly.evaluation.upload import EvaluationError, UploadEvaluationService
 
 
 SAMPLE = Path(__file__).resolve().parents[2] / "frontend/public/evaluation-synthetic-sample.csv"
@@ -97,7 +97,7 @@ def test_identifier_text_is_preserved_across_csv_and_parquet(service, loaded):
 def test_csv_schema_is_rejected_before_materialization(service, loaded, monkeypatch):
     header = ",".join((*tuple(pd.read_csv(SAMPLE, nrows=0).columns), "attacker_payload"))
     monkeypatch.setattr(
-        "backend.serve.evaluation.pd.read_csv",
+        "sadar_research.trajectory_anomaly.evaluation.upload.pd.read_csv",
         lambda *_args, **_kwargs: pytest.fail("body was materialized before schema validation"),
     )
     with pytest.raises(EvaluationError) as caught:
@@ -116,7 +116,7 @@ def test_ragged_csv_rows_are_rejected(service, loaded, body):
 
 
 def test_resampling_expansion_is_rejected_before_preprocess(service, loaded, monkeypatch):
-    monkeypatch.setattr("backend.serve.evaluation.MAX_GRID_ROWS", 20)
+    monkeypatch.setattr("sadar_research.trajectory_anomaly.evaluation.upload.MAX_GRID_ROWS", 20)
     with pytest.raises(EvaluationError) as caught:
         service.evaluate(
             SAMPLE.read_bytes(), filename="sample.csv", media_type="text/csv", loaded=loaded,
@@ -183,7 +183,7 @@ def test_derived_columns_are_ignored_and_recomputed(service, loaded):
 
 
 def test_response_size_is_bounded(service, loaded, monkeypatch):
-    monkeypatch.setattr("backend.serve.evaluation.MAX_RESPONSE_BYTES", 10)
+    monkeypatch.setattr("sadar_research.trajectory_anomaly.evaluation.upload.MAX_RESPONSE_BYTES", 10)
     with pytest.raises(EvaluationError) as caught:
         service.evaluate(
             SAMPLE.read_bytes(), filename="sample.csv", media_type="text/csv", loaded=loaded,
@@ -205,7 +205,7 @@ def test_missing_and_impossible_observations_are_reported(service, loaded):
 
 
 def test_row_and_segment_limits_reject_instead_of_truncating(service, loaded, monkeypatch):
-    monkeypatch.setattr("backend.serve.evaluation.MAX_RAW_ROWS", 2)
+    monkeypatch.setattr("sadar_research.trajectory_anomaly.evaluation.upload.MAX_RAW_ROWS", 2)
     with pytest.raises(EvaluationError) as caught:
         service.evaluate(
             SAMPLE.read_bytes(), filename="sample.csv", media_type="text/csv", loaded=loaded,
@@ -213,7 +213,7 @@ def test_row_and_segment_limits_reject_instead_of_truncating(service, loaded, mo
     assert caught.value.status_code == 413
     assert caught.value.code == "too_many_rows"
 
-    monkeypatch.setattr("backend.serve.evaluation.MAX_RAW_ROWS", 50_000)
+    monkeypatch.setattr("sadar_research.trajectory_anomaly.evaluation.upload.MAX_RAW_ROWS", 50_000)
     frame = pd.read_csv(SAMPLE)
     many = pd.concat(
         [frame.assign(icao24=f"a{index:05x}") for index in range(26)], ignore_index=True

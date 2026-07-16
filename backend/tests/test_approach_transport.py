@@ -8,8 +8,8 @@ from pathlib import Path
 
 import pytest
 
-from backend.serve import approach_transport
-from backend.serve.approach_release import load_release_directory
+from sadar.releases import archive as approach_transport
+from sadar.releases.approach import load_release_directory
 
 
 REPO = Path(__file__).resolve().parents[2]

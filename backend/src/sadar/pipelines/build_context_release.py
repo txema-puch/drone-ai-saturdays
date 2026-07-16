@@ -16,7 +16,7 @@ from sadar.approach.context import (
     load_global_hourly_weather,
 )
 from sadar.approach.geometry import GEOMETRY_RESOURCE
-from sadar.approach.reference import load_approach_reference
+from sadar.approach.reference import load_context_reference
 from sadar.pipelines.audit_context import _logical_parts_sha256
 from sadar.pipelines.build_release import (
     MAX_CASE_OBSERVATIONS,
@@ -69,7 +69,7 @@ def build_contextual_release(
     payloads, source, contracts = build_payloads(
         frame,
         input_sha256=input_digest,
-        reference=load_approach_reference(reference_path),
+        reference=load_context_reference(reference_path),
         geometry_payload=json.loads(GEOMETRY_RESOURCE.read_text()),
         contextual={"weather": weather, "aircraft": aircraft, "sources": sources},
         max_case_observations=max_case_observations,

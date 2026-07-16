@@ -1,8 +1,8 @@
 import numpy as np
 import pandas as pd
 
-from backend.core.preprocessing import MASKED_FEATURES
-from backend.serve import scoring
+from sadar_research.trajectory_anomaly.pipeline.preprocessing import MASKED_FEATURES
+from sadar_research.trajectory_anomaly.evaluation import scoring
 
 
 def test_zero_intensity_scores_the_untouched_clean_segment(monkeypatch):

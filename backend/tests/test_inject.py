@@ -13,9 +13,9 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from backend.core import inject as ij
-from backend.core.geo import distance_to_closest_runway
-from backend.core.preprocessing import AE_FEATURES, MASKED_FEATURES, SCALER_FEATURES, make_scaler
+from sadar_research.trajectory_anomaly.pipeline import inject as ij
+from sadar_research.trajectory_anomaly.data.geometry import distance_to_closest_runway
+from sadar_research.trajectory_anomaly.pipeline.preprocessing import AE_FEATURES, MASKED_FEATURES, SCALER_FEATURES, make_scaler
 
 RWY32L = (40.4651, -3.5450)
 

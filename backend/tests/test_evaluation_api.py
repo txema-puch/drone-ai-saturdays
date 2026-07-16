@@ -7,9 +7,9 @@ from types import SimpleNamespace
 
 from fastapi.testclient import TestClient
 
-from backend.serve import app as serve_app
-from backend.serve import evaluation
-from backend.serve.model_runtime import AnalysisBusy
+from sadar_research.trajectory_anomaly.demo import app as serve_app
+from sadar_research.trajectory_anomaly.evaluation import upload as evaluation
+from sadar_research.trajectory_anomaly.demo.runtime import AnalysisBusy
 
 
 client = TestClient(serve_app.app)

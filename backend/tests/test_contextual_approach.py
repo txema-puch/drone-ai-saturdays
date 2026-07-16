@@ -5,9 +5,9 @@ from datetime import datetime, timezone
 
 import pytest
 
-from backend.core.approach import assess_approach
-from backend.core.approach_context import WeatherObservation
-from backend.core.contextual_approach import assess_contextual_operation
+from sadar.approach.assessment import assess_approach
+from sadar.approach.context import WeatherObservation
+from sadar.approach.contextual import assess_contextual_operation
 from backend.tests.test_approach import _fixture
 from backend.tests.test_approach_reference import _reference
 

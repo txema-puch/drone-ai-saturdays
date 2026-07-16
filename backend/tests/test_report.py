@@ -11,7 +11,7 @@ builder, the two pieces that decide what the model is told.
 
 from __future__ import annotations
 
-from backend.serve import report as rpt
+from sadar_research.trajectory_anomaly.evaluation import report as rpt
 
 
 def _case(**kw) -> dict:

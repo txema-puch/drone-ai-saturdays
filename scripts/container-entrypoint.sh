@@ -13,8 +13,7 @@ if [ "$port" -lt 1 ] || [ "$port" -gt 65535 ]; then
   exit 64
 fi
 
-exec uvicorn backend.serve.approach_app:app \
+exec sadar-api \
   --host 0.0.0.0 \
   --port "$port" \
-  --workers 1 \
-  --no-access-log
+  --workers 1

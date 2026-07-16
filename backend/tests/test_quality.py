@@ -2,7 +2,7 @@
 
 import pandas as pd
 
-from backend.serve.quality import assess_segment, assessment_copy
+from sadar_research.trajectory_anomaly.evaluation.quality import assess_segment, assessment_copy
 
 
 def _segment(altitudes, *, latitudes=None, longitudes=None):

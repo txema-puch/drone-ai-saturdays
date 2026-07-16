@@ -2,7 +2,7 @@ import json
 
 import numpy as np
 
-from backend.core.approach_geometry import (
+from sadar.approach.geometry import (
     GEOMETRY_PATH,
     circular_difference_deg,
     load_lemd_geometry,

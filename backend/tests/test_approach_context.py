@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 
 import pytest
 
-from backend.core.approach_context import (
+from sadar.approach.context import (
     WeatherObservation,
     join_nearest_weather,
     load_aircraft_metadata_parts,

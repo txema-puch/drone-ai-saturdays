@@ -9,7 +9,7 @@ from pathlib import Path
 from sadar.pipelines import publish_release as publish_approach_release
 from sadar.releases import fetch as fetch_approach_release
 from sadar.releases.hub_publish import UploadedArtifact
-from backend.serve.approach_release import load_release_directory
+from sadar.releases.approach import load_release_directory
 
 
 REPO = Path(__file__).resolve().parents[2]

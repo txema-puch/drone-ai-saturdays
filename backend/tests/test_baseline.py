@@ -9,8 +9,8 @@ from __future__ import annotations
 
 import numpy as np
 
-from backend.core import baseline as bl
-from backend.core.preprocessing import AE_FEATURES, SCALER_FEATURES
+from sadar_research.trajectory_anomaly.models import baseline as bl
+from sadar_research.trajectory_anomaly.pipeline.preprocessing import AE_FEATURES, SCALER_FEATURES
 
 N_STATS = len(SCALER_FEATURES) * 4  # mean/std/min/max × 6
 

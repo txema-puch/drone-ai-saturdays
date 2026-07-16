@@ -5,7 +5,7 @@ import time
 
 import pytest
 
-from backend.serve.model_runtime import AnalysisBusy, ModelNotReady, ModelRuntime
+from sadar_research.trajectory_anomaly.demo.runtime import AnalysisBusy, ModelNotReady, ModelRuntime
 
 
 def test_prepare_is_nonblocking_idempotent_and_allows_one_retry(caplog):

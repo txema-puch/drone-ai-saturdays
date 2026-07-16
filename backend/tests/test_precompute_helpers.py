@@ -1,6 +1,9 @@
 import numpy as np
 
-from backend.serve.precompute import select_case_indices, valid_normal_step_scores
+from sadar_research.trajectory_anomaly.pipeline.precompute import (
+    select_case_indices,
+    valid_normal_step_scores,
+)
 
 
 def test_valid_normal_step_scores_uses_boolean_mask_not_prefix_length():

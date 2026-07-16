@@ -3,14 +3,14 @@ import math
 import numpy as np
 import pandas as pd
 
-from backend.core.approach import (
+from sadar.approach.assessment import (
     assess_approach,
     assess_operation,
     canonical_observations,
     extract_approach_attempts,
     infer_runway,
 )
-from backend.core.approach_geometry import EARTH_RADIUS_M, load_lemd_geometry
+from sadar.approach.geometry import EARTH_RADIUS_M, load_lemd_geometry
 
 
 def _fixture(runway_name="18L", *, cross_m=0.0, descent_rate=-3.0, track_offset=0.0):

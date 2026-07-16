@@ -8,10 +8,10 @@ import pytest
 import torch
 from sklearn.preprocessing import StandardScaler
 
-from backend.core.lstm_ae import LSTMAutoencoder
+from sadar_research.trajectory_anomaly.models.lstm_ae import LSTMAutoencoder
 
-from backend.serve import model_artifacts as artifacts
-from backend.serve.release import (
+from sadar_research.trajectory_anomaly.releases import artifacts
+from sadar_research.trajectory_anomaly.releases.schema import (
     ReleaseCompatibilityError,
     ReleaseFormatError,
     ReleaseIntegrityError,

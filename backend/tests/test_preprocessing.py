@@ -23,8 +23,8 @@ import pandas as pd
 import pytest
 from sklearn.exceptions import NotFittedError
 
-from backend.core import preprocessing as pp
-from backend.core.geo import distance_to_closest_runway
+from sadar_research.trajectory_anomaly.pipeline import preprocessing as pp
+from sadar_research.trajectory_anomaly.data.geometry import distance_to_closest_runway
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 # A point right at the 32L threshold — engaging by Filter D; and a far cruise point.

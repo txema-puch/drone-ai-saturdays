@@ -10,11 +10,13 @@ import pytest
 import torch
 from sklearn.preprocessing import StandardScaler
 
-from backend.core.lstm_ae import LSTMAutoencoder
-from backend.core.preprocessing import AE_FEATURES, SCALER_FEATURES
-from backend.serve import model_artifacts, release, release_semantics
-from backend.serve.operations import case_identity, operation_ref
-from backend.serve.release import ReleaseCompatibilityError, ReleaseIntegrityError
+from sadar_research.trajectory_anomaly.models.lstm_ae import LSTMAutoencoder
+from sadar_research.trajectory_anomaly.pipeline.preprocessing import AE_FEATURES, SCALER_FEATURES
+from sadar_research.trajectory_anomaly.releases import artifacts as model_artifacts
+from sadar_research.trajectory_anomaly.releases import schema as release
+from sadar_research.trajectory_anomaly.releases import semantics as release_semantics
+from sadar_research.trajectory_anomaly.demo.operations import case_identity, operation_ref
+from sadar_research.trajectory_anomaly.releases.schema import ReleaseCompatibilityError, ReleaseIntegrityError
 
 
 ONLINE_CONTRACT = {

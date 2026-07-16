@@ -19,8 +19,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from backend.core import split as sp
-from backend.core.preprocessing import AE_FEATURES
+from sadar_research.trajectory_anomaly.pipeline import split as sp
+from sadar_research.trajectory_anomaly.pipeline.preprocessing import AE_FEATURES
 
 
 # ── synthetic meta builder ────────────────────────────────────────────────────

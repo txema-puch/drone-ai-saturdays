@@ -21,6 +21,9 @@ REFERENCE_SCHEMA_VERSION = "approach_reference_v1"
 REFERENCE_RESOURCE = files("sadar.approach.resources").joinpath(
     "lemd_approach_reference_v1.json"
 )
+CONTEXT_REFERENCE_RESOURCE = files("sadar.approach.resources").joinpath(
+    "lemd_approach_context_reference_v1.json"
+)
 REFERENCE_PATH = Path(str(REFERENCE_RESOURCE))
 DISTANCE_BINS_M = (0.0, 1_500.0, 3_000.0, 6_000.0, 10_000.0, 20_000.0)
 MINIMUM_ATTEMPTS = 20
@@ -315,6 +318,18 @@ def dumps_reference(reference: dict[str, Any]) -> str:
 @lru_cache(maxsize=1)
 def load_approach_reference(path: str | Path | None = None) -> dict[str, Any]:
     text = REFERENCE_RESOURCE.read_text() if path is None else Path(path).read_text()
+    reference = json.loads(text)
+    validate_reference(reference)
+    return reference
+
+
+def load_context_reference(path: str | Path | None = None) -> dict[str, Any]:
+    """Load the aircraft-type-conditioned contextual reference resource."""
+    text = (
+        CONTEXT_REFERENCE_RESOURCE.read_text()
+        if path is None
+        else Path(path).read_text()
+    )
     reference = json.loads(text)
     validate_reference(reference)
     return reference

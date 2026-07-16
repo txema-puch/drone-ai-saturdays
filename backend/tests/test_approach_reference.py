@@ -4,9 +4,9 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from backend.core.approach import assess_approach
-from backend.core.approach_geometry import EARTH_RADIUS_M, load_lemd_geometry
-from backend.core.approach_reference import (
+from sadar.approach.assessment import assess_approach
+from sadar.approach.geometry import EARTH_RADIUS_M, load_lemd_geometry
+from sadar.approach.reference import (
     dumps_reference,
     fit_reference,
     load_approach_reference,

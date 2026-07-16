@@ -8,10 +8,12 @@ import pytest
 import torch
 from sklearn.preprocessing import StandardScaler
 
-from backend.core.lstm_ae import LSTMAutoencoder
-from backend.core.preprocessing import AE_FEATURES, SCALER_FEATURES
-from backend.serve import precompute, release, report
-from backend.serve.operations import annotate_segment_refs
+from sadar_research.trajectory_anomaly.models.lstm_ae import LSTMAutoencoder
+from sadar_research.trajectory_anomaly.pipeline.preprocessing import AE_FEATURES, SCALER_FEATURES
+from sadar_research.trajectory_anomaly.evaluation import report
+from sadar_research.trajectory_anomaly.pipeline import precompute
+from sadar_research.trajectory_anomaly.releases import schema as release
+from sadar_research.trajectory_anomaly.demo.operations import annotate_segment_refs
 
 
 def test_cohort_percentiles_use_inclusive_ties() -> None:

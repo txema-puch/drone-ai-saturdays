@@ -11,9 +11,9 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from backend.core import features as fx
-from backend.core import preprocessing as pp
-from backend.core.geo import distance_to_closest_runway
+from sadar_research.trajectory_anomaly.pipeline import features as fx
+from sadar_research.trajectory_anomaly.pipeline import preprocessing as pp
+from sadar_research.trajectory_anomaly.data.geometry import distance_to_closest_runway
 
 RWY_LAT, RWY_LON = 40.4651, -3.5450  # 32L threshold
 

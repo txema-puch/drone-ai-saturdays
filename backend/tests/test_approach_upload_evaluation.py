@@ -6,9 +6,9 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from backend.core.approach_geometry import EARTH_RADIUS_M, load_lemd_geometry
-from backend.core.approach_reference import load_approach_reference
-from backend.serve.approach_evaluation import (
+from sadar.approach.geometry import EARTH_RADIUS_M, load_lemd_geometry
+from sadar.approach.reference import load_context_reference
+from sadar.api.evaluation import (
     ApproachUploadEvaluationService,
     EvaluationError,
 )
@@ -52,13 +52,9 @@ def service() -> ApproachUploadEvaluationService:
 
 @pytest.fixture
 def contextual_service() -> ApproachUploadEvaluationService:
-    reference_path = (
-        Path(__file__).resolve().parents[1]
-        / "core/resources/lemd_approach_context_reference_v1.json"
-    )
     return ApproachUploadEvaluationService(
         release_id="approach-context-fixture-v1",
-        reference=load_approach_reference(reference_path),
+        reference=load_context_reference(),
         contextual=True,
     )
 
@@ -157,40 +153,40 @@ def test_no_attempt_is_an_empty_bounded_result_not_an_error(service):
 def test_hard_input_row_operation_attempt_trajectory_and_response_bounds(service, monkeypatch):
     frame = _approach_frame()
 
-    monkeypatch.setattr("backend.serve.approach_evaluation.MAX_INPUT_BYTES", 1)
+    monkeypatch.setattr("sadar.api.evaluation.MAX_INPUT_BYTES", 1)
     with pytest.raises(EvaluationError, match="10 MiB") as raised:
         service.evaluate(_csv(frame), filename="rows.csv", media_type="text/csv")
     assert raised.value.code == "request_too_large"
-    monkeypatch.setattr("backend.serve.approach_evaluation.MAX_INPUT_BYTES", 10 * 1024 * 1024)
+    monkeypatch.setattr("sadar.api.evaluation.MAX_INPUT_BYTES", 10 * 1024 * 1024)
 
-    monkeypatch.setattr("backend.serve.approach_evaluation.MAX_RAW_ROWS", 1)
+    monkeypatch.setattr("sadar.api.evaluation.MAX_RAW_ROWS", 1)
     with pytest.raises(EvaluationError) as raised:
         service.evaluate(_csv(frame), filename="rows.csv", media_type="text/csv")
     assert raised.value.code == "too_many_rows"
-    monkeypatch.setattr("backend.serve.approach_evaluation.MAX_RAW_ROWS", 50_000)
+    monkeypatch.setattr("sadar.api.evaluation.MAX_RAW_ROWS", 50_000)
 
     second = _approach_frame(icao24="def456")
-    monkeypatch.setattr("backend.serve.approach_evaluation.MAX_OPERATIONS", 1)
+    monkeypatch.setattr("sadar.api.evaluation.MAX_OPERATIONS", 1)
     with pytest.raises(EvaluationError) as raised:
         service.evaluate(
             _csv(pd.concat([frame, second], ignore_index=True)),
             filename="two.csv", media_type="text/csv",
         )
     assert raised.value.code == "too_many_operations"
-    monkeypatch.setattr("backend.serve.approach_evaluation.MAX_OPERATIONS", 250)
+    monkeypatch.setattr("sadar.api.evaluation.MAX_OPERATIONS", 250)
 
-    monkeypatch.setattr("backend.serve.approach_evaluation.MAX_ATTEMPTS", 0)
+    monkeypatch.setattr("sadar.api.evaluation.MAX_ATTEMPTS", 0)
     with pytest.raises(EvaluationError) as raised:
         service.evaluate(_csv(frame), filename="rows.csv", media_type="text/csv")
     assert raised.value.code == "too_many_attempts"
-    monkeypatch.setattr("backend.serve.approach_evaluation.MAX_ATTEMPTS", 500)
+    monkeypatch.setattr("sadar.api.evaluation.MAX_ATTEMPTS", 500)
 
-    monkeypatch.setattr("backend.serve.approach_evaluation.MAX_TRAJECTORY_POINTS", 5)
+    monkeypatch.setattr("sadar.api.evaluation.MAX_TRAJECTORY_POINTS", 5)
     response = service.evaluate(_csv(frame), filename="rows.csv", media_type="text/csv")
     assert response["results"][0]["trajectory"]["returned_points"] == 5
     assert len(response["results"][0]["channels"]["time"]) == 5
 
-    monkeypatch.setattr("backend.serve.approach_evaluation.MAX_RESPONSE_BYTES", 10)
+    monkeypatch.setattr("sadar.api.evaluation.MAX_RESPONSE_BYTES", 10)
     with pytest.raises(EvaluationError) as raised:
         service.evaluate(_csv(frame), filename="rows.csv", media_type="text/csv")
     assert raised.value.code == "evaluation_response_too_large"

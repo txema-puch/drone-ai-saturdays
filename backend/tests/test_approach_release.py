@@ -8,10 +8,10 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from backend.core.approach_geometry import EARTH_RADIUS_M, load_lemd_geometry
+from sadar.approach.geometry import EARTH_RADIUS_M, load_lemd_geometry
 from sadar.pipelines import build_context_release as contextual_builder
 from sadar.pipelines import build_release as builder
-from backend.serve import approach_release
+from sadar.releases import approach as approach_release
 
 
 def _approach_frame(runway_name: str = "18L") -> pd.DataFrame:

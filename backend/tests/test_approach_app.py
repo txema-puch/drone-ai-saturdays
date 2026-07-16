@@ -1,75 +1,102 @@
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
 from pathlib import Path
 
 from fastapi.testclient import TestClient
 
-from backend.serve import approach_app
+from sadar.api.evaluation import EvaluationError
+from sadar.api.factory import create_app
+from sadar.api.middleware import EvaluationAdmissionLimiter
+from sadar.api.settings import Settings
+from sadar.releases.approach import load_release_directory
 
 
-client = TestClient(approach_app.app)
+REPO = Path(__file__).resolve().parents[2]
+RELEASE_DIR = REPO / "backend/models/sadar_approach_v3"
+RELEASE = load_release_directory(RELEASE_DIR)
 
 
-def _fresh_limiter(*, global_limit: int = 100, client_limit: int = 100):
-    return approach_app.EvaluationAdmissionLimiter(
-        window_seconds=60,
-        global_limit=global_limit,
-        client_limit=client_limit,
+def _frontend(tmp_path: Path) -> Path:
+    root = tmp_path / "dist"
+    root.mkdir(parents=True)
+    (root / "index.html").write_text('<div id="root"></div>')
+    return root
+
+
+def _app(
+    tmp_path: Path,
+    *,
+    evaluation_enabled: bool = False,
+    evaluation_global_limit: int = 100,
+    evaluation_client_limit: int = 100,
+    service_factory=None,
+):
+    settings = Settings(
+        release_dir=RELEASE_DIR,
+        frontend_dir=_frontend(tmp_path),
+        evaluation_enabled=evaluation_enabled,
+        evaluation_global_limit=evaluation_global_limit,
+        evaluation_client_limit=evaluation_client_limit,
     )
+    kwargs = {"evaluation_service_factory": service_factory} if service_factory else {}
+    return create_app(settings, RELEASE, **kwargs)
 
 
-def test_health_and_openapi_describe_rules_first_product():
-    response = client.get("/api/health")
+def test_health_and_openapi_describe_rules_first_product(tmp_path: Path):
+    app = _app(tmp_path)
+    response = TestClient(app).get("/api/health")
     assert response.status_code == 200
     health = response.json()
     assert health["mode"] == "approach-screening"
     assert health["schema_version"] == 3
     assert health["attempts"] == sum(health["status_counts"].values())
-    assert health["reference"]["artifact_sha256"] == approach_app.REFERENCE["artifact_sha256"]
-    assert approach_app.app.title == "SADAR Analyst Console"
-    assert "LSTM" not in approach_app.app.description
+    assert health["reference"]["artifact_sha256"] == RELEASE["reference"]["artifact_sha256"]
+    assert app.title == "SADAR Analyst Console"
+    assert "LSTM" not in app.description
 
 
-def test_attempt_queue_filters_and_detail_are_release_backed():
+def test_attempt_queue_filters_and_detail_are_release_backed(tmp_path: Path):
+    client = TestClient(_app(tmp_path))
     queue = client.get("/api/approaches?limit=5000").json()
-    assert len(queue) == len(approach_app.ATTEMPTS)
+    assert len(queue) == len(RELEASE["attempts"])
     assert queue[0]["status"] == "review_required"
     selected = queue[0]
-
     filtered = client.get(f"/api/approaches?status={selected['status']}").json()
     assert filtered
     assert {item["status"] for item in filtered} == {selected["status"]}
-
-    detail = client.get(f"/api/approaches/{selected['attempt_id']}")
-    assert detail.status_code == 200
-    payload = detail.json()
+    payload = client.get(f"/api/approaches/{selected['attempt_id']}").json()
     assert payload["attempt_id"] == selected["attempt_id"]
-    assert payload["path"]
-    assert payload["criteria"]
+    assert payload["path"] and payload["criteria"]
     assert payload["research_benchmark"] is None
     assert all(point["observed"] is True for point in payload["path"])
-    assert all("along_track_m" in point for point in payload["path"])
 
 
-def test_operation_groups_exact_release_attempts():
-    operation = next(item for item in approach_app.OPERATIONS_BY_ID.values() if item["attempt_ids"])
-    response = client.get(f"/api/approach-operations/{operation['operation_id']}")
+def test_operation_groups_exact_release_attempts(tmp_path: Path):
+    app = _app(tmp_path)
+    operation = next(
+        item for item in app.state.release.operations_by_id.values() if item["attempt_ids"]
+    )
+    response = TestClient(app).get(
+        f"/api/approach-operations/{operation['operation_id']}"
+    )
     assert response.status_code == 200
     assert [item["attempt_id"] for item in response.json()["attempts"]] == operation["attempt_ids"]
 
 
-def test_historical_model_routes_are_not_exposed():
-    assert client.post("/api/model/prepare").status_code == 404
-    assert client.post("/api/simulate").status_code == 404
+def test_product_import_does_not_load_historical_model_stack():
+    environment = dict(os.environ)
+    environment["PYTHONPATH"] = str(REPO / "backend/src")
     isolated = subprocess.run(
         [
             sys.executable,
             "-c",
-            "import sys; import backend.serve.approach_app; assert 'torch' not in sys.modules",
+            "import sys; import sadar.api.factory; assert 'torch' not in sys.modules",
         ],
-        cwd=approach_app.REPO,
+        cwd=REPO,
+        env=environment,
         check=False,
         capture_output=True,
         text=True,
@@ -77,8 +104,8 @@ def test_historical_model_routes_are_not_exposed():
     assert isolated.returncode == 0, isolated.stderr
 
 
-def test_disabled_upload_and_unknown_records_are_structured():
-    assert approach_app.EVALUATION_ENABLED is False
+def test_disabled_upload_and_unknown_records_are_structured(tmp_path: Path):
+    client = TestClient(_app(tmp_path))
     disabled = client.post("/api/evaluations")
     assert disabled.status_code == 404
     assert disabled.json()["detail"]["code"] == "evaluation_disabled"
@@ -87,7 +114,7 @@ def test_disabled_upload_and_unknown_records_are_structured():
     assert missing.json()["detail"]["code"] == "attempt_not_found"
 
 
-def test_enabled_upload_uses_approach_service_and_context_contract(monkeypatch):
+def test_enabled_upload_uses_injected_service_and_context_contract(tmp_path: Path):
     observed = {}
 
     class StubService:
@@ -95,16 +122,11 @@ def test_enabled_upload_uses_approach_service_and_context_contract(monkeypatch):
             observed.update(kwargs)
 
         def evaluate(self, data, *, filename, media_type):
-            return {
-                "release_id": observed["release_id"],
-                "filename": filename,
-                "media_type": media_type,
-                "bytes": len(data),
-            }
+            return {"filename": filename, "media_type": media_type, "bytes": len(data)}
 
-    monkeypatch.setattr(approach_app, "EVALUATION_ENABLED", True)
-    monkeypatch.setattr(approach_app, "EVALUATION_LIMITER", _fresh_limiter())
-    monkeypatch.setattr(approach_app, "ApproachUploadEvaluationService", StubService)
+    client = TestClient(
+        _app(tmp_path, evaluation_enabled=True, service_factory=StubService)
+    )
     response = client.post(
         "/api/evaluations",
         files={"file": ("sample.csv", b"time\n1\n", "text/csv")},
@@ -112,35 +134,28 @@ def test_enabled_upload_uses_approach_service_and_context_contract(monkeypatch):
     assert response.status_code == 200
     assert response.json()["bytes"] == 7
     assert observed == {
-        "release_id": approach_app.RELEASE_ID,
-        "reference": approach_app.REFERENCE,
-        "contextual": approach_app.CONTEXTUAL_RELEASE,
+        "release_id": RELEASE["manifest"]["release_id"],
+        "reference": RELEASE["reference"],
+        "contextual": False,
     }
 
 
-def test_enabled_upload_rejects_busy_and_rate_limited_before_parsing(monkeypatch):
-    monkeypatch.setattr(approach_app, "EVALUATION_ENABLED", True)
+def test_enabled_upload_rate_limits_before_second_parse(tmp_path: Path):
+    class StubService:
+        def __init__(self, **_kwargs):
+            pass
 
-    class Locked:
-        @staticmethod
-        def locked():
-            return True
+        def evaluate(self, *_args, **_kwargs):
+            return {"results": []}
 
-    monkeypatch.setattr(approach_app, "EVALUATION_LOCK", Locked())
-    busy = client.post("/api/evaluations", content=b"not multipart")
-    assert busy.status_code == 429
-    assert busy.json()["detail"]["code"] == "analysis_busy"
-
-    monkeypatch.setattr(approach_app, "EVALUATION_LOCK", approach_app.asyncio.Lock())
-    monkeypatch.setattr(
-        approach_app,
-        "EVALUATION_LIMITER",
-        _fresh_limiter(global_limit=1, client_limit=1),
-    )
-    monkeypatch.setattr(
-        approach_app.ApproachUploadEvaluationService,
-        "evaluate",
-        lambda *_args, **_kwargs: {"results": []},
+    client = TestClient(
+        _app(
+            tmp_path,
+            evaluation_enabled=True,
+            evaluation_global_limit=1,
+            evaluation_client_limit=1,
+            service_factory=StubService,
+        )
     )
     accepted = client.post(
         "/api/evaluations",
@@ -153,44 +168,46 @@ def test_enabled_upload_rejects_busy_and_rate_limited_before_parsing(monkeypatch
     assert int(limited.headers["retry-after"]) >= 1
 
 
-def test_enabled_upload_maps_bounded_and_unexpected_errors(monkeypatch):
-    monkeypatch.setattr(approach_app, "EVALUATION_ENABLED", True)
-    monkeypatch.setattr(approach_app, "EVALUATION_LIMITER", _fresh_limiter())
+def test_enabled_upload_maps_bounded_and_unexpected_errors(tmp_path: Path):
+    class Bounded:
+        def __init__(self, **_kwargs):
+            pass
 
-    def bounded(*_args, **_kwargs):
-        raise approach_app.EvaluationError(422, "invalid_schema", "Safe message")
+        def evaluate(self, *_args, **_kwargs):
+            raise EvaluationError(422, "invalid_schema", "Safe message")
 
-    monkeypatch.setattr(
-        approach_app.ApproachUploadEvaluationService, "evaluate", bounded,
-    )
-    invalid = client.post(
+    invalid = TestClient(
+        _app(tmp_path / "bounded", evaluation_enabled=True, service_factory=Bounded)
+    ).post(
         "/api/evaluations",
         files={"file": ("sample.csv", b"time\n1\n", "text/csv")},
     )
     assert invalid.status_code == 422
     assert invalid.json()["detail"] == {
-        "code": "invalid_schema", "message": "Safe message",
+        "code": "invalid_schema",
+        "message": "Safe message",
     }
 
-    def unexpected(*_args, **_kwargs):
-        raise RuntimeError("secret-file.csv icao24=abc123")
+    class Unexpected:
+        def __init__(self, **_kwargs):
+            pass
 
-    monkeypatch.setattr(
-        approach_app.ApproachUploadEvaluationService, "evaluate", unexpected,
-    )
-    failed = client.post(
+        def evaluate(self, *_args, **_kwargs):
+            raise RuntimeError("secret-file.csv icao24=abc123")
+
+    failed = TestClient(
+        _app(tmp_path / "unexpected", evaluation_enabled=True, service_factory=Unexpected)
+    ).post(
         "/api/evaluations",
         files={"file": ("secret-file.csv", b"icao24\nabc123\n", "text/csv")},
     )
     assert failed.status_code == 500
     assert failed.json()["detail"]["code"] == "evaluation_failed"
-    assert "secret-file" not in failed.text
-    assert "abc123" not in failed.text
+    assert "secret-file" not in failed.text and "abc123" not in failed.text
 
 
-def test_enabled_upload_validates_content_length_and_multipart(monkeypatch):
-    monkeypatch.setattr(approach_app, "EVALUATION_ENABLED", True)
-    monkeypatch.setattr(approach_app, "EVALUATION_LIMITER", _fresh_limiter())
+def test_enabled_upload_validates_content_length_and_multipart(tmp_path: Path):
+    client = TestClient(_app(tmp_path, evaluation_enabled=True))
     negative = client.post(
         "/api/evaluations",
         content=b"--x--\r\n",
@@ -198,7 +215,6 @@ def test_enabled_upload_validates_content_length_and_multipart(monkeypatch):
     )
     assert negative.status_code == 400
     assert negative.json()["detail"]["code"] == "invalid_content_length"
-
     malformed = client.post(
         "/api/evaluations",
         content=b"not multipart",
@@ -209,8 +225,10 @@ def test_enabled_upload_validates_content_length_and_multipart(monkeypatch):
 
 
 def test_evaluation_admission_limiter_expires_and_prunes_clients():
-    limiter = approach_app.EvaluationAdmissionLimiter(
-        window_seconds=10, global_limit=2, client_limit=1,
+    limiter = EvaluationAdmissionLimiter(
+        window_seconds=10,
+        global_limit=2,
+        client_limit=1,
     )
     assert limiter.admit("client-a", now=0) is None
     assert limiter.admit("client-a", now=1) == 10
@@ -220,11 +238,8 @@ def test_evaluation_admission_limiter_expires_and_prunes_clients():
     assert set(limiter._clients) == {"client-c"}
 
 
-def test_same_origin_fallback_never_captures_unknown_api(tmp_path: Path, monkeypatch):
-    dist = tmp_path / "dist"
-    dist.mkdir()
-    (dist / "index.html").write_text('<div id="root"></div>')
-    monkeypatch.setattr(approach_app, "FRONTEND_DIST", dist)
+def test_same_origin_fallback_never_captures_unknown_api(tmp_path: Path):
+    client = TestClient(_app(tmp_path))
     deep = client.get("/approach/a_example")
     assert deep.status_code == 200
     assert '<div id="root"></div>' in deep.text

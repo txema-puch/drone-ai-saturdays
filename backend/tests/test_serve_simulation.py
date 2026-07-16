@@ -7,8 +7,8 @@ from fastapi import HTTPException
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
-from backend.serve import app as serve_app
-from backend.serve.model_runtime import AnalysisBusy
+from sadar_research.trajectory_anomaly.demo import app as serve_app
+from sadar_research.trajectory_anomaly.demo.runtime import AnalysisBusy
 
 
 client = TestClient(serve_app.app)
@@ -56,7 +56,7 @@ def test_simulation_releases_the_shared_slot_when_scoring_fails(monkeypatch):
     monkeypatch.setattr(
         pd, "read_parquet", lambda *_args, **_kwargs: pd.DataFrame({"segment_id": [case["segment_id"]]})
     )
-    from backend.serve import scoring
+    from sadar_research.trajectory_anomaly.evaluation import scoring
     monkeypatch.setattr(scoring, "simulate_segment", lambda *_args, **_kwargs: (_ for _ in ()).throw(RuntimeError("score failed")))
 
     with pytest.raises(RuntimeError, match="score failed"):
@@ -130,7 +130,7 @@ def test_simulation_response_preserves_the_requested_case_identity(monkeypatch):
 
     monkeypatch.setattr(serve_app, "MODEL_RUNTIME", ReadyRuntime())
 
-    from backend.serve import scoring
+    from sadar_research.trajectory_anomaly.evaluation import scoring
 
     monkeypatch.setattr(scoring, "simulate_segment", lambda *_args, **_kwargs: {})
     result = serve_app.simulate(

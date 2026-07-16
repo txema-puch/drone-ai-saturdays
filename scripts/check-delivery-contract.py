@@ -12,8 +12,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 DOCKERFILE = ROOT / "Dockerfile"
-LOCK = ROOT / "backend/serve/requirements-linux-x86_64.lock"
-INPUT = ROOT / "backend/serve/requirements.in"
+LOCK = ROOT / "delivery/container/requirements-linux-x86_64.lock"
+PYPROJECT = ROOT / "backend/pyproject.toml"
 ENTRYPOINT = ROOT / "scripts/container-entrypoint.sh"
 README = ROOT / "README.md"
 FRONTEND_INDEX = ROOT / "frontend/index.html"
@@ -122,7 +122,7 @@ def main() -> None:
     for path in (
         DOCKERFILE,
         LOCK,
-        INPUT,
+        PYPROJECT,
         ENTRYPOINT,
         README,
         FRONTEND_INDEX,
@@ -157,11 +157,13 @@ def main() -> None:
     required_fragments = (
         "AS frontend-build",
         "AS python-deps",
+        "AS product-wheel",
         "AS release-fetch",
         "AS runtime",
         "USER 1000:1000",
         "EXPOSE 7860",
         "SADAR_APPROACH_RELEASE_DIR=/opt/sadar/release",
+        "SADAR_FRONTEND_DIR=/opt/sadar/frontend",
         'ENTRYPOINT ["/usr/local/bin/sadar-entrypoint"]',
     )
     for fragment in required_fragments:
@@ -169,9 +171,17 @@ def main() -> None:
             fail(f"Dockerfile is missing {fragment!r}")
     if re.search(r"\b(?:HF_TOKEN|HUGGING_FACE_HUB_TOKEN)\b", dockerfile):
         fail("publisher token names must not cross the Docker build boundary")
+    forbidden_runtime = (
+        "backend/core",
+        "backend/serve",
+        "backend/research/src",
+        "PYTHONPATH=",
+    )
+    if any(fragment in dockerfile for fragment in forbidden_runtime):
+        fail("runtime image must contain only the installed product wheel")
 
     entrypoint = ENTRYPOINT.read_text(encoding="utf-8")
-    for fragment in ('${PORT:-7860}', "backend.serve.approach_app:app", "--workers 1"):
+    for fragment in ('${PORT:-7860}', "exec sadar-api", "--workers 1"):
         if fragment not in entrypoint:
             fail(f"container entrypoint is missing {fragment!r}")
 
@@ -186,22 +196,24 @@ def main() -> None:
 
     lock = LOCK.read_text(encoding="utf-8")
     requirements = list(re.finditer(r"(?m)^([a-z0-9][a-z0-9._-]*)==[^\s\\]+ \\\n", lock))
-    if len(requirements) != 19:
+    if len(requirements) != 26:
         fail("model-free serving lock package count drifted")
     for index, match in enumerate(requirements):
         end = requirements[index + 1].start() if index + 1 < len(requirements) else len(lock)
         if "--hash=sha256:" not in lock[match.end() : end]:
             fail(f"{match.group(1)} has no artifact hash")
 
+    project = tomllib.loads(PYPROJECT.read_text(encoding="utf-8"))["project"]
     direct = {
-        match.group(1).lower()
-        for match in re.finditer(r"(?m)^([A-Za-z0-9_.-]+)==", INPUT.read_text(encoding="utf-8"))
+        re.split(r"[<>=!~\[]", dependency, maxsplit=1)[0].lower()
+        for dependency in project["dependencies"]
     }
     expected = {
         "fastapi",
         "numpy",
         "pandas",
         "pyarrow",
+        "pydantic-settings",
         "python-multipart",
         "uvicorn",
     }

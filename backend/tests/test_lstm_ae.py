@@ -11,8 +11,8 @@ from __future__ import annotations
 import numpy as np
 import torch
 
-from backend.core import lstm_ae as ae
-from backend.core.preprocessing import AE_FEATURES
+from sadar_research.trajectory_anomaly.models import lstm_ae as ae
+from sadar_research.trajectory_anomaly.pipeline.preprocessing import AE_FEATURES
 
 F = len(AE_FEATURES)
 

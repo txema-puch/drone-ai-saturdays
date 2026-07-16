@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from backend.serve import release
+from sadar_research.trajectory_anomaly.releases import schema as release
 
 
 MANIFEST_PAYLOAD = {

@@ -2,7 +2,7 @@
 
 import pytest
 
-from backend.serve.operations import (
+from sadar_research.trajectory_anomaly.demo.operations import (
     annotate_segment_refs,
     build_operation_summaries,
     case_identity,
