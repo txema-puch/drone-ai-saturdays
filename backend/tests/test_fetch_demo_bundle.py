@@ -5,8 +5,8 @@ from pathlib import Path
 
 import pytest
 
-from backend.scripts import fetch_demo_bundle as fetcher
-from backend.serve import release
+from sadar_research.trajectory_anomaly.releases import fetch as fetcher
+from sadar_research.trajectory_anomaly.releases import schema as release
 
 
 MANIFEST_PAYLOAD = {
@@ -208,7 +208,7 @@ def test_lock_reader_rejects_duplicate_keys_extra_fields_and_byte_excess(tmp_pat
     with pytest.raises(fetcher.FetchError, match="exactly"):
         fetcher.read_lock(valid_path)
 
-    monkeypatch.setattr(fetcher, "MAX_LOCK_BYTES", 8)
+    monkeypatch.setattr("sadar.releases.hub_fetch.MAX_LOCK_BYTES", 8)
     with pytest.raises(fetcher.FetchError, match="byte limit"):
         fetcher.read_lock(valid_path)
 
@@ -319,4 +319,4 @@ def test_cli_accepts_required_lock_and_destination_arguments(tmp_path: Path, mon
     monkeypatch.setattr(fetcher, "fetch_locked_release", fake_fetch)
     assert fetcher.main(["--lock", str(lock), "--destination", str(destination)]) == 0
     assert observed == {"lock_path": lock, "destination": destination}
-    assert "installed release" in capsys.readouterr().out
+    assert "installed historical release" in capsys.readouterr().out

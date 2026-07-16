@@ -11,45 +11,33 @@ from pathlib import Path
 
 import pandas as pd
 
-from backend.core.approach_context import (
+from sadar.approach.context import (
     load_aircraft_metadata_parts,
     load_global_hourly_weather,
 )
-from backend.core.approach_geometry import GEOMETRY_PATH
-from backend.core.approach_reference import load_approach_reference
-from backend.scripts.audit_approach_context import (
-    AIRCRAFT_PARTS_DIR,
-    WEATHER_DIR,
-    _logical_parts_sha256,
-)
-from backend.scripts.build_approach_release import (
-    DEFAULT_INPUT,
+from sadar.approach.geometry import GEOMETRY_RESOURCE
+from sadar.approach.reference import load_approach_reference
+from sadar.pipelines.audit_context import _logical_parts_sha256
+from sadar.pipelines.build_release import (
     MAX_CASE_OBSERVATIONS,
     assert_not_sealed,
     build_payloads,
     file_sha256,
 )
-from backend.serve.approach_release import (
+from sadar.releases.approach import (
     ApproachReleaseError,
     validate_release_directory,
     write_release,
 )
 
 
-REPO = Path(__file__).resolve().parents[2]
-DEFAULT_OUTPUT = REPO / "backend/models/sadar_approach_context_v1"
-DEFAULT_REFERENCE = (
-    REPO / "backend/core/resources/lemd_approach_context_reference_v1.json"
-)
-
-
 def build_contextual_release(
-    input_path: Path = DEFAULT_INPUT,
+    input_path: Path,
     *,
-    output: Path = DEFAULT_OUTPUT,
-    reference_path: Path = DEFAULT_REFERENCE,
-    weather_dir: Path = WEATHER_DIR,
-    aircraft_parts_dir: Path = AIRCRAFT_PARTS_DIR,
+    output: Path,
+    reference_path: Path | None = None,
+    weather_dir: Path,
+    aircraft_parts_dir: Path,
     max_case_observations: int = MAX_CASE_OBSERVATIONS,
 ) -> dict:
     input_path = Path(input_path)
@@ -82,7 +70,7 @@ def build_contextual_release(
         frame,
         input_sha256=input_digest,
         reference=load_approach_reference(reference_path),
-        geometry_payload=json.loads(GEOMETRY_PATH.read_text()),
+        geometry_payload=json.loads(GEOMETRY_RESOURCE.read_text()),
         contextual={"weather": weather, "aircraft": aircraft, "sources": sources},
         max_case_observations=max_case_observations,
     )
@@ -107,11 +95,11 @@ def build_contextual_release(
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--input", type=Path, default=DEFAULT_INPUT)
-    parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
-    parser.add_argument("--reference", type=Path, default=DEFAULT_REFERENCE)
-    parser.add_argument("--weather-dir", type=Path, default=WEATHER_DIR)
-    parser.add_argument("--aircraft-parts-dir", type=Path, default=AIRCRAFT_PARTS_DIR)
+    parser.add_argument("--input", type=Path, required=True)
+    parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--reference", type=Path)
+    parser.add_argument("--weather-dir", type=Path, required=True)
+    parser.add_argument("--aircraft-parts-dir", type=Path, required=True)
     parser.add_argument("--max-case-observations", type=int, default=MAX_CASE_OBSERVATIONS)
     args = parser.parse_args()
     manifest = build_contextual_release(

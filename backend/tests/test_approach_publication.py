@@ -6,8 +6,9 @@ import shutil
 from datetime import UTC, datetime
 from pathlib import Path
 
-from backend.scripts import fetch_approach_release, publish_approach_release
-from backend.scripts.publish_demo_release import UploadedArtifact
+from sadar.pipelines import publish_release as publish_approach_release
+from sadar.releases import fetch as fetch_approach_release
+from sadar.releases.hub_publish import UploadedArtifact
 from backend.serve.approach_release import load_release_directory
 
 

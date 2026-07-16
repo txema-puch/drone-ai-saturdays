@@ -8,8 +8,8 @@ from pathlib import Path
 
 import pytest
 
-from backend.scripts import publish_demo_release as publisher
-from backend.serve import release
+from sadar_research.trajectory_anomaly.releases import publish as publisher
+from sadar_research.trajectory_anomaly.releases import schema as release
 
 
 MANIFEST_PAYLOAD = {
@@ -266,7 +266,7 @@ def test_lock_record_rejects_malformed_json_contract_values():
 
 
 def test_publisher_and_fetcher_accept_the_same_lock_contract():
-    from backend.scripts import fetch_demo_bundle as fetcher
+    from sadar_research.trajectory_anomaly.releases import fetch as fetcher
 
     record = {
         "archive_sha256": "b" * 64,

@@ -2,7 +2,7 @@ import hashlib
 
 import pytest
 
-from backend.scripts import audit_approach_dataset as audit
+from sadar.pipelines import audit_dataset as audit
 
 
 def test_dataset_audit_refuses_a_sealed_hash_before_reading(tmp_path, monkeypatch):

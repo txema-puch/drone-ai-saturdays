@@ -9,8 +9,8 @@ import pandas as pd
 import pytest
 
 from backend.core.approach_geometry import EARTH_RADIUS_M, load_lemd_geometry
-from backend.scripts import build_approach_release as builder
-from backend.scripts import build_contextual_approach_release as contextual_builder
+from sadar.pipelines import build_context_release as contextual_builder
+from sadar.pipelines import build_release as builder
 from backend.serve import approach_release
 
 

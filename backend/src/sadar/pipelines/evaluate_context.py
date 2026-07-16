@@ -4,44 +4,20 @@ from __future__ import annotations
 
 import argparse
 import json
-import subprocess
 from collections import Counter
 from pathlib import Path
 from typing import Any
 
 import pandas as pd
 
-from backend.core.approach import assess_operation
-from backend.core.approach_context import (
+from sadar.approach.assessment import assess_operation
+from sadar.approach.context import (
     load_aircraft_metadata_parts,
     load_global_hourly_weather,
 )
-from backend.core.approach_reference import load_approach_reference
-from backend.core.contextual_approach import assess_contextual_operation
-from backend.scripts.audit_approach_context import (
-    AIRCRAFT_PARTS_DIR,
-    MODEL_DIR,
-    SOURCE_2025,
-    WEATHER_DIR,
-    _load_frame,
-)
-
-
-REPO = Path(__file__).resolve().parents[2]
-CONTEXT_REFERENCE = (
-    REPO / "backend/core/resources/lemd_approach_context_reference_v1.json"
-)
-
-
-def _commit() -> str:
-    return subprocess.run(
-        ["git", "rev-parse", "HEAD"],
-        cwd=REPO,
-        check=True,
-        capture_output=True,
-        text=True,
-        timeout=30,
-    ).stdout.strip()
+from sadar.approach.reference import load_approach_reference
+from sadar.approach.contextual import assess_contextual_operation
+from sadar.pipelines.audit_context import _load_frame
 
 
 def _counts(values) -> dict[str, int]:
@@ -70,14 +46,27 @@ def _criterion_counts(items: list[dict[str, Any]]) -> dict[str, dict[str, int]]:
 def evaluate(
     *,
     cohort: str,
-    model_dir: Path = MODEL_DIR,
-    source_2025: Path = SOURCE_2025,
-    weather_dir: Path = WEATHER_DIR,
-    aircraft_parts_dir: Path = AIRCRAFT_PARTS_DIR,
-    context_reference_path: Path = CONTEXT_REFERENCE,
+    model_dir: Path | None = None,
+    source_2025: Path | None = None,
+    weather_dir: Path | None = None,
+    aircraft_parts_dir: Path | None = None,
+    context_reference_path: Path | None = None,
+    source_commit: str | None = None,
 ) -> dict[str, Any]:
     if cohort not in {"val", "2025"}:
         raise ValueError("contextual comparison is restricted to val or 2025 development data")
+    if None in (
+        model_dir,
+        source_2025,
+        weather_dir,
+        aircraft_parts_dir,
+        context_reference_path,
+        source_commit,
+    ):
+        raise ValueError("all evidence paths and source_commit are required")
+    assert model_dir is not None and source_2025 is not None
+    assert weather_dir is not None and aircraft_parts_dir is not None
+    assert context_reference_path is not None and source_commit is not None
     frame, source_digest = _load_frame(cohort, model_dir, source_2025)
     years = sorted(
         set(pd.to_datetime(frame["time"], unit="s", utc=True).dt.year.astype(int))
@@ -131,7 +120,7 @@ def evaluate(
     all_exact_reference = sum(fallbacks == {"exact"} for fallbacks in reference_fallbacks)
     return {
         "schema_version": "approach_context_comparison_v1",
-        "source_commit": _commit(),
+        "source_commit": source_commit,
         "cohort": cohort,
         "source_sha256": source_digest,
         "base_reference_sha256": base_reference["artifact_sha256"],
@@ -195,9 +184,23 @@ def evaluate(
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--cohort", choices=["val", "2025"], required=True)
+    parser.add_argument("--model-dir", type=Path, required=True)
+    parser.add_argument("--source-2025", type=Path, required=True)
+    parser.add_argument("--weather-dir", type=Path, required=True)
+    parser.add_argument("--aircraft-parts-dir", type=Path, required=True)
+    parser.add_argument("--context-reference", type=Path, required=True)
+    parser.add_argument("--source-commit", required=True)
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
-    report = evaluate(cohort=args.cohort)
+    report = evaluate(
+        cohort=args.cohort,
+        model_dir=args.model_dir,
+        source_2025=args.source_2025,
+        weather_dir=args.weather_dir,
+        aircraft_parts_dir=args.aircraft_parts_dir,
+        context_reference_path=args.context_reference,
+        source_commit=args.source_commit,
+    )
     encoded = json.dumps(report, indent=2, sort_keys=True) + "\n"
     if args.output:
         args.output.parent.mkdir(parents=True, exist_ok=True)

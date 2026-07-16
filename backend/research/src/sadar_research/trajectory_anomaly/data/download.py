@@ -62,7 +62,6 @@ import gzip
 import io
 import logging
 import signal
-import sys
 import tarfile
 import time as time_mod
 from datetime import date, datetime, timedelta
@@ -72,12 +71,9 @@ import numpy as np
 import pandas as pd
 import requests
 
-# Reuse derivations from the canonical module.
-ROOT_DIR = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT_DIR))
-from backend.crud.opensky import (  # noqa: E402
+from sadar_research.trajectory_anomaly.data.derivations import calculate_flight_phase
+from sadar_research.trajectory_anomaly.data.geometry import (
     MAX_RADIUS_M,
-    calculate_flight_phase,
     distance_to_closest_runway,
 )
 

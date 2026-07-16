@@ -11,8 +11,8 @@ from typing import Any
 
 import pandas as pd
 
-from backend.core.approach import assess_operation
-from backend.core.approach_reference import validate_reference
+from sadar.approach.assessment import assess_operation
+from sadar.approach.reference import validate_reference
 
 
 SEALED_HOLDOUT_SHA256 = {

@@ -15,6 +15,18 @@ dependencies = [
 
 [project.scripts]
 sadar-api = "sadar.api.cli:main"
+sadar-acquire-context = "sadar.pipelines.acquire_context:main"
+sadar-audit-context = "sadar.pipelines.audit_context:main"
+sadar-audit-dataset = "sadar.pipelines.audit_dataset:main"
+sadar-build-release = "sadar.pipelines.build_release:main"
+sadar-build-context-release = "sadar.pipelines.build_context_release:main"
+sadar-burn-holdout = "sadar.pipelines.burn_holdout:main"
+sadar-evaluate-context = "sadar.pipelines.evaluate_context:main"
+sadar-fetch-release = "sadar.releases.fetch:main"
+sadar-fit-reference = "sadar.pipelines.fit_reference:main"
+sadar-fit-context-reference = "sadar.pipelines.fit_context_reference:main"
+sadar-publish-release = "sadar.pipelines.publish_release:main"
+sadar-screening-feasibility = "sadar.pipelines.feasibility:main"
 
 [dependency-groups]
 dev = [

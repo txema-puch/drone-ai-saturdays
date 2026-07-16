@@ -1,6 +1,6 @@
 import hashlib
 
-from backend.scripts.acquire_approach_context import audit_sources
+from sadar.pipelines.acquire_context import audit_sources
 
 
 def test_source_audit_records_exact_weather_and_logical_aircraft_bytes(tmp_path) -> None:

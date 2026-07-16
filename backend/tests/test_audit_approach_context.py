@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from backend.scripts import audit_approach_context as audit
+from sadar.pipelines import audit_context as audit
 
 
 def test_context_audit_rejects_unknown_cohort() -> None:

@@ -8,8 +8,8 @@ import sys
 from datetime import UTC, datetime
 from pathlib import Path
 
-from backend.scripts import publish_demo_release as publication
-from backend.serve import approach_transport
+from sadar.releases import archive as approach_transport
+from sadar.releases import hub_publish as publication
 
 
 LOCK_NAME = "approach_bundle.lock.json"

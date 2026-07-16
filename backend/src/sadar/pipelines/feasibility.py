@@ -14,12 +14,10 @@ from typing import Any
 
 import pandas as pd
 
-from backend.core.approach import assess_operation
-from backend.core.approach_reference import validate_reference
+from sadar.approach.assessment import assess_operation
+from sadar.approach.reference import validate_reference
 
 
-REPO = Path(__file__).resolve().parents[2]
-DEFAULT_MODEL_DIR = REPO / "backend" / "models" / "phase6"
 ALLOWED_FOLDS = {"train", "val"}
 
 
@@ -64,7 +62,7 @@ def run(
     report = {
         "schema_version": "approach_feasibility_v1",
         "fold": fold,
-        "source": str(model_dir.relative_to(REPO) if model_dir.is_relative_to(REPO) else model_dir),
+        "source": str(model_dir),
         "reference_sha256": reference["artifact_sha256"] if reference else None,
         "operations_considered": len(eligible_operations),
         "operations_assessed": sum(bool(item["attempts"]) for item in operations),
@@ -111,7 +109,7 @@ def run(
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model-dir", type=Path, default=DEFAULT_MODEL_DIR)
+    parser.add_argument("--model-dir", type=Path, required=True)
     parser.add_argument("--fold", choices=sorted(ALLOWED_FOLDS), default="train")
     parser.add_argument("--limit", type=int)
     parser.add_argument("--output", type=Path)

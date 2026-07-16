@@ -1,6 +1,6 @@
 import pytest
 
-from backend.scripts import evaluate_contextual_approach as evaluation
+from sadar.pipelines import evaluate_context as evaluation
 
 
 def test_contextual_comparison_rejects_train_and_burned_test_roles() -> None:

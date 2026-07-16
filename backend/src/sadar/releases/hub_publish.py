@@ -1,4 +1,4 @@
-"""Transactionally publish one immutable SADAR demo release.
+"""Transactionally publish one immutable SADAR release.
 
 The transaction boundary is intentionally local and dependency-light::
 
@@ -12,7 +12,7 @@ credentials out of the serving image and makes every failure boundary testable.
 
 Run the publisher dependency in its isolated project group::
 
-    uv run --project backend --group publish python -m backend.scripts.publish_demo_release ...
+    uv run --project backend --group publish python -m sadar.releases.hub_publish ...
 """
 
 from __future__ import annotations
@@ -33,10 +33,10 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Protocol
 
-from backend.serve import release
+from sadar.releases import archive as release
 
 
-LOCK_NAME = "demo_bundle.lock.json"
+LOCK_NAME = "release.lock.json"
 LOCK_KEYS = frozenset(
     {
         "archive_sha256",
@@ -50,7 +50,7 @@ LOCK_KEYS = frozenset(
 MAX_LOCK_BYTES = 64 * 1024
 MAX_URL_BYTES = 4096
 MAX_ERROR_MESSAGE = 500
-DEFAULT_ARTIFACT_NAME = "sadar-demo-bundle.tar.gz"
+DEFAULT_ARTIFACT_NAME = "sadar-release.tar.gz"
 _SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 _RELEASE_ID_RE = re.compile(r"^[0-9a-f]{20}$")
 _IMMUTABLE_REVISION_RE = re.compile(r"^(?:[0-9a-f]{40}|[0-9a-f]{64})$")
@@ -373,7 +373,12 @@ def publish_release(
         return record
 
 
-def download_public_artifact(url: str, destination: Path) -> None:
+def download_public_artifact(
+    url: str,
+    destination: Path,
+    *,
+    max_archive_bytes: int = release.MAX_ARCHIVE_BYTES,
+) -> None:
     """Download one public archive to a new regular file with a strict byte ceiling."""
     request = urllib.request.Request(url, headers={"User-Agent": "sadar-release-publisher/1"})
     try:
@@ -384,7 +389,7 @@ def download_public_artifact(url: str, destination: Path) -> None:
                     declared_bytes = int(declared)
                 except ValueError as exc:
                     raise PublicationError("artifact server returned an invalid Content-Length") from exc
-                if declared_bytes < 0 or declared_bytes > release.MAX_ARCHIVE_BYTES:
+                if declared_bytes < 0 or declared_bytes > max_archive_bytes:
                     raise PublicationError("redownloaded archive exceeds its byte limit")
             flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
             if hasattr(os, "O_NOFOLLOW"):
@@ -397,7 +402,7 @@ def download_public_artifact(url: str, destination: Path) -> None:
                     if not chunk:
                         break
                     copied += len(chunk)
-                    if copied > release.MAX_ARCHIVE_BYTES:
+                    if copied > max_archive_bytes:
                         raise PublicationError("redownloaded archive exceeds its byte limit")
                     output.write(chunk)
     except PublicationError:

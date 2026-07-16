@@ -1,14 +1,13 @@
 
 import time
 import re
-from pathlib import Path
 from datetime import datetime, timedelta
 
 import pandas as pd
 from supabase import create_client, Client
 
-from backend.core.config import settings
-from backend.crud.opensky import OpenSkyService
+from sadar_research.trajectory_anomaly.data.config import settings
+from sadar_research.trajectory_anomaly.data.opensky import OpenSkyService
 
 # ── Configuración ──────────────────────────────────────────────────────────────
 DIA = datetime(2025, 3, 11)
@@ -41,10 +40,6 @@ COLUMNAS_OBJETIVO = [
     "dist_to_runway_m",
     "flight_phase",
 ]
-
-ROOT_DIR = Path(__file__).resolve().parents[2]
-
-
 
 # ── Cliente Supabase ───────────────────────────────────────────────────────────
 

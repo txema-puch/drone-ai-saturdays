@@ -3,7 +3,7 @@ import json
 import pandas as pd
 import pytest
 
-from backend.scripts.approach_feasibility import run
+from sadar.pipelines.feasibility import run
 
 
 def test_feasibility_refuses_burned_test_fold(tmp_path):
@@ -21,7 +21,7 @@ def test_feasibility_reports_only_requested_development_fold(tmp_path, monkeypat
     })
     monkeypatch.setattr(pd, "read_parquet", lambda _path: rows)
     monkeypatch.setattr(
-        "backend.scripts.approach_feasibility.assess_operation",
+        "sadar.pipelines.feasibility.assess_operation",
         lambda frame, operation_id, reference: {"attempts": [{
                 "operation_id": f"{operation_id}:attempt-1",
                 "status": "not_assessable",

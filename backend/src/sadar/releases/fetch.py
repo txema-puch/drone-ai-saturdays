@@ -7,8 +7,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from backend.scripts import fetch_demo_bundle as fetching
-from backend.serve import approach_transport
+from sadar.releases import archive as approach_transport
+from sadar.releases import hub_fetch as fetching
 
 
 ARCHIVE_NAME = "sadar-approach-release.tar.gz"

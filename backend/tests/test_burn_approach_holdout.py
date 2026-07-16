@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from backend.scripts import burn_approach_holdout as holdout
+from sadar.pipelines import burn_holdout as holdout
 
 
 def test_burn_hashes_and_rejects_nonsealed_input_before_parquet_read(
@@ -28,4 +28,4 @@ def test_burn_contract_is_pinned_to_schema3_and_published_reference():
     assert holdout.SEALED_SHA256 == (
         "16f1bd2cbdbd519ce7bde6fbbc8df5012b188b54c5598bffc310cef34b0c6899"
     )
-    assert holdout.DEFAULT_RELEASE.name == "sadar_approach_v3"
+    assert not hasattr(holdout, "DEFAULT_RELEASE")

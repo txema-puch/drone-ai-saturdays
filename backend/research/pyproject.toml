@@ -12,6 +12,12 @@ dependencies = [
     "torch>=2.2",
 ]
 
+[project.scripts]
+sadar-research-download-opensky = "sadar_research.trajectory_anomaly.data.download:main"
+sadar-research-export-sample = "sadar_research.trajectory_anomaly.data.export_sample:main"
+sadar-research-fetch-release = "sadar_research.trajectory_anomaly.releases.fetch:main"
+sadar-research-publish-release = "sadar_research.trajectory_anomaly.releases.publish:main"
+
 [project.optional-dependencies]
 data = [
     "geopandas>=0.14.0",

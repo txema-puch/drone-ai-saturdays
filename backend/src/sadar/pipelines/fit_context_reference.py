@@ -5,41 +5,22 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-import subprocess
 from collections import Counter
 from pathlib import Path
 
 import pandas as pd
 
-from backend.core.approach import assess_approach, extract_approach_attempts
-from backend.core.approach_context import load_aircraft_metadata_parts
-from backend.core.approach_reference import dumps_reference, fit_reference
-from backend.scripts.audit_approach_context import _logical_parts_sha256
-
-
-REPO = Path(__file__).resolve().parents[2]
-DEFAULT_MODEL_DIR = REPO / "backend/models/phase6"
-DEFAULT_AIRCRAFT_PARTS = REPO / "data/raw/aircraft_metadata"
-DEFAULT_OUTPUT = (
-    REPO / "backend/core/resources/lemd_approach_context_reference_v1.json"
-)
-
-
-def _source_commit() -> str:
-    return subprocess.run(
-        ["git", "rev-parse", "HEAD"],
-        cwd=REPO,
-        check=True,
-        capture_output=True,
-        text=True,
-        timeout=30,
-    ).stdout.strip()
+from sadar.approach.assessment import assess_approach, extract_approach_attempts
+from sadar.approach.context import load_aircraft_metadata_parts
+from sadar.approach.reference import dumps_reference, fit_reference
+from sadar.pipelines.audit_context import _logical_parts_sha256
 
 
 def build_contextual_reference(
     *,
-    model_dir: Path = DEFAULT_MODEL_DIR,
-    aircraft_parts_dir: Path = DEFAULT_AIRCRAFT_PARTS,
+    model_dir: Path,
+    aircraft_parts_dir: Path,
+    source_commit: str,
 ) -> tuple[dict, dict]:
     split_path = model_dir / "split_ids.json"
     split_bytes = split_path.read_bytes()
@@ -86,7 +67,7 @@ def build_contextual_reference(
     clean_digest = hashlib.sha256(clean_path.read_bytes()).hexdigest()
     metadata_digest = _logical_parts_sha256(aircraft_parts_dir)
     cohort = {
-        "source_commit": _source_commit(),
+        "source_commit": source_commit,
         "source": "OpenSky scientific Monday historical clean observations",
         "years": [2017, 2018],
         "split_ids_sha256": hashlib.sha256(split_bytes).hexdigest(),
@@ -103,7 +84,7 @@ def build_contextual_reference(
     ]
     report = {
         "schema_version": "approach_context_reference_fit_v1",
-        "source_commit": _source_commit(),
+        "source_commit": source_commit,
         "candidate_operations": int(train["flight_id"].nunique()),
         "eligible_attempts": len(attempts),
         "accepted_attempts": reference["accepted_attempts"],
@@ -128,16 +109,18 @@ def build_contextual_reference(
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--model-dir", type=Path, default=DEFAULT_MODEL_DIR)
+    parser.add_argument("--model-dir", type=Path, required=True)
     parser.add_argument(
-        "--aircraft-parts-dir", type=Path, default=DEFAULT_AIRCRAFT_PARTS
+        "--aircraft-parts-dir", type=Path, required=True
     )
-    parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
+    parser.add_argument("--source-commit", required=True)
+    parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--report", type=Path)
     args = parser.parse_args()
     reference, report = build_contextual_reference(
         model_dir=args.model_dir,
         aircraft_parts_dir=args.aircraft_parts_dir,
+        source_commit=args.source_commit,
     )
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(dumps_reference(reference))

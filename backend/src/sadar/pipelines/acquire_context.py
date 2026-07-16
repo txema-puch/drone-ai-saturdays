@@ -20,12 +20,6 @@ from pathlib import Path
 import requests
 
 
-REPO = Path(__file__).resolve().parents[2]
-WEATHER_DIR = REPO / "data/raw/weather"
-AIRCRAFT_DIR = REPO / "data/raw/aircraft_metadata"
-DEFAULT_MANIFEST = (
-    REPO / "backend/docs/ml/iterations/approach-context/source-manifest.json"
-)
 WEATHER_URL = (
     "https://www.ncei.noaa.gov/data/global-hourly/access/{year}/08221099999.csv"
 )
@@ -142,7 +136,7 @@ def audit_sources(
     years: list[int],
     weather_dir: Path,
     aircraft_dir: Path,
-    repository_root: Path = REPO,
+    repository_root: Path,
 ) -> dict[str, object]:
     weather = []
     for year in years:
@@ -199,9 +193,10 @@ def audit_sources(
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--years", nargs="+", type=int, default=[2017, 2018, 2019, 2025])
-    parser.add_argument("--weather-dir", type=Path, default=WEATHER_DIR)
-    parser.add_argument("--aircraft-dir", type=Path, default=AIRCRAFT_DIR)
-    parser.add_argument("--manifest", type=Path, default=DEFAULT_MANIFEST)
+    parser.add_argument("--weather-dir", type=Path, required=True)
+    parser.add_argument("--aircraft-dir", type=Path, required=True)
+    parser.add_argument("--manifest", type=Path, required=True)
+    parser.add_argument("--repository-root", type=Path, required=True)
     parser.add_argument(
         "--download",
         action="store_true",
@@ -215,6 +210,7 @@ def main() -> None:
         years=args.years,
         weather_dir=args.weather_dir,
         aircraft_dir=args.aircraft_dir,
+        repository_root=args.repository_root,
     )
     args.manifest.parent.mkdir(parents=True, exist_ok=True)
     args.manifest.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n")

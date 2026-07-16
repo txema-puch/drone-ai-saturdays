@@ -17,7 +17,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from backend.core.approach import (
+from sadar.approach.assessment import (
     ASSESSMENT_SCHEMA_VERSION,
     DEFAULT_CONFIG,
     ENGINE_VERSION,
@@ -26,14 +26,14 @@ from backend.core.approach import (
     assess_approach,
     extract_approach_attempts,
 )
-from backend.core.approach_geometry import GEOMETRY_PATH, load_lemd_geometry
-from backend.core.approach_reference import REFERENCE_PATH, load_approach_reference
-from backend.core.contextual_approach import (
+from sadar.approach.geometry import GEOMETRY_RESOURCE, load_lemd_geometry
+from sadar.approach.reference import load_approach_reference
+from sadar.approach.contextual import (
     CONTEXT_ENGINE_VERSION,
     CONTEXT_SCHEMA_VERSION,
     assess_contextual_operation,
 )
-from backend.serve.approach_release import (
+from sadar.releases.approach import (
     ApproachReleaseError,
     canonical_json_bytes,
     validate_release_directory,
@@ -41,9 +41,6 @@ from backend.serve.approach_release import (
 )
 
 
-REPO = Path(__file__).resolve().parents[2]
-DEFAULT_INPUT = REPO / "data/raw/lemd_20250310_to_20250314__deduped_2026-05-10.parquet"
-DEFAULT_OUTPUT = REPO / "backend/models/sadar_approach_v3"
 SEALED_HOLDOUT_SHA256 = frozenset({
     "16f1bd2cbdbd519ce7bde6fbbc8df5012b188b54c5598bffc310cef34b0c6899"
 })
@@ -385,10 +382,10 @@ def build_payloads(
 
 
 def build_approach_release(
-    input_path: Path = DEFAULT_INPUT,
+    input_path: Path,
     *,
-    output: Path = DEFAULT_OUTPUT,
-    reference_path: Path = REFERENCE_PATH,
+    output: Path,
+    reference_path: Path | None = None,
     benchmark_path: Path | None = None,
     max_case_observations: int = MAX_CASE_OBSERVATIONS,
 ) -> dict[str, Any]:
@@ -397,7 +394,7 @@ def build_approach_release(
     output = Path(output)
     input_digest = assert_not_sealed(input_path)
     reference = load_approach_reference(reference_path)
-    geometry_payload = json.loads(GEOMETRY_PATH.read_text())
+    geometry_payload = json.loads(GEOMETRY_RESOURCE.read_text())
     benchmark = json.loads(benchmark_path.read_text()) if benchmark_path else None
     frame = pd.read_parquet(input_path)
     payloads, source, contracts = build_payloads(
@@ -429,9 +426,9 @@ def build_approach_release(
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--input", type=Path, default=DEFAULT_INPUT)
-    parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
-    parser.add_argument("--reference", type=Path, default=REFERENCE_PATH)
+    parser.add_argument("--input", type=Path, required=True)
+    parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--reference", type=Path)
     parser.add_argument("--benchmark", type=Path)
     parser.add_argument("--max-case-observations", type=int, default=MAX_CASE_OBSERVATIONS)
     args = parser.parse_args()

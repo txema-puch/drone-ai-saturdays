@@ -1,4 +1,4 @@
-"""Fetch and strictly extract one locked public SADAR demo release.
+"""Fetch and strictly extract one locked public SADAR release.
 
 This build/runtime path is standard-library-only.  It deliberately has no publisher,
 Hugging Face SDK, token, or authentication dependency::
@@ -23,7 +23,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, BinaryIO, Protocol
 
-from backend.serve import release
+from sadar.releases import archive as release
 
 
 LOCK_KEYS = frozenset(
@@ -182,7 +182,12 @@ def _exclusive_output(path: Path) -> BinaryIO:
     return os.fdopen(descriptor, "wb")
 
 
-def download_public_artifact(url: str, destination: Path) -> None:
+def download_public_artifact(
+    url: str,
+    destination: Path,
+    *,
+    max_archive_bytes: int = release.MAX_ARCHIVE_BYTES,
+) -> None:
     """Anonymously stream a public archive to a new bounded regular file."""
     request = urllib.request.Request(url, headers={"User-Agent": "sadar-release-fetcher/1"})
     try:
@@ -194,7 +199,7 @@ def download_public_artifact(url: str, destination: Path) -> None:
                     declared = int(declared_header)
                 except ValueError as exc:
                     raise FetchError("artifact server returned an invalid Content-Length") from exc
-                if declared < 0 or declared > release.MAX_ARCHIVE_BYTES:
+                if declared < 0 or declared > max_archive_bytes:
                     raise FetchError("downloaded archive exceeds its byte limit")
             with _exclusive_output(destination) as output:
                 copied = 0
@@ -203,7 +208,7 @@ def download_public_artifact(url: str, destination: Path) -> None:
                     if not chunk:
                         break
                     copied += len(chunk)
-                    if copied > release.MAX_ARCHIVE_BYTES:
+                    if copied > max_archive_bytes:
                         raise FetchError("downloaded archive exceeds its byte limit")
                     output.write(chunk)
                 output.flush()
@@ -256,7 +261,7 @@ def fetch_locked_release(
     downloader: ArtifactDownloader = download_public_artifact,
     contract=release,
     expected_schema_version: int = release.RELEASE_SCHEMA_VERSION,
-    archive_name: str = "demo-bundle.tar.gz",
+    archive_name: str = "sadar-release.tar.gz",
 ) -> dict[str, Any]:
     """Download, verify, and atomically install the release named by a lock."""
     lock = read_lock(

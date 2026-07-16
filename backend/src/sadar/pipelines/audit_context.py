@@ -16,24 +16,19 @@ from typing import Any
 
 import pandas as pd
 
-from backend.core.approach import assess_operation
-from backend.core.approach_context import (
+from sadar.approach.assessment import assess_operation
+from sadar.approach.context import (
     DEFAULT_MAXIMUM_WEATHER_AGE_S,
     join_latest_prior_weather,
     load_aircraft_metadata_parts,
     load_global_hourly_weather,
     runway_relative_wind_components,
 )
-from backend.core.approach_geometry import load_lemd_geometry
-from backend.core.approach_reference import load_approach_reference
-from backend.scripts.audit_approach_dataset import SEALED_HOLDOUT_SHA256, file_sha256
+from sadar.approach.geometry import load_lemd_geometry
+from sadar.approach.reference import load_approach_reference
+from sadar.pipelines.audit_dataset import SEALED_HOLDOUT_SHA256, file_sha256
 
 
-REPO = Path(__file__).resolve().parents[2]
-MODEL_DIR = REPO / "backend/models/phase6"
-WEATHER_DIR = REPO / "data/raw/weather"
-AIRCRAFT_PARTS_DIR = REPO / "data/raw/aircraft_metadata"
-SOURCE_2025 = REPO / "data/raw/lemd_20250310_to_20250314__deduped_2026-05-10.parquet"
 SOURCE_2025_SHA256 = "8256c65f95135597f3db07413941380fc2a0c6bbfc429b07b12b10478f7e2c10"
 MAXIMUM_WEATHER_AGE_S = DEFAULT_MAXIMUM_WEATHER_AGE_S
 
@@ -80,13 +75,17 @@ def _load_frame(cohort: str, model_dir: Path, source_2025: Path) -> tuple[pd.Dat
 def audit_context(
     *,
     cohort: str,
-    model_dir: Path = MODEL_DIR,
-    source_2025: Path = SOURCE_2025,
-    weather_dir: Path = WEATHER_DIR,
-    aircraft_parts_dir: Path = AIRCRAFT_PARTS_DIR,
+    model_dir: Path | None = None,
+    source_2025: Path | None = None,
+    weather_dir: Path | None = None,
+    aircraft_parts_dir: Path | None = None,
 ) -> dict[str, Any]:
     if cohort not in {"train", "val", "2025"}:
         raise ValueError("cohort must be train, val, or 2025")
+    if None in (model_dir, source_2025, weather_dir, aircraft_parts_dir):
+        raise ValueError("model, source, weather, and aircraft paths are required")
+    assert model_dir is not None and source_2025 is not None
+    assert weather_dir is not None and aircraft_parts_dir is not None
     frame, source_digest = _load_frame(cohort, model_dir, source_2025)
     reference = load_approach_reference()
     geometry = load_lemd_geometry()
@@ -239,10 +238,10 @@ def audit_context(
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--cohort", choices=["train", "val", "2025"], required=True)
-    parser.add_argument("--model-dir", type=Path, default=MODEL_DIR)
-    parser.add_argument("--source-2025", type=Path, default=SOURCE_2025)
-    parser.add_argument("--weather-dir", type=Path, default=WEATHER_DIR)
-    parser.add_argument("--aircraft-parts-dir", type=Path, default=AIRCRAFT_PARTS_DIR)
+    parser.add_argument("--model-dir", type=Path, required=True)
+    parser.add_argument("--source-2025", type=Path, required=True)
+    parser.add_argument("--weather-dir", type=Path, required=True)
+    parser.add_argument("--aircraft-parts-dir", type=Path, required=True)
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
     report = audit_context(

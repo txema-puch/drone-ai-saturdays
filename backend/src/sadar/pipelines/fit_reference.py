@@ -9,13 +9,8 @@ from pathlib import Path
 
 import pandas as pd
 
-from backend.core.approach import assess_approach, extract_approach_attempts
-from backend.core.approach_reference import dumps_reference, fit_reference
-
-
-REPO = Path(__file__).resolve().parents[2]
-DEFAULT_MODEL_DIR = REPO / "backend" / "models" / "phase6"
-DEFAULT_OUTPUT = REPO / "backend" / "core" / "resources" / "lemd_approach_reference_v1.json"
+from sadar.approach.assessment import assess_approach, extract_approach_attempts
+from sadar.approach.reference import dumps_reference, fit_reference
 
 
 def build_reference(model_dir: Path) -> tuple[dict, dict]:
@@ -74,8 +69,8 @@ def build_reference(model_dir: Path) -> tuple[dict, dict]:
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model-dir", type=Path, default=DEFAULT_MODEL_DIR)
-    parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
+    parser.add_argument("--model-dir", type=Path, required=True)
+    parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--report", type=Path)
     args = parser.parse_args()
     reference, report = build_reference(args.model_dir)
