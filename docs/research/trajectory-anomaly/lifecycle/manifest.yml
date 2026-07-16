@@ -239,8 +239,8 @@ gates:
                                  # decision DEFERRED to the Phase-7 real-anomaly test; AE + frozen
                                  # kNN both carried. model_track stays "dl" tentatively. (§4c)
     baseline_score: "IF val AUROC 0.625 [0.611, 0.639] (synthetic-injection val)"
-    best_model_id: "lstm_ae_small_h32_l16_1L_mean (backend/models/phase6/lstm_ae_best.pt)"
-    fitted_pipeline_artifact: "backend/models/phase6/{lstm_ae_best.pt, split_ids.json}; scaler refit-on-train(seed 42); T=260; threshold 0.222"
+    best_model_id: "lstm_ae_small_h32_l16_1L_mean (locked Hugging Face Phase-6 archive)"
+    fitted_pipeline_artifact: "backend/research/src/sadar_research/trajectory_anomaly/releases/phase6_training_artifacts.lock.json + research/trajectory-anomaly/evidence/phase6/split_ids.json; scaler fit on train(seed 42); T=260; threshold 0.222"
     summary: |
       Phase 6 closed 2026-06-01, codex-reviewed + corrected 2026-06-02 (issue #27). Split
       DEFINED + TEST(2020) SEALED; firewall intact (burned=false). 19,849 segments → clean
@@ -326,7 +326,7 @@ test_set:
     pre-split. icao24 cross-fold overlap reported (train∩test 406, all-3 274), NOT asserted-zero —
     leak-free because identifiers are not features; seen/unseen AUROC Δ −0.061 confirms benign
     (D-009 + eng-review-2 amendment)."
-  holdout_path: "backend/models/phase6/split_ids.json"   # test = 4,285 clean segments (2020)
+  holdout_path: "research/trajectory-anomaly/evidence/phase6/split_ids.json"   # test = 4,285 clean segments (2020)
   count: 4285
   burned: true
   burned_at: "2026-06-02"

@@ -37,6 +37,9 @@ jobs:
           uv run --project backend/research sadar-research-fetch-release \
             --lock backend/research/src/sadar_research/trajectory_anomaly/releases/demo_bundle.lock.json \
             --destination /tmp/sadar-ci-demo-release
+          uv run --project backend/research sadar-research-fetch-training-artifacts \
+            --lock backend/research/src/sadar_research/trajectory_anomaly/releases/phase6_training_artifacts.lock.json \
+            --destination /tmp/sadar-ci-phase6
           uv run --project backend sadar-fetch-release \
             --lock backend/src/sadar/releases/approach_bundle.lock.json \
             --destination /tmp/sadar-ci-approach-release
@@ -45,7 +48,7 @@ jobs:
         env:
           SADAR_RELEASE_DIR: /tmp/sadar-ci-demo-release
           SADAR_RESEARCH_BUNDLE_DIR: /tmp/sadar-ci-demo-release
-          SADAR_RESEARCH_MODELS_DIR: backend/models/phase6
+          SADAR_RESEARCH_MODELS_DIR: /tmp/sadar-ci-phase6
           SADAR_APPROACH_RELEASE_DIR: /tmp/sadar-ci-approach-release
         run: uv run --project backend pytest
 

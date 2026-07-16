@@ -84,6 +84,11 @@ def _read_bounded_lock(path: Path | str, *, contract=release) -> Any:
         raise FetchError("release lock is malformed") from exc
 
 
+def read_bounded_json_lock(path: Path | str, *, contract=release) -> Any:
+    """Read a no-follow, size-bounded JSON lock with the selected parser."""
+    return _read_bounded_lock(path, contract=contract)
+
+
 def _validate_public_url(value: object, *, revision: str) -> str:
     if not isinstance(value, str) or len(value.encode("utf-8")) > MAX_URL_BYTES:
         raise FetchError("release lock URL is invalid")
@@ -238,6 +243,11 @@ def _safe_destination(path: Path | str) -> Path:
         if current.is_symlink():
             raise FetchError("release destination must not contain symbolic-link ancestors")
     return candidate
+
+
+def safe_destination(path: Path | str) -> Path:
+    """Validate a not-yet-existing atomic installation destination."""
+    return _safe_destination(path)
 
 
 def _assert_manifest_matches_lock(manifest: object, lock: dict[str, object]) -> None:

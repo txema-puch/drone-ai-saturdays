@@ -16,6 +16,7 @@ dependencies = [
 sadar-research-download-opensky = "sadar_research.trajectory_anomaly.data.download:main"
 sadar-research-export-sample = "sadar_research.trajectory_anomaly.data.export_sample:main"
 sadar-research-fetch-release = "sadar_research.trajectory_anomaly.releases.fetch:main"
+sadar-research-fetch-training-artifacts = "sadar_research.trajectory_anomaly.releases.training_artifacts:main"
 sadar-research-publish-release = "sadar_research.trajectory_anomaly.releases.publish:main"
 
 [project.optional-dependencies]

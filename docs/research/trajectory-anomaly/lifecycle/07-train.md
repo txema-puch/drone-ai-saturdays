@@ -148,7 +148,8 @@ val firewall** (fit on TRAIN-normal, score val, TEST sealed; `research/trajector
   and **may not transfer** to real go-arounds/emergencies (which can be summary-normal but
   order-abnormal). That uncertainty is *why* we carry **both** — not switch now.
 - **Action taken:** kNN added as `backend/research/src/sadar_research/trajectory_anomaly/models/baseline.py` (+ tests) and **frozen**
-  (`backend/models/phase6/knn_train_summary.npy` + `scaler.joblib` + `knn_frozen_manifest.json`) so
+  (the locked `knn_train_summary.npy` + `scaler.joblib` archive and
+  `research/trajectory-anomaly/evidence/phase6/knn_frozen_manifest.json`) so
   the Phase-7 entry is reproducible/blind. The AE-vs-kNN decision is **pre-registered** for the
   Phase-7 real-anomaly burn (07-eval-prep Layer 6). Deployment note: kNN is stateful (carries the
   train reference set); the AE is fixed-size once trained.
@@ -198,9 +199,10 @@ wants to chase the spatial gap, which is a Phase-1/5 rethink, not a Phase-6 tune
 
 ## Artifacts
 
-- Best model: `backend/models/phase6/lstm_ae_best.pt` (gitignored) — config **small (h32,
+- Best model: locked Phase-6 `lstm_ae_best.pt` in the Hugging Face training archive — config **small (h32,
   latent16, 1L), agg mean**, T=260, seed 42, threshold 0.222.
-- Split ids: `backend/models/phase6/split_ids.json` (train/val/test/held-aside segment ids).
+- Split ids: `research/trajectory-anomaly/evidence/phase6/split_ids.json`
+  (train/val/test/held-aside segment ids).
 - Cached `clean_df`/`meta` parquets (gitignored). Scaler is deterministically refit from TRAIN
   (seed 42) — reproducible; persist it explicitly as a minor follow-up.
 - Figures: `docs/research/trajectory-anomaly/figures/phase6_loss_curves.png`, `phase6_recon_overlay.png`
