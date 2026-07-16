@@ -1,14 +1,4 @@
-from pydantic_settings import BaseSettings
-
-
-class Settings(BaseSettings):
-    OPENSKY_USERNAME: str
-    OPENSKY_PASSWORD: str
-    SUPABASE_URL: str  
-    SUPABASE_KEY: str  
-    class Config:
-        env_file = ".env"
-        extra = "ignore"  # tolerate cycle-N supabase vars and other ad-hoc env additions
-
-
-settings = Settings()
+"""Temporary module alias; removed before the restructure PR merges."""
+import sys
+from sadar_research.trajectory_anomaly.data import config as _implementation
+sys.modules[__name__] = _implementation

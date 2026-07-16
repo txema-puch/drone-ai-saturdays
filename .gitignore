@@ -53,7 +53,7 @@ coverage.xml
 ########################################
 # Datos y modelos                      #
 ########################################
-data/
+/data/
 backend/models/*
 # EXCEPTION (#27): version the small (~1.4 MB) FROZEN Phase-7 bench so the blind
 # Phase-7 test is byte-identical + reproducible across machines. The big regenerable
@@ -94,7 +94,17 @@ Thumbs.db
 .docs
 .data
 .claude/
-/docs/
+
+########################################
+# Local collaboration workspace         #
+########################################
+# Raw plans, handoffs, task boards, weekly notes, agent instructions and
+# writeup drafts are intentionally local. Durable decisions and evidence live
+# in the tracked docs/ tree; the pre-restructure tag preserves older copies.
+.workspace/
+/CLAUDE.md
+/backend/docs/writeup/
+/docs/writeup/
 
 ########################################
 # Agent-session artifacts              #
