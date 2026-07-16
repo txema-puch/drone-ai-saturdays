@@ -14,7 +14,7 @@ from sadar_research.trajectory_anomaly.pipeline.preprocessing import AE_FEATURES
 from sadar_research.trajectory_anomaly.evaluation.upload import EvaluationError, UploadEvaluationService
 
 
-SAMPLE = Path(__file__).resolve().parents[2] / "frontend/public/evaluation-synthetic-sample.csv"
+SAMPLE = Path(__file__).resolve().parents[3] / "frontend/public/evaluation-synthetic-sample.csv"
 RESULT_FIELDS = {
     "evaluation_ref", "segment_id", "model_status", "path", "reconstructed", "scores",
     "window_score", "pct", "threshold", "step_threshold", "valid_steps", "n_steps",

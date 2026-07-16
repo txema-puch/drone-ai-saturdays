@@ -12,7 +12,7 @@ from sadar.releases.hub_publish import UploadedArtifact
 from sadar.releases.approach import load_release_directory
 
 
-REPO = Path(__file__).resolve().parents[2]
+REPO = Path(__file__).resolve().parents[3]
 SOURCE = Path(
     os.environ.get("SADAR_APPROACH_RELEASE_DIR", REPO / "backend/models/sadar_approach_v3")
 )

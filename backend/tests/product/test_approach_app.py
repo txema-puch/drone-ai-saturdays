@@ -14,7 +14,7 @@ from sadar.api.settings import Settings
 from sadar.releases.approach import load_release_directory
 
 
-REPO = Path(__file__).resolve().parents[2]
+REPO = Path(__file__).resolve().parents[3]
 RELEASE_DIR = REPO / "backend/models/sadar_approach_v3"
 RELEASE = load_release_directory(RELEASE_DIR)
 

@@ -6,7 +6,7 @@ import io
 from pathlib import Path
 
 
-SCRIPT = Path(__file__).resolve().parents[2] / "scripts" / "smoke-http.py"
+SCRIPT = Path(__file__).resolve().parents[3] / "scripts" / "smoke-http.py"
 SPEC = importlib.util.spec_from_file_location("sadar_smoke_http", SCRIPT)
 assert SPEC is not None and SPEC.loader is not None
 smoke = importlib.util.module_from_spec(SPEC)

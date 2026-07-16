@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 
-SCRIPT = Path(__file__).resolve().parents[2] / "scripts" / "check-delivery-contract.py"
+SCRIPT = Path(__file__).resolve().parents[3] / "scripts" / "check-delivery-contract.py"
 SPEC = importlib.util.spec_from_file_location("sadar_delivery_contract", SCRIPT)
 assert SPEC is not None and SPEC.loader is not None
 delivery = importlib.util.module_from_spec(SPEC)

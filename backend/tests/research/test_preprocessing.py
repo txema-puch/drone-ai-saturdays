@@ -26,7 +26,7 @@ from sklearn.exceptions import NotFittedError
 from sadar_research.trajectory_anomaly.pipeline import preprocessing as pp
 from sadar_research.trajectory_anomaly.data.geometry import distance_to_closest_runway
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
+REPO_ROOT = Path(__file__).resolve().parents[3]
 # A point right at the 32L threshold — engaging by Filter D; and a far cruise point.
 RWY_LAT, RWY_LON = 40.4651, -3.5450
 FAR_LAT, FAR_LON = 41.6000, -3.5450  # ~125 km north → never engages

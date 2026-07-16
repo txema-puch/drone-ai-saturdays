@@ -153,40 +153,40 @@ def test_no_attempt_is_an_empty_bounded_result_not_an_error(service):
 def test_hard_input_row_operation_attempt_trajectory_and_response_bounds(service, monkeypatch):
     frame = _approach_frame()
 
-    monkeypatch.setattr("sadar.api.evaluation.MAX_INPUT_BYTES", 1)
+    monkeypatch.setattr("sadar.api.upload_service.MAX_INPUT_BYTES", 1)
     with pytest.raises(EvaluationError, match="10 MiB") as raised:
         service.evaluate(_csv(frame), filename="rows.csv", media_type="text/csv")
     assert raised.value.code == "request_too_large"
-    monkeypatch.setattr("sadar.api.evaluation.MAX_INPUT_BYTES", 10 * 1024 * 1024)
+    monkeypatch.setattr("sadar.api.upload_service.MAX_INPUT_BYTES", 10 * 1024 * 1024)
 
-    monkeypatch.setattr("sadar.api.evaluation.MAX_RAW_ROWS", 1)
+    monkeypatch.setattr("sadar.api.upload_parsing.MAX_RAW_ROWS", 1)
     with pytest.raises(EvaluationError) as raised:
         service.evaluate(_csv(frame), filename="rows.csv", media_type="text/csv")
     assert raised.value.code == "too_many_rows"
-    monkeypatch.setattr("sadar.api.evaluation.MAX_RAW_ROWS", 50_000)
+    monkeypatch.setattr("sadar.api.upload_parsing.MAX_RAW_ROWS", 50_000)
 
     second = _approach_frame(icao24="def456")
-    monkeypatch.setattr("sadar.api.evaluation.MAX_OPERATIONS", 1)
+    monkeypatch.setattr("sadar.api.upload_service.MAX_OPERATIONS", 1)
     with pytest.raises(EvaluationError) as raised:
         service.evaluate(
             _csv(pd.concat([frame, second], ignore_index=True)),
             filename="two.csv", media_type="text/csv",
         )
     assert raised.value.code == "too_many_operations"
-    monkeypatch.setattr("sadar.api.evaluation.MAX_OPERATIONS", 250)
+    monkeypatch.setattr("sadar.api.upload_service.MAX_OPERATIONS", 250)
 
-    monkeypatch.setattr("sadar.api.evaluation.MAX_ATTEMPTS", 0)
+    monkeypatch.setattr("sadar.api.upload_service.MAX_ATTEMPTS", 0)
     with pytest.raises(EvaluationError) as raised:
         service.evaluate(_csv(frame), filename="rows.csv", media_type="text/csv")
     assert raised.value.code == "too_many_attempts"
-    monkeypatch.setattr("sadar.api.evaluation.MAX_ATTEMPTS", 500)
+    monkeypatch.setattr("sadar.api.upload_service.MAX_ATTEMPTS", 500)
 
-    monkeypatch.setattr("sadar.api.evaluation.MAX_TRAJECTORY_POINTS", 5)
+    monkeypatch.setattr("sadar.api.upload_presentation.MAX_TRAJECTORY_POINTS", 5)
     response = service.evaluate(_csv(frame), filename="rows.csv", media_type="text/csv")
     assert response["results"][0]["trajectory"]["returned_points"] == 5
     assert len(response["results"][0]["channels"]["time"]) == 5
 
-    monkeypatch.setattr("sadar.api.evaluation.MAX_RESPONSE_BYTES", 10)
+    monkeypatch.setattr("sadar.api.upload_service.MAX_RESPONSE_BYTES", 10)
     with pytest.raises(EvaluationError) as raised:
         service.evaluate(_csv(frame), filename="rows.csv", media_type="text/csv")
     assert raised.value.code == "evaluation_response_too_large"
