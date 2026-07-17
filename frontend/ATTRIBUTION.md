@@ -20,6 +20,7 @@ What we changed (Direction C "Forensic Dossier", a post-hoc analyst-triage tool)
   archived merge-design record listed in `docs/archive-manifest.yml`).
 - The visual language is restyled to the "Forensic Dossier" tokens in `/DESIGN.md`
   (paper-cream on dark slate, editorial serif), replacing his green-on-black radar scope.
-- The model, data, and serve layer are ours (LSTM-AE, OpenSky-LEMD, `backend/serve/`).
+- The product rules and serving layer are ours (`backend/src/sadar/`). The historical
+  LSTM-AE/OpenSky-LEMD benchmark is preserved separately under `backend/research/`.
 
 MIT license text from the upstream project is reproduced in `LICENSE.SADAR`.

@@ -27,17 +27,23 @@ RUN --mount=type=cache,target=/tmp/uv-cache \
 
 FROM --platform=linux/amd64 python-deps AS product-wheel
 WORKDIR /build/backend
+COPY delivery/container/build-requirements.lock /tmp/build-requirements.lock
+RUN --mount=type=cache,target=/tmp/uv-cache \
+    UV_REQUIRE_HASHES=1 uv pip install --system --no-deps --require-hashes -r /tmp/build-requirements.lock
 COPY backend/pyproject.toml ./pyproject.toml
 COPY backend/research/pyproject.toml ./research/pyproject.toml
 COPY backend/src ./src
 RUN --mount=type=cache,target=/tmp/uv-cache \
-    uv build --wheel --out-dir /tmp/dist \
-    && uv pip install --system --no-deps /tmp/dist/sadar-*.whl
+    uv build --wheel --no-build-isolation --out-dir /tmp/dist
+
+FROM --platform=linux/amd64 python-deps AS product-install
+COPY --from=product-wheel /tmp/dist/sadar-*.whl /tmp/dist/
+RUN uv pip install --system --no-deps /tmp/dist/sadar-*.whl
 
 # The production target builds only from the redownload-verified schema-v3 lock.
 # Keep this stage source-minimal so application edits do not invalidate the immutable
 # evidence-artifact download layer.
-FROM --platform=linux/amd64 product-wheel AS release-fetch
+FROM --platform=linux/amd64 product-install AS release-fetch
 COPY backend/src/sadar/releases/approach_bundle.lock.json /tmp/approach_bundle.lock.json
 RUN sadar-fetch-release \
          --lock /tmp/approach_bundle.lock.json \
@@ -61,7 +67,7 @@ RUN groupadd --gid 1000 sadar \
     && install -d -o 1000 -g 1000 /opt/sadar/frontend /opt/sadar/release /tmp/sadar
 
 WORKDIR /opt/sadar
-COPY --from=product-wheel /usr/local /usr/local
+COPY --from=product-install /usr/local /usr/local
 COPY --from=frontend-build --chown=1000:1000 /build/frontend/dist ./frontend
 COPY --from=release-fetch --chown=1000:1000 /opt/sadar/release /opt/sadar/release
 COPY --chown=1000:1000 scripts/container-entrypoint.sh /usr/local/bin/sadar-entrypoint

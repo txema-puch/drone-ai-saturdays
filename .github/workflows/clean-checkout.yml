@@ -32,6 +32,12 @@ jobs:
           scripts/compile-serving-lock.sh
           cmp /tmp/requirements-linux-x86_64.lock delivery/container/requirements-linux-x86_64.lock
 
+      - name: Prove the container build lock regenerates without drift
+        run: |
+          cp delivery/container/build-requirements.lock /tmp/build-requirements.lock
+          scripts/compile-build-lock.sh
+          cmp /tmp/build-requirements.lock delivery/container/build-requirements.lock
+
       - name: Fetch the immutable releases for backend integration tests
         run: |
           uv run --project backend/research sadar-research-fetch-release \

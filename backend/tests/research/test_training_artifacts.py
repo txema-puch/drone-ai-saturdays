@@ -100,6 +100,21 @@ def test_install_archive_rejects_digest_and_layout_drift(tmp_path: Path):
         artifacts.install_archive(malformed, tmp_path / "layout", lock=malformed_lock)
 
 
+def test_install_archive_rejects_decompression_bomb_before_tar_parsing(tmp_path: Path):
+    archive, lock = _fixture(tmp_path)
+    with gzip.open(archive, "wb") as compressed:
+        compressed.write(b"\0" * (artifacts.MAX_ARCHIVE_DECOMPRESSED_BYTES + 1))
+    bomb_lock = {
+        **lock,
+        "archive_sha256": hashlib.sha256(archive.read_bytes()).hexdigest(),
+    }
+
+    with pytest.raises(artifacts.TrainingArtifactError, match="decompression limit"):
+        artifacts.install_archive(archive, tmp_path / "bomb", lock=bomb_lock)
+
+    assert not (tmp_path / "bomb").exists()
+
+
 def test_fetch_uses_bounded_download_and_refuses_existing_destination(tmp_path: Path):
     archive, lock = _fixture(tmp_path)
     lock_path = tmp_path / "lock.json"

@@ -82,6 +82,7 @@ Thumbs.db
 *.lock
 # The serving image is deliberately resolved and hash-locked for Linux/amd64.
 !delivery/container/requirements-linux-x86_64.lock
+!delivery/container/build-requirements.lock
 .claude
 .docs
 .data

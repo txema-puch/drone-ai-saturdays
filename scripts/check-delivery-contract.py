@@ -13,6 +13,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 DOCKERFILE = ROOT / "Dockerfile"
 LOCK = ROOT / "delivery/container/requirements-linux-x86_64.lock"
+BUILD_LOCK = ROOT / "delivery/container/build-requirements.lock"
+BUILD_INPUT = ROOT / "delivery/container/build-requirements.in"
 PYPROJECT = ROOT / "backend/pyproject.toml"
 ENTRYPOINT = ROOT / "scripts/container-entrypoint.sh"
 README = ROOT / "README.md"
@@ -124,6 +126,8 @@ def main() -> None:
     for path in (
         DOCKERFILE,
         LOCK,
+        BUILD_LOCK,
+        BUILD_INPUT,
         PYPROJECT,
         ENTRYPOINT,
         README,
@@ -166,6 +170,7 @@ def main() -> None:
         "AS frontend-build",
         "AS python-deps",
         "AS product-wheel",
+        "AS product-install",
         "AS release-fetch",
         "AS runtime",
         "USER 1000:1000",
@@ -177,6 +182,13 @@ def main() -> None:
     for fragment in required_fragments:
         if fragment not in dockerfile:
             fail(f"Dockerfile is missing {fragment!r}")
+    for fragment in (
+        "COPY delivery/container/build-requirements.lock /tmp/build-requirements.lock",
+        "UV_REQUIRE_HASHES=1 uv pip install --system --no-deps --require-hashes -r /tmp/build-requirements.lock",
+        "uv build --wheel --no-build-isolation",
+    ):
+        if fragment not in dockerfile:
+            fail(f"Dockerfile must preserve the locked wheel-build boundary: {fragment!r}")
     if re.search(r"\b(?:HF_TOKEN|HUGGING_FACE_HUB_TOKEN)\b", dockerfile):
         fail("publisher token names must not cross the Docker build boundary")
     forbidden_runtime = (
@@ -211,7 +223,29 @@ def main() -> None:
         if "--hash=sha256:" not in lock[match.end() : end]:
             fail(f"{match.group(1)} has no artifact hash")
 
-    project = tomllib.loads(PYPROJECT.read_text(encoding="utf-8"))["project"]
+    build_lock = BUILD_LOCK.read_text(encoding="utf-8")
+    build_requirements = list(
+        re.finditer(r"(?m)^([a-z0-9][a-z0-9._-]*)==[^\s\\]+ \\\n", build_lock)
+    )
+    if len(build_requirements) != 5:
+        fail("wheel-build lock package count drifted")
+    for index, match in enumerate(build_requirements):
+        end = (
+            build_requirements[index + 1].start()
+            if index + 1 < len(build_requirements)
+            else len(build_lock)
+        )
+        if "--hash=sha256:" not in build_lock[match.end() : end]:
+            fail(f"build dependency {match.group(1)} has no artifact hash")
+
+    pyproject_data = tomllib.loads(PYPROJECT.read_text(encoding="utf-8"))
+    build_system = pyproject_data["build-system"]
+    if build_system.get("requires") != ["hatchling==1.27.0"]:
+        fail("product wheel build backend must stay exactly pinned")
+    if BUILD_INPUT.read_text(encoding="utf-8") != "hatchling==1.27.0\n":
+        fail("container build-lock input must match the product build backend")
+
+    project = pyproject_data["project"]
     direct = {
         re.split(r"[<>=!~\[]", dependency, maxsplit=1)[0].lower()
         for dependency in project["dependencies"]

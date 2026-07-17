@@ -3,16 +3,19 @@
 from __future__ import annotations
 
 import argparse
+import gzip
 import hashlib
 import os
 import re
 import shutil
+import stat
 import sys
 import tarfile
 import tempfile
 import urllib.parse
+from contextlib import contextmanager
 from pathlib import Path
-from typing import Any
+from typing import Any, BinaryIO
 
 from sadar.releases import hub_fetch
 
@@ -29,6 +32,11 @@ ALLOWED_FILES = frozenset({"knn_train_summary.npy", "lstm_ae_best.pt", "scaler.j
 MAX_ARCHIVE_BYTES = 4 * 1024 * 1024
 MAX_MANIFEST_BYTES = 32 * 1024
 MAX_FILE_BYTES = 2 * 1024 * 1024
+MAX_ARCHIVE_DECOMPRESSED_BYTES = (
+    MAX_MANIFEST_BYTES
+    + len(ALLOWED_FILES) * MAX_FILE_BYTES
+    + 64 * 1024
+)
 LOCK_KEYS = frozenset(
     {"archive_sha256", "files", "research_track", "revision", "schema_version", "url"}
 )
@@ -129,12 +137,66 @@ def read_lock(path: Path | str) -> dict[str, object]:
     return validate_lock(value)
 
 
-def _sha256(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        while chunk := handle.read(1024 * 1024):
-            digest.update(chunk)
-    return digest.hexdigest()
+@contextmanager
+def _verified_archive(path: Path, expected_sha256: object):
+    """Hold one no-follow descriptor through digest verification and consumption."""
+    flags = os.O_RDONLY
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
+    try:
+        descriptor = os.open(path, flags)
+    except OSError as exc:
+        raise TrainingArtifactError(
+            "training-artifact archive must be a regular file"
+        ) from exc
+    try:
+        with os.fdopen(descriptor, "rb") as handle:
+            info = os.fstat(handle.fileno())
+            if not stat.S_ISREG(info.st_mode):
+                raise TrainingArtifactError(
+                    "training-artifact archive must be a regular file"
+                )
+            if info.st_size > MAX_ARCHIVE_BYTES:
+                raise TrainingArtifactError(
+                    "training-artifact archive exceeds its byte limit"
+                )
+            digest = hashlib.sha256()
+            while chunk := handle.read(1024 * 1024):
+                digest.update(chunk)
+            if digest.hexdigest() != expected_sha256:
+                raise TrainingArtifactError(
+                    "training-artifact archive digest mismatch"
+                )
+            handle.seek(0)
+            yield handle
+    except TrainingArtifactError:
+        raise
+    except OSError as exc:
+        raise TrainingArtifactError("cannot read training-artifact archive") from exc
+
+
+@contextmanager
+def _bounded_decompressed_tar(archive_file: BinaryIO):
+    """Expand gzip into a bounded anonymous file before parsing tar metadata."""
+    decompressed = tempfile.TemporaryFile(mode="w+b")
+    total = 0
+    try:
+        with gzip.GzipFile(fileobj=archive_file, mode="rb") as source:
+            while chunk := source.read(1024 * 1024):
+                total += len(chunk)
+                if total > MAX_ARCHIVE_DECOMPRESSED_BYTES:
+                    raise TrainingArtifactError(
+                        "training-artifact archive exceeds its decompression limit"
+                    )
+                decompressed.write(chunk)
+        decompressed.seek(0)
+        yield decompressed
+    except TrainingArtifactError:
+        raise
+    except (EOFError, gzip.BadGzipFile, OSError) as exc:
+        raise TrainingArtifactError("cannot decompress training-artifact archive") from exc
+    finally:
+        decompressed.close()
 
 
 def _manifest(value: object, *, expected_files: tuple[dict[str, object], ...]) -> dict[str, Any]:
@@ -194,12 +256,6 @@ def install_archive(
     lock: dict[str, object],
 ) -> dict[str, Any]:
     archive_file = Path(archive_path)
-    if archive_file.is_symlink() or not archive_file.is_file():
-        raise TrainingArtifactError("training-artifact archive must be a regular file")
-    if archive_file.stat().st_size > MAX_ARCHIVE_BYTES:
-        raise TrainingArtifactError("training-artifact archive exceeds its byte limit")
-    if _sha256(archive_file) != lock["archive_sha256"]:
-        raise TrainingArtifactError("training-artifact archive digest mismatch")
     try:
         target = hub_fetch.safe_destination(destination)
     except Exception as exc:
@@ -207,23 +263,25 @@ def install_archive(
     target.parent.mkdir(parents=True, exist_ok=True)
     temporary = Path(tempfile.mkdtemp(prefix=f".{target.name}.extract-", dir=target.parent))
     try:
-        with tarfile.open(archive_file, mode="r:gz") as archive:
-            members, manifest = _members(
-                archive, expected_files=lock["files"]  # type: ignore[arg-type]
-            )
-            records = {str(record["path"]): record for record in lock["files"]}  # type: ignore[union-attr]
-            for name in [MANIFEST_NAME, *sorted(ALLOWED_FILES)]:
-                handle = archive.extractfile(members[name])
-                if handle is None:
-                    raise TrainingArtifactError(f"training-artifact member is unreadable: {name}")
-                data = handle.read(members[name].size + 1)
-                if len(data) != members[name].size:
-                    raise TrainingArtifactError(f"training-artifact member is truncated: {name}")
-                if name != MANIFEST_NAME and hashlib.sha256(data).hexdigest() != records[name]["sha256"]:
-                    raise TrainingArtifactError(f"training-artifact member digest mismatch: {name}")
-                path = temporary / name
-                with path.open("xb") as output:
-                    output.write(data)
+        with _verified_archive(archive_file, lock["archive_sha256"]) as compressed:
+            with _bounded_decompressed_tar(compressed) as decompressed:
+                with tarfile.open(fileobj=decompressed, mode="r:") as archive:
+                    members, manifest = _members(
+                        archive, expected_files=lock["files"]  # type: ignore[arg-type]
+                    )
+                    records = {str(record["path"]): record for record in lock["files"]}  # type: ignore[union-attr]
+                    for name in [MANIFEST_NAME, *sorted(ALLOWED_FILES)]:
+                        handle = archive.extractfile(members[name])
+                        if handle is None:
+                            raise TrainingArtifactError(f"training-artifact member is unreadable: {name}")
+                        data = handle.read(members[name].size + 1)
+                        if len(data) != members[name].size:
+                            raise TrainingArtifactError(f"training-artifact member is truncated: {name}")
+                        if name != MANIFEST_NAME and hashlib.sha256(data).hexdigest() != records[name]["sha256"]:
+                            raise TrainingArtifactError(f"training-artifact member digest mismatch: {name}")
+                        path = temporary / name
+                        with path.open("xb") as output:
+                            output.write(data)
         os.rename(temporary, target)
         return manifest
     except TrainingArtifactError:

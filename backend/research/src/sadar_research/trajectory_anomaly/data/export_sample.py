@@ -1,13 +1,12 @@
+"""Export one configured OpenSky sample to the transient Supabase workspace."""
 
-import time
+from __future__ import annotations
+
+import argparse
 import re
+import time
 from datetime import datetime, timedelta
-
-import pandas as pd
-from supabase import create_client, Client
-
-from sadar_research.trajectory_anomaly.data.config import settings
-from sadar_research.trajectory_anomaly.data.opensky import OpenSkyService
+from typing import Any
 
 # ── Configuración ──────────────────────────────────────────────────────────────
 DIA = datetime(2025, 3, 11)
@@ -43,11 +42,17 @@ COLUMNAS_OBJETIVO = [
 
 # ── Cliente Supabase ───────────────────────────────────────────────────────────
 
-def get_supabase() -> Client:
+def get_supabase() -> Any:
+    from supabase import create_client
+
+    from sadar_research.trajectory_anomaly.data.config import settings
+
     return create_client(settings.SUPABASE_URL, settings.SUPABASE_KEY)
 
 
-def subir_a_supabase(client: Client, tabla: str, df: pd.DataFrame) -> bool:
+def subir_a_supabase(client: Any, tabla: str, df: Any) -> bool:
+    import pandas as pd
+
     if df.empty:
         return False
 
@@ -114,7 +119,17 @@ def franjas_del_dia(dia: datetime, horas: int) -> list[tuple[datetime, datetime]
     return result
 
 
-def main() -> None:
+def build_parser() -> argparse.ArgumentParser:
+    return argparse.ArgumentParser(description=__doc__)
+
+
+def main(argv: list[str] | None = None) -> int:
+    build_parser().parse_args(argv)
+
+    import pandas as pd
+
+    from sadar_research.trajectory_anomaly.data.opensky import OpenSkyService
+
     service = OpenSkyService()
     supabase = get_supabase()
 
@@ -137,7 +152,7 @@ def main() -> None:
 
     if not todos_vuelos:
         print("Sin vuelos para este día.")
-        return
+        return 0
 
     flights = (
         pd.concat(todos_vuelos, ignore_index=True)
@@ -194,7 +209,8 @@ def main() -> None:
 
     print(f"{'=' * 50}")
     print(f"Datos disponibles en Supabase — tabla: {NOMBRE_TABLA}")
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

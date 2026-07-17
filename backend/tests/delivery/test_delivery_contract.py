@@ -26,6 +26,7 @@ dockerfile = "Dockerfile"
 [env]
 PORT = "7860"
 SADAR_ENABLE_EVALUATION = "true"
+SADAR_EVALUATION_TIMEOUT_S = "60"
 [http_service]
 internal_port = 7860
 force_https = true
@@ -112,6 +113,7 @@ def test_product_identity_contract_rejects_drift(overrides, message, capsys):
         ('dockerfile = "Dockerfile"', 'dockerfile = "Other"', "Docker build target"),
         ('PORT = "7860"', 'PORT = "8000"', "runtime port"),
         ('SADAR_ENABLE_EVALUATION = "true"', 'SADAR_ENABLE_EVALUATION = "false"', "evaluation capability"),
+        ('SADAR_EVALUATION_TIMEOUT_S = "60"', 'SADAR_EVALUATION_TIMEOUT_S = "30"', "execution deadline"),
         ('internal_port = 7860', 'internal_port = 8000', "internal port"),
         ('force_https = true', 'force_https = false', "HTTPS redirect"),
         ('processes = ["app"]', 'processes = ["worker"]', "default process routing"),

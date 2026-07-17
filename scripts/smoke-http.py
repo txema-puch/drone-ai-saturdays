@@ -23,6 +23,8 @@ MAX_RESPONSE_BYTES = 8 * 1024 * 1024
 STARTUP_GATE_SECONDS = float(os.environ.get("SADAR_SMOKE_STARTUP_GATE_S", "10"))
 WARM_EVALUATION_SECONDS = float(os.environ.get("SADAR_SMOKE_WARM_GATE_S", "10"))
 MAX_EVALUATION_SECONDS = float(os.environ.get("SADAR_SMOKE_MAX_GATE_S", "30"))
+MAX_EVALUATION_ROWS = int(os.environ.get("SADAR_SMOKE_MAX_ROWS", "50000"))
+MAX_EVALUATION_SEGMENTS = int(os.environ.get("SADAR_SMOKE_MAX_SEGMENTS", "250"))
 HEALTH_DURING_EVALUATION_SECONDS = float(
     os.environ.get("SADAR_SMOKE_HEALTH_GATE_S", "0.5")
 )
@@ -175,7 +177,10 @@ def evaluation_performance() -> dict[str, float | int]:
             f"{WARM_EVALUATION_SECONDS:g}s gate: {warm_p95:.3f}s"
         )
 
-    maximum_data = synthetic_csv(rows=50_000, segments=250)
+    maximum_data = synthetic_csv(
+        rows=MAX_EVALUATION_ROWS,
+        segments=MAX_EVALUATION_SEGMENTS,
+    )
     outcome: dict[str, object] = {}
 
     def evaluate_maximum() -> None:
@@ -198,17 +203,25 @@ def evaluation_performance() -> dict[str, float | int]:
     if "error" in outcome:
         raise outcome["error"]  # type: ignore[misc]
     first_evaluation, response_bytes, first_elapsed = outcome["value"]  # type: ignore[misc]
-    assert_evaluation_shape(first_evaluation, rows=50_000, segments=250)
+    assert_evaluation_shape(
+        first_evaluation,
+        rows=MAX_EVALUATION_ROWS,
+        segments=MAX_EVALUATION_SEGMENTS,
+    )
     largest_response = max(largest_response, response_bytes)
     maximum_samples = [first_elapsed]
     for _ in range(2):
         evaluation, response_bytes, elapsed = upload_csv(maximum_data)
-        assert_evaluation_shape(evaluation, rows=50_000, segments=250)
+        assert_evaluation_shape(
+            evaluation,
+            rows=MAX_EVALUATION_ROWS,
+            segments=MAX_EVALUATION_SEGMENTS,
+        )
         largest_response = max(largest_response, response_bytes)
         maximum_samples.append(elapsed)
     if any(sample > MAX_EVALUATION_SECONDS for sample in maximum_samples):
         raise AssertionError(
-            "50,000-row evaluation exceeded "
+            f"{MAX_EVALUATION_ROWS:,}-row evaluation exceeded "
             f"{MAX_EVALUATION_SECONDS:g}s gate: {max(maximum_samples):.3f}s"
         )
     health_p95 = p95(health_samples or [0.0])

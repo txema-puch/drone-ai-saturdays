@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import multiprocessing
+import queue
+import threading
+import time
 from collections.abc import Callable
 from multiprocessing.connection import Connection
 from typing import Any
@@ -72,6 +75,7 @@ def run_evaluation_process(
     worker_target: WorkerTarget = _evaluation_worker,
 ) -> dict[str, Any]:
     """Run one evaluation with a hard deadline and terminate overdue work."""
+    deadline = time.monotonic() + timeout_seconds
     context = multiprocessing.get_context("spawn")
     reader, writer = context.Pipe(duplex=False)
     process = context.Process(
@@ -81,17 +85,35 @@ def run_evaluation_process(
     )
     process.start()
     writer.close()
+    received: queue.Queue[tuple[str, Any]] = queue.Queue(maxsize=1)
+
+    def receive() -> None:
+        try:
+            received.put(("outcome", reader.recv()))
+        except (EOFError, OSError) as exc:
+            received.put(("error", exc))
+
+    receiver = threading.Thread(target=receive, daemon=True)
+    receiver.start()
     try:
-        if not reader.poll(timeout_seconds):
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
             raise EvaluationError(
                 504,
                 "evaluation_timeout",
                 "The approach evaluation exceeded its execution deadline.",
             )
         try:
-            outcome = reader.recv()
-        except EOFError as exc:
-            raise EvaluationWorkerFailure("WorkerExited") from exc
+            kind, value = received.get(timeout=remaining)
+        except queue.Empty as exc:
+            raise EvaluationError(
+                504,
+                "evaluation_timeout",
+                "The approach evaluation exceeded its execution deadline.",
+            ) from exc
+        if kind == "error":
+            raise EvaluationWorkerFailure("WorkerExited") from value
+        outcome = value
     finally:
         reader.close()
         _stop_process(process)
@@ -100,7 +122,8 @@ def run_evaluation_process(
         return outcome[1]
     if outcome[0] == "evaluation_error":
         detail = outcome[2]
-        raise EvaluationError(outcome[1], detail["code"], detail["message"])
+        fields = tuple(detail.get("fields", ()))
+        raise EvaluationError(outcome[1], detail["code"], detail["message"], fields)
     if outcome[0] == "worker_error":
         raise EvaluationWorkerFailure(str(outcome[1]))
     raise EvaluationWorkerFailure("InvalidWorkerResponse")
