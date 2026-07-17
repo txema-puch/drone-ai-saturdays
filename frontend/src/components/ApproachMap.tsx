@@ -7,13 +7,14 @@ interface Props {
   path: ApproachPathPoint[];
   activeIndex: number | null;
   runway?: string | null;
+  outcome?: string | null;
 }
 
 const W = 720;
 const H = 420;
 const PAD = 36;
 
-export default function ApproachMap({ path, activeIndex, runway }: Props) {
+export default function ApproachMap({ path, activeIndex, runway, outcome }: Props) {
   const relative = path.length > 1 && path.every(
     (point) => Number.isFinite(point.along_track_m) && Number.isFinite(point.cross_track_m),
   );
@@ -34,6 +35,11 @@ export default function ApproachMap({ path, activeIndex, runway }: Props) {
   }, [path, relative]);
   const marker = activeIndex == null ? null : projected[activeIndex];
   const points = projected.map((point) => `${point.x},${point.y}`).join(" ");
+  const finalAlong = relative ? path[path.length - 1]?.along_track_m : null;
+  const observedOutcome = ["landing_observed", "go_around", "touch_and_go"].includes(outcome ?? "");
+  const endpointNotice = finalAlong != null && finalAlong > 0
+    ? `Evidence ends here — ${(finalAlong / 1_000).toFixed(1)} km before the runway. ${observedOutcome ? "The recorded outcome is shown in the dossier." : "Landing outcome unavailable."}`
+    : null;
 
   return (
     <figure className="evidence-map">
@@ -61,7 +67,8 @@ export default function ApproachMap({ path, activeIndex, runway }: Props) {
         {marker && <circle cx={marker.x} cy={marker.y} r={7} className="evidence-map__marker" />}
       </svg>
       <figcaption className="sans">
-        Observed positions only. The line is evidence coverage, not a certified flight path.
+        <span>Observed positions only. The line is evidence coverage, not a certified flight path.</span>
+        {endpointNotice && <strong>{endpointNotice}</strong>}
       </figcaption>
     </figure>
   );

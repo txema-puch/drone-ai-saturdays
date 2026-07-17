@@ -179,12 +179,18 @@ export default function CaseFile() {
             </div>
             {detail.path.length ? (
               <>
-                <ApproachMap path={detail.path} activeIndex={activeIndex} runway={runway} />
+                <ApproachMap
+                  path={detail.path}
+                  activeIndex={activeIndex}
+                  runway={runway}
+                  outcome={detail.outcome}
+                />
                 <EvidenceTimeline
                   criteria={detail.criteria}
                   startTime={startTime}
                   endTime={endTime}
                   activeTime={activeTime ?? startTime}
+                  runway={runway}
                   onTimeChange={setActiveTime}
                 />
               </>
