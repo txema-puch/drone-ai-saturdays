@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+import json
 import os
 from pathlib import Path
 
@@ -18,6 +20,9 @@ RELEASE_DIR = Path(
     )
 )
 RELEASE = load_release_directory(RELEASE_DIR)
+PRE_RESTRUCTURE_CONTRACT = (
+    Path(__file__).parent / "fixtures" / "pre_restructure_read_contract.json"
+)
 
 
 def _settings(frontend: Path, **kwargs) -> Settings:
@@ -31,37 +36,27 @@ def _settings(frontend: Path, **kwargs) -> Settings:
     return Settings(**values)
 
 
-def test_factory_instances_have_identical_read_contract(tmp_path: Path):
+def test_factory_preserves_pre_restructure_read_contract(tmp_path: Path):
     frontend = tmp_path / "frontend"
     frontend.mkdir()
     (frontend / "index.html").write_text('<div id="root"></div>')
     (frontend / "asset.txt").write_text("asset")
-    first = TestClient(create_app(_settings(frontend), RELEASE))
-    second = TestClient(create_app(_settings(frontend), RELEASE))
-    paths = [
-        "/api/health",
-        "/api/approaches?limit=20",
-        "/api/approaches?limit=20&status=review_required",
-        "/api/metrics",
-        "/api/research",
-        "/api/not-a-route",
-        "/deep/link",
-        "/asset.txt",
-    ]
-    ranked = first.get("/api/approaches?limit=1").json()[0]
-    paths.extend(
-        [
-            f"/api/approaches/{ranked['attempt_id']}",
-            f"/api/approach-operations/{ranked['operation_ref']}",
-            "/api/approaches/not-present",
-            "/api/approach-operations/not-present",
+    client = TestClient(create_app(_settings(frontend), RELEASE))
+    contract = json.loads(PRE_RESTRUCTURE_CONTRACT.read_text())
+
+    assert contract["source"]["commit"] == "2256b3b07a751a5c458d742a159f1d89c1b31503"
+    for expected in contract["responses"]:
+        response = client.get(expected["path"])
+        canonical = json.dumps(
+            response.json(), sort_keys=True, separators=(",", ":")
+        ).encode()
+        assert response.status_code == expected["status_code"], expected["path"]
+        assert response.headers["content-type"] == expected["content_type"], expected[
+            "path"
         ]
-    )
-    for path in paths:
-        left, right = first.get(path), second.get(path)
-        assert right.status_code == left.status_code, path
-        assert right.headers["content-type"] == left.headers["content-type"], path
-        assert right.content == left.content, path
+        assert hashlib.sha256(canonical).hexdigest() == expected["sha256"], expected[
+            "path"
+        ]
 
 
 def test_factory_instances_have_isolated_runtime_state(tmp_path: Path):
