@@ -349,23 +349,25 @@ The one-time sealed 2026 burn retained 387/613 attempts (63.1%), below the preco
 target. Independent review labels do not exist, so precision and safety performance are unknown.
 The qualification gate failed. The schema-v3 candidate may be used only as a research and
 evidence-labeling demonstrator; it must not be retuned from the burned holdout or described as
-operational conformance software. See `../ml/iterations/approach-screening/07-eval.md`.
+operational conformance software. See
+`../research/approach-screening/lifecycle/07-eval.md`.
 
 ## NOT in scope
 
 - Live monitoring or ATC decision support: the available pipeline is retrospective.
 - Certified stabilized-approach or regulatory conformance: required avionics and operational
   context are absent.
-- Weather, QNH, wind, aircraft configuration, mass, clearance or intent inference.
+- Inferred weather, QNH, wind, aircraft configuration, mass, clearance or intent. The completed
+  contextual iteration accepts supplied QNH and wind, and uses supported aircraft-type reference
+  cells, but does not infer these values from ADS-B.
 - Exact parallel-runway assignment when ADS-B geometry does not support it.
 - A supervised production model before independent labels and a fresh holdout exist.
 - Database, durable upload storage, job queue or runtime LLM reports for the course demo.
 
-These exclusions apply only to the ADS-B-only iteration. After it is complete, a second lifecycle
-iteration will actively source and gate time-aligned weather, QNH, wind and aircraft-type data,
-then configuration, mass and ATC-clearance data where lawful reproducible sources can be found.
-It will retrain/recalibrate and compare against the frozen ADS-B-only baseline under the same
-holdout discipline. Missing sources are recorded as failed data gates, not assumed unavailable.
+The contextual follow-on is complete. It sourced and gated time-aligned weather, QNH, wind and
+aircraft-type data, and recorded configuration, mass and ATC-clearance as failed source gates.
+Its comparisons do not establish improved correctness because no fresh holdout or independent
+labels exist. Missing sources remain failed data gates rather than implied inputs.
 
 ## What already exists
 

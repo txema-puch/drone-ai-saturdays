@@ -251,7 +251,7 @@ wired into the deployed product.
 The public course deployment is anonymous and has no server-side history. Evaluation is disabled
 by default, accepts at most 10 MiB / 50,000 raw rows / 100,000 projected grid rows / 25 accepted segments, serializes heavyweight
 analysis with What-If, deletes temporary bytes, and warns users not to upload confidential or
-proprietary data. See `/DESIGN.md` for interaction/state rules and
+proprietary data. See `docs/product/design-system.md` for current interaction/state rules and
 `docs/product/architecture.md` for the release/API/test contract.
 
 ### Stretch Goals (attempt only if Week 4 demo is complete and working)

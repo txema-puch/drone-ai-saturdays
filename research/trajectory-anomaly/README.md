@@ -31,8 +31,9 @@ uv run --project backend/research --extra data --extra notebooks jupyter lab
 ```
 
 Open notebooks from their repository paths. Lifecycle notebooks locate the root
-by walking upward and import `backend/research/src`; they no longer depend on the
-removed `backend.core` or `backend.crud` namespaces.
+by walking upward for data and evidence paths, while imports resolve from the installed
+`sadar-research` project environment. They no longer depend on removed legacy backend
+namespaces or source-path injection.
 
 Raw datasets and trained artifacts are intentionally external to source Git.
 Follow the manifests and Hugging Face locks before attempting a full replay.
