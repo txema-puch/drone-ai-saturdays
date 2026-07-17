@@ -2,8 +2,8 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-INPUT="$ROOT/backend/serve/requirements.in"
-OUTPUT="$ROOT/backend/serve/requirements-linux-x86_64.lock"
+INPUT="$ROOT/backend/pyproject.toml"
+OUTPUT="$ROOT/delivery/container/requirements-linux-x86_64.lock"
 export UV_CACHE_DIR="${UV_CACHE_DIR:-${TMPDIR:-/tmp}/sadar-uv-cache}"
 
 command -v uv >/dev/null 2>&1 || {

@@ -19,26 +19,34 @@ ENV UV_CACHE_DIR=/tmp/uv-cache \
     UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy \
     UV_PYTHON_DOWNLOADS=never \
-    UV_REQUIRE_HASHES=1 \
     UV_TORCH_BACKEND=cpu
 COPY --from=uv-bin /uv /uvx /usr/local/bin/
-COPY backend/serve/requirements-linux-x86_64.lock /tmp/requirements.lock
+COPY delivery/container/requirements-linux-x86_64.lock /tmp/requirements.lock
 RUN --mount=type=cache,target=/tmp/uv-cache \
-    uv pip install --system --no-deps --require-hashes -r /tmp/requirements.lock
+    UV_REQUIRE_HASHES=1 uv pip install --system --no-deps --require-hashes -r /tmp/requirements.lock
+
+FROM --platform=linux/amd64 python-deps AS product-wheel
+WORKDIR /build/backend
+COPY delivery/container/build-requirements.lock /tmp/build-requirements.lock
+RUN --mount=type=cache,target=/tmp/uv-cache \
+    UV_REQUIRE_HASHES=1 uv pip install --system --no-deps --require-hashes -r /tmp/build-requirements.lock
+COPY backend/pyproject.toml ./pyproject.toml
+COPY backend/research/pyproject.toml ./research/pyproject.toml
+COPY backend/src ./src
+RUN --mount=type=cache,target=/tmp/uv-cache \
+    uv build --wheel --no-build-isolation --out-dir /tmp/dist
+
+FROM --platform=linux/amd64 python-deps AS product-install
+COPY --from=product-wheel /tmp/dist/sadar-*.whl /tmp/dist/
+RUN uv pip install --system --no-deps /tmp/dist/sadar-*.whl
 
 # The production target builds only from the redownload-verified schema-v3 lock.
 # Keep this stage source-minimal so application edits do not invalidate the immutable
 # evidence-artifact download layer.
-FROM --platform=linux/amd64 ${PYTHON_IMAGE} AS release-fetch
-WORKDIR /src
-COPY backend/serve/approach_bundle.lock.json ./backend/serve/approach_bundle.lock.json
-COPY backend/serve/approach_release.py ./backend/serve/approach_release.py
-COPY backend/serve/approach_transport.py ./backend/serve/approach_transport.py
-COPY backend/serve/release.py ./backend/serve/release.py
-COPY backend/scripts/fetch_demo_bundle.py ./backend/scripts/fetch_demo_bundle.py
-COPY backend/scripts/fetch_approach_release.py ./backend/scripts/fetch_approach_release.py
-RUN python -m backend.scripts.fetch_approach_release \
-         --lock backend/serve/approach_bundle.lock.json \
+FROM --platform=linux/amd64 product-install AS release-fetch
+COPY backend/src/sadar/releases/approach_bundle.lock.json /tmp/approach_bundle.lock.json
+RUN sadar-fetch-release \
+         --lock /tmp/approach_bundle.lock.json \
          --destination /opt/sadar/release
 
 FROM --platform=linux/amd64 ${PYTHON_IMAGE} AS runtime
@@ -49,20 +57,18 @@ LABEL org.opencontainers.image.source="https://github.com/txema-puch/drone-ai-sa
 ENV HOME=/home/sadar \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    PYTHONPATH=/opt/sadar/app \
     SADAR_APPROACH_RELEASE_DIR=/opt/sadar/release \
+    SADAR_FRONTEND_DIR=/opt/sadar/frontend \
     TMPDIR=/tmp/sadar \
     PORT=7860
 
 RUN groupadd --gid 1000 sadar \
     && useradd --uid 1000 --gid 1000 --create-home --home-dir /home/sadar sadar \
-    && install -d -o 1000 -g 1000 /opt/sadar/app /opt/sadar/release /tmp/sadar
+    && install -d -o 1000 -g 1000 /opt/sadar/frontend /opt/sadar/release /tmp/sadar
 
-WORKDIR /opt/sadar/app
-COPY --from=python-deps /usr/local /usr/local
-COPY --chown=1000:1000 backend/core ./backend/core
-COPY --chown=1000:1000 backend/serve ./backend/serve
-COPY --from=frontend-build --chown=1000:1000 /build/frontend/dist ./frontend/dist
+WORKDIR /opt/sadar
+COPY --from=product-install /usr/local /usr/local
+COPY --from=frontend-build --chown=1000:1000 /build/frontend/dist ./frontend
 COPY --from=release-fetch --chown=1000:1000 /opt/sadar/release /opt/sadar/release
 COPY --chown=1000:1000 scripts/container-entrypoint.sh /usr/local/bin/sadar-entrypoint
 

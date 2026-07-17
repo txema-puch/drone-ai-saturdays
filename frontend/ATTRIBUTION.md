@@ -15,11 +15,13 @@ What we reused from SADAR:
 What we changed (Direction C "Forensic Dossier", a post-hoc analyst-triage tool):
 
 - The information architecture is rebuilt from a live-controller **Monitor** into a
-  retrospective **ranked queue → case file** flow. Our model scores a whole completed
-  segment once, so a live scope would be dishonest (see
-  `backend/docs/architecture/sadar-merge-design.md` §4.5).
-- The visual language is restyled to the "Forensic Dossier" tokens in `/DESIGN.md`
+  retrospective **ranked queue → case file** flow. The current product screens completed
+  approach attempts with deterministic evidence rules, so a live scope would be dishonest (see
+  archived merge-design record listed in `docs/archive-manifest.yml`).
+- The visual language is restyled to the "Forensic Dossier" tokens in
+  `docs/product/design-system.md`
   (paper-cream on dark slate, editorial serif), replacing his green-on-black radar scope.
-- The model, data, and serve layer are ours (LSTM-AE, OpenSky-LEMD, `backend/serve/`).
+- The product rules and serving layer are ours (`backend/src/sadar/`). The historical
+  LSTM-AE/OpenSky-LEMD benchmark is preserved separately under `backend/research/`.
 
 MIT license text from the upstream project is reproduced in `LICENSE.SADAR`.

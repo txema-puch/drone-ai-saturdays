@@ -1,0 +1,65 @@
+{
+  "schema_version": 1,
+  "source": {
+    "tag": "pre-restructure-archive-2026-07-16",
+    "commit": "2256b3b07a751a5c458d742a159f1d89c1b31503",
+    "release_id": "491f81fb1d896b0d793e"
+  },
+  "canonicalization": "JSON encoded with sorted keys and compact separators, then SHA-256 hashed",
+  "responses": [
+    {
+      "path": "/api/health",
+      "status_code": 200,
+      "content_type": "application/json",
+      "sha256": "f3ebce16ebf3ac012c417c30857ce599820e743312a7c7a49ae8d9afa3115098"
+    },
+    {
+      "path": "/api/approaches?limit=20",
+      "status_code": 200,
+      "content_type": "application/json",
+      "sha256": "2e43dcd139d321e1646c98c8388dc88f0a2b56eee49e80790b061cc75080e9ff"
+    },
+    {
+      "path": "/api/approaches?limit=20&status=review_required",
+      "status_code": 200,
+      "content_type": "application/json",
+      "sha256": "2e43dcd139d321e1646c98c8388dc88f0a2b56eee49e80790b061cc75080e9ff"
+    },
+    {
+      "path": "/api/metrics",
+      "status_code": 200,
+      "content_type": "application/json",
+      "sha256": "52bce4a2bda2ca893f5878bab47f88285ef0e8f913c9aec03ba3ea165076f78e"
+    },
+    {
+      "path": "/api/approaches/a_a25a7230b240549c57bc",
+      "status_code": 200,
+      "content_type": "application/json",
+      "sha256": "3b16ce5484a0ad0efd86d369075781d11454341b8815bc936178656a73f699e6"
+    },
+    {
+      "path": "/api/approach-operations/op_f391b6c5fc45c187455a",
+      "status_code": 200,
+      "content_type": "application/json",
+      "sha256": "98e2684ec6a0eec218facd3d3293afd6453f125eb0a18ac9186b75c96bf33be9"
+    },
+    {
+      "path": "/api/approaches/not-present",
+      "status_code": 404,
+      "content_type": "application/json",
+      "sha256": "9e22f69386c235acbf5cdc57cf4ae1b6330eafd03b0a5453db710e80ee5493c0"
+    },
+    {
+      "path": "/api/approach-operations/not-present",
+      "status_code": 404,
+      "content_type": "application/json",
+      "sha256": "7219afd579aeba9090875c793c8ce56a1a2fca119e93768cd12b551ef4566680"
+    },
+    {
+      "path": "/api/not-a-route",
+      "status_code": 404,
+      "content_type": "application/json",
+      "sha256": "c3e695ba8e02f05d18ea9c515e15ccd20c3338ae36f5eb7db2bb464f6a42b7b6"
+    }
+  ]
+}

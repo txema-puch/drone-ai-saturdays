@@ -49,6 +49,35 @@ describe("attempt dossier", () => {
     expect(screen.getByText(/4.5 km from threshold/i)).toBeInTheDocument();
   });
 
+  it("explains a selected ground-speed crossing in operational units", async () => {
+    renderCase();
+    const crossing = await screen.findByRole("button", {
+      name: /Observed ground speed envelope evidence from/i,
+    });
+    fireEvent.click(crossing);
+
+    expect(screen.getByRole("heading", {
+      name: "Lower-than-reference ground speed",
+    })).toBeInTheDocument();
+    expect(screen.getByText("143 kt")).toBeInTheDocument();
+    expect(screen.getByText("153 kt")).toBeInTheDocument();
+    expect(screen.getByText("−10 kt")).toBeInTheDocument();
+    expect(screen.getByText("30 seconds")).toBeInTheDocument();
+    expect(screen.getByText("10.1 km before RWY 32L")).toBeInTheDocument();
+    expect(screen.getByText(/statistical comparison, not a safety-limit violation/i)).toBeInTheDocument();
+  });
+
+  it("states where evidence ends when the runway threshold was not observed", async () => {
+    vi.mocked(api.getApproach).mockResolvedValueOnce({
+      ...APPROACH_DETAIL,
+      outcome: "final_gate_observed",
+    });
+    renderCase();
+    expect(await screen.findByText(
+      "Evidence ends here — 0.5 km before the runway. Landing outcome unavailable.",
+    )).toBeInTheDocument();
+  });
+
   it("explains abstention without creating a normal verdict", async () => {
     vi.mocked(api.getApproach).mockResolvedValueOnce({ ...APPROACH_DETAIL, status: "not_assessable", reasons: ["approach_coverage_gap"] });
     renderCase();

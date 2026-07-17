@@ -12,8 +12,10 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 DOCKERFILE = ROOT / "Dockerfile"
-LOCK = ROOT / "backend/serve/requirements-linux-x86_64.lock"
-INPUT = ROOT / "backend/serve/requirements.in"
+LOCK = ROOT / "delivery/container/requirements-linux-x86_64.lock"
+BUILD_LOCK = ROOT / "delivery/container/build-requirements.lock"
+BUILD_INPUT = ROOT / "delivery/container/build-requirements.in"
+PYPROJECT = ROOT / "backend/pyproject.toml"
 ENTRYPOINT = ROOT / "scripts/container-entrypoint.sh"
 README = ROOT / "README.md"
 FRONTEND_INDEX = ROOT / "frontend/index.html"
@@ -21,6 +23,7 @@ FRONTEND_PACKAGE = ROOT / "frontend/package.json"
 FRONTEND_LOCK = ROOT / "frontend/package-lock.json"
 FLY_CONFIG = ROOT / "fly.toml"
 FLY_DEPLOY = ROOT / "scripts/deploy-fly.sh"
+DOCKERIGNORE = ROOT / ".dockerignore"
 PRODUCT_TITLE = "SADAR Analyst Console"
 PACKAGE_NAME = "sadar-analyst-console"
 FLY_APP = "sadar-analyst-console"
@@ -81,6 +84,7 @@ def validate_fly_config(fly_config: str) -> None:
         "Docker build target": (build.get("dockerfile"), "Dockerfile"),
         "runtime port": (env.get("PORT"), "7860"),
         "evaluation capability": (env.get("SADAR_ENABLE_EVALUATION"), "true"),
+        "evaluation execution deadline": (env.get("SADAR_EVALUATION_TIMEOUT_S"), "60"),
         "internal port": (service.get("internal_port"), 7860),
         "HTTPS redirect": (service.get("force_https"), True),
         "default process routing": (service.get("processes"), ["app"]),
@@ -122,7 +126,9 @@ def main() -> None:
     for path in (
         DOCKERFILE,
         LOCK,
-        INPUT,
+        BUILD_LOCK,
+        BUILD_INPUT,
+        PYPROJECT,
         ENTRYPOINT,
         README,
         FRONTEND_INDEX,
@@ -130,6 +136,7 @@ def main() -> None:
         FRONTEND_LOCK,
         FLY_CONFIG,
         FLY_DEPLOY,
+        DOCKERIGNORE,
     ):
         if not path.is_file():
             fail(f"missing tracked input: {path.relative_to(ROOT)}")
@@ -137,6 +144,11 @@ def main() -> None:
         fail("legacy backend/Dockerfile must stay retired")
     if not FLY_DEPLOY.stat().st_mode & 0o111:
         fail("Fly deploy script must be executable")
+
+    dockerignore = DOCKERIGNORE.read_text(encoding="utf-8").splitlines()
+    for private_path in (".agents", ".claude", ".codex", ".workspace", "AGENTS.md", "CLAUDE.md"):
+        if private_path not in dockerignore:
+            fail(f"Docker context must exclude local collaboration material: {private_path}")
 
     dockerfile = DOCKERFILE.read_text(encoding="utf-8")
     image_args = re.findall(
@@ -157,21 +169,39 @@ def main() -> None:
     required_fragments = (
         "AS frontend-build",
         "AS python-deps",
+        "AS product-wheel",
+        "AS product-install",
         "AS release-fetch",
         "AS runtime",
         "USER 1000:1000",
         "EXPOSE 7860",
         "SADAR_APPROACH_RELEASE_DIR=/opt/sadar/release",
+        "SADAR_FRONTEND_DIR=/opt/sadar/frontend",
         'ENTRYPOINT ["/usr/local/bin/sadar-entrypoint"]',
     )
     for fragment in required_fragments:
         if fragment not in dockerfile:
             fail(f"Dockerfile is missing {fragment!r}")
+    for fragment in (
+        "COPY delivery/container/build-requirements.lock /tmp/build-requirements.lock",
+        "UV_REQUIRE_HASHES=1 uv pip install --system --no-deps --require-hashes -r /tmp/build-requirements.lock",
+        "uv build --wheel --no-build-isolation",
+    ):
+        if fragment not in dockerfile:
+            fail(f"Dockerfile must preserve the locked wheel-build boundary: {fragment!r}")
     if re.search(r"\b(?:HF_TOKEN|HUGGING_FACE_HUB_TOKEN)\b", dockerfile):
         fail("publisher token names must not cross the Docker build boundary")
+    forbidden_runtime = (
+        "backend/core",
+        "backend/serve",
+        "backend/research/src",
+        "PYTHONPATH=",
+    )
+    if any(fragment in dockerfile for fragment in forbidden_runtime):
+        fail("runtime image must contain only the installed product wheel")
 
     entrypoint = ENTRYPOINT.read_text(encoding="utf-8")
-    for fragment in ('${PORT:-7860}', "backend.serve.approach_app:app", "--workers 1"):
+    for fragment in ('${PORT:-7860}', "exec sadar-api", "--workers 1"):
         if fragment not in entrypoint:
             fail(f"container entrypoint is missing {fragment!r}")
 
@@ -186,23 +216,48 @@ def main() -> None:
 
     lock = LOCK.read_text(encoding="utf-8")
     requirements = list(re.finditer(r"(?m)^([a-z0-9][a-z0-9._-]*)==[^\s\\]+ \\\n", lock))
-    if len(requirements) != 19:
+    if len(requirements) != 30:
         fail("model-free serving lock package count drifted")
     for index, match in enumerate(requirements):
         end = requirements[index + 1].start() if index + 1 < len(requirements) else len(lock)
         if "--hash=sha256:" not in lock[match.end() : end]:
             fail(f"{match.group(1)} has no artifact hash")
 
+    build_lock = BUILD_LOCK.read_text(encoding="utf-8")
+    build_requirements = list(
+        re.finditer(r"(?m)^([a-z0-9][a-z0-9._-]*)==[^\s\\]+ \\\n", build_lock)
+    )
+    if len(build_requirements) != 5:
+        fail("wheel-build lock package count drifted")
+    for index, match in enumerate(build_requirements):
+        end = (
+            build_requirements[index + 1].start()
+            if index + 1 < len(build_requirements)
+            else len(build_lock)
+        )
+        if "--hash=sha256:" not in build_lock[match.end() : end]:
+            fail(f"build dependency {match.group(1)} has no artifact hash")
+
+    pyproject_data = tomllib.loads(PYPROJECT.read_text(encoding="utf-8"))
+    build_system = pyproject_data["build-system"]
+    if build_system.get("requires") != ["hatchling==1.27.0"]:
+        fail("product wheel build backend must stay exactly pinned")
+    if BUILD_INPUT.read_text(encoding="utf-8") != "hatchling==1.27.0\n":
+        fail("container build-lock input must match the product build backend")
+
+    project = pyproject_data["project"]
     direct = {
-        match.group(1).lower()
-        for match in re.finditer(r"(?m)^([A-Za-z0-9_.-]+)==", INPUT.read_text(encoding="utf-8"))
+        re.split(r"[<>=!~\[]", dependency, maxsplit=1)[0].lower()
+        for dependency in project["dependencies"]
     }
     expected = {
         "fastapi",
         "numpy",
         "pandas",
         "pyarrow",
+        "pydantic-settings",
         "python-multipart",
+        "requests",
         "uvicorn",
     }
     if direct != expected:

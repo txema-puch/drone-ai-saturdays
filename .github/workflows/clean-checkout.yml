@@ -28,22 +28,33 @@ jobs:
 
       - name: Prove the Linux serving lock regenerates without drift
         run: |
-          cp backend/serve/requirements-linux-x86_64.lock /tmp/requirements-linux-x86_64.lock
+          cp delivery/container/requirements-linux-x86_64.lock /tmp/requirements-linux-x86_64.lock
           scripts/compile-serving-lock.sh
-          cmp /tmp/requirements-linux-x86_64.lock backend/serve/requirements-linux-x86_64.lock
+          cmp /tmp/requirements-linux-x86_64.lock delivery/container/requirements-linux-x86_64.lock
+
+      - name: Prove the container build lock regenerates without drift
+        run: |
+          cp delivery/container/build-requirements.lock /tmp/build-requirements.lock
+          scripts/compile-build-lock.sh
+          cmp /tmp/build-requirements.lock delivery/container/build-requirements.lock
 
       - name: Fetch the immutable releases for backend integration tests
         run: |
-          python3 -m backend.scripts.fetch_demo_bundle \
-            --lock backend/serve/demo_bundle.lock.json \
+          uv run --project backend/research sadar-research-fetch-release \
+            --lock backend/research/src/sadar_research/trajectory_anomaly/releases/demo_bundle.lock.json \
             --destination /tmp/sadar-ci-demo-release
-          python3 -m backend.scripts.fetch_approach_release \
-            --lock backend/serve/approach_bundle.lock.json \
+          uv run --project backend/research sadar-research-fetch-training-artifacts \
+            --lock backend/research/src/sadar_research/trajectory_anomaly/releases/phase6_training_artifacts.lock.json \
+            --destination /tmp/sadar-ci-phase6
+          uv run --project backend sadar-fetch-release \
+            --lock backend/src/sadar/releases/approach_bundle.lock.json \
             --destination /tmp/sadar-ci-approach-release
 
       - name: Run the full backend suite against the immutable release
         env:
           SADAR_RELEASE_DIR: /tmp/sadar-ci-demo-release
+          SADAR_RESEARCH_BUNDLE_DIR: /tmp/sadar-ci-demo-release
+          SADAR_RESEARCH_MODELS_DIR: /tmp/sadar-ci-phase6
           SADAR_APPROACH_RELEASE_DIR: /tmp/sadar-ci-approach-release
         run: uv run --project backend pytest
 
@@ -69,8 +80,8 @@ jobs:
 
       - name: Enforce the immutable approach-release gate
         run: |
-          if ! test -f backend/serve/approach_bundle.lock.json; then
-            echo '::error::Publish and redownload-verify schema v3, then commit backend/serve/approach_bundle.lock.json.'
+          if ! test -f backend/src/sadar/releases/approach_bundle.lock.json; then
+            echo '::error::Publish and redownload-verify schema v3, then commit the product release lock.'
             echo 'Final image build and smoke were not claimed.' >> "$GITHUB_STEP_SUMMARY"
             exit 1
           fi

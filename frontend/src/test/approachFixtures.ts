@@ -58,6 +58,7 @@ export const PARTIAL_ATTEMPT: ApproachSummary = {
 
 export const APPROACH_DETAIL: ApproachDetail = {
   ...REVIEW_ATTEMPT,
+  failed_criteria: ["observed_descent_rate", "observed_ground_speed_envelope"],
   schema_version: "approach_assessment_v1",
   engine_version: "prototype_v1",
   path: [
@@ -87,6 +88,22 @@ export const APPROACH_DETAIL: ApproachDetail = {
       observed_samples: 42,
       altitude_bias_source: "threshold_adjacent_proxy",
       evidence: [],
+    },
+    {
+      name: "observed_ground_speed_envelope",
+      status: "review_required",
+      severity: "high",
+      observed_samples: 48,
+      reference_source: "empirical_train_envelope",
+      evidence: [{
+        start_time: 1_773_651_720,
+        end_time: 1_773_651_750,
+        worst_time: 1_773_651_750,
+        value: 73.681,
+        limit: 78.558,
+        unit: "m/s",
+        along_track_m: 10_065.2,
+      }],
     },
   ],
   quality: { observed_samples: 48, maximum_gap_s: 10, fatal_reasons: [] },

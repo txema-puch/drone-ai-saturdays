@@ -2,9 +2,8 @@
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 
-// The serve layer (backend/serve/app.py) runs on :8077 in dev. In the Docker
-// image nginx proxies /api → the backend, so the frontend always talks to a
-// relative /api — only the dev proxy target differs.
+// Run the local API on :8077 during Vite development. The production app serves
+// the compiled frontend and /api from one origin, so browser code always uses /api.
 export default defineConfig({
   plugins: [react()],
   server: {

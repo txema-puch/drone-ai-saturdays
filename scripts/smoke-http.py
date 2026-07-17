@@ -20,9 +20,14 @@ BASE = os.environ.get("SADAR_SMOKE_BASE_URL", "http://127.0.0.1:17860").rstrip("
 STARTUP_TIMEOUT = float(os.environ.get("SADAR_SMOKE_STARTUP_TIMEOUT", "30"))
 ROOT = Path(__file__).resolve().parents[1]
 MAX_RESPONSE_BYTES = 8 * 1024 * 1024
-WARM_EVALUATION_SECONDS = 10.0
-MAX_EVALUATION_SECONDS = 30.0
-HEALTH_DURING_EVALUATION_SECONDS = 0.5
+STARTUP_GATE_SECONDS = float(os.environ.get("SADAR_SMOKE_STARTUP_GATE_S", "10"))
+WARM_EVALUATION_SECONDS = float(os.environ.get("SADAR_SMOKE_WARM_GATE_S", "10"))
+MAX_EVALUATION_SECONDS = float(os.environ.get("SADAR_SMOKE_MAX_GATE_S", "30"))
+MAX_EVALUATION_ROWS = int(os.environ.get("SADAR_SMOKE_MAX_ROWS", "50000"))
+MAX_EVALUATION_SEGMENTS = int(os.environ.get("SADAR_SMOKE_MAX_SEGMENTS", "250"))
+HEALTH_DURING_EVALUATION_SECONDS = float(
+    os.environ.get("SADAR_SMOKE_HEALTH_GATE_S", "0.5")
+)
 
 
 def request(
@@ -167,9 +172,15 @@ def evaluation_performance() -> dict[str, float | int]:
         largest_response = max(largest_response, response_bytes)
     warm_p95 = p95(warm_samples)
     if warm_p95 > WARM_EVALUATION_SECONDS:
-        raise AssertionError(f"5,000-row evaluation p95 exceeded 10s gate: {warm_p95:.3f}s")
+        raise AssertionError(
+            "5,000-row evaluation p95 exceeded "
+            f"{WARM_EVALUATION_SECONDS:g}s gate: {warm_p95:.3f}s"
+        )
 
-    maximum_data = synthetic_csv(rows=50_000, segments=250)
+    maximum_data = synthetic_csv(
+        rows=MAX_EVALUATION_ROWS,
+        segments=MAX_EVALUATION_SEGMENTS,
+    )
     outcome: dict[str, object] = {}
 
     def evaluate_maximum() -> None:
@@ -192,22 +203,32 @@ def evaluation_performance() -> dict[str, float | int]:
     if "error" in outcome:
         raise outcome["error"]  # type: ignore[misc]
     first_evaluation, response_bytes, first_elapsed = outcome["value"]  # type: ignore[misc]
-    assert_evaluation_shape(first_evaluation, rows=50_000, segments=250)
+    assert_evaluation_shape(
+        first_evaluation,
+        rows=MAX_EVALUATION_ROWS,
+        segments=MAX_EVALUATION_SEGMENTS,
+    )
     largest_response = max(largest_response, response_bytes)
     maximum_samples = [first_elapsed]
     for _ in range(2):
         evaluation, response_bytes, elapsed = upload_csv(maximum_data)
-        assert_evaluation_shape(evaluation, rows=50_000, segments=250)
+        assert_evaluation_shape(
+            evaluation,
+            rows=MAX_EVALUATION_ROWS,
+            segments=MAX_EVALUATION_SEGMENTS,
+        )
         largest_response = max(largest_response, response_bytes)
         maximum_samples.append(elapsed)
     if any(sample > MAX_EVALUATION_SECONDS for sample in maximum_samples):
         raise AssertionError(
-            f"50,000-row evaluation exceeded 30s gate: {max(maximum_samples):.3f}s"
+            f"{MAX_EVALUATION_ROWS:,}-row evaluation exceeded "
+            f"{MAX_EVALUATION_SECONDS:g}s gate: {max(maximum_samples):.3f}s"
         )
     health_p95 = p95(health_samples or [0.0])
     if health_p95 > HEALTH_DURING_EVALUATION_SECONDS:
         raise AssertionError(
-            f"health p95 during evaluation exceeded 500ms gate: {health_p95:.3f}s"
+            "health p95 during evaluation exceeded "
+            f"{HEALTH_DURING_EVALUATION_SECONDS:g}s gate: {health_p95:.3f}s"
         )
     return {
         "warm_evaluation_p95_seconds": warm_p95,
@@ -236,8 +257,10 @@ def main() -> None:
         raise AssertionError("queue attempt identity is invalid")
     started_at = float(os.environ.get("SADAR_SMOKE_STARTED_AT", str(time.time())))
     startup_seconds = time.time() - started_at
-    if startup_seconds > 10:
-        raise AssertionError(f"startup exceeded 10s gate: {startup_seconds:.3f}s")
+    if startup_seconds > STARTUP_GATE_SECONDS:
+        raise AssertionError(
+            f"startup exceeded {STARTUP_GATE_SECONDS:g}s gate: {startup_seconds:.3f}s"
+        )
     status, detail = json_request(f"/api/approaches/{attempt_id}")
     if status != 200 or detail.get("attempt_id") != attempt_id or not detail.get("path"):
         raise AssertionError("attempt dossier is not bound to its requested identity")

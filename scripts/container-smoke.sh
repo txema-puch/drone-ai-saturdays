@@ -6,8 +6,8 @@ IMAGE="${1:?usage: scripts/container-smoke.sh IMAGE}"
 NAME="sadar-smoke-${RANDOM}-$$"
 HOST_PORT="${SADAR_SMOKE_PORT:-17860}"
 MAX_COMPRESSED_IMAGE_BYTES=$((1536 * 1024 * 1024))
-MAX_IDLE_RSS_KIB=$((1024 * 1024))
-MAX_PEAK_RSS_KIB=$((1536 * 1024))
+MAX_IDLE_MEMORY_BYTES=$((1024 * 1024 * 1024))
+MAX_PEAK_MEMORY_BYTES=$((1536 * 1024 * 1024))
 
 cleanup() {
   docker rm -f "$NAME" >/dev/null 2>&1 || true
@@ -36,6 +36,8 @@ fi
 started_at="$(python3 -c 'import time; print(time.time())')"
 docker run --detach --rm \
   --name "$NAME" \
+  --memory 2g \
+  --memory-swap 2g \
   --env SADAR_ENABLE_EVALUATION=true \
   --env SADAR_EVALUATION_GLOBAL_LIMIT=100 \
   --env SADAR_EVALUATION_CLIENT_LIMIT=100 \
@@ -58,9 +60,9 @@ if [ -n "$temp_entry" ]; then
   exit 1
 fi
 
-idle_rss_kib="$(docker exec "$NAME" awk '/^VmRSS:/ {print $2}' /proc/1/status)"
-if [ -z "$idle_rss_kib" ] || [ "$idle_rss_kib" -gt "$MAX_IDLE_RSS_KIB" ]; then
-  echo "container smoke: idle RSS exceeds 1 GiB gate (${idle_rss_kib:-unknown} KiB)" >&2
+idle_memory_bytes="$(docker exec "$NAME" cat /sys/fs/cgroup/memory.current)"
+if [ -z "$idle_memory_bytes" ] || [ "$idle_memory_bytes" -gt "$MAX_IDLE_MEMORY_BYTES" ]; then
+  echo "container smoke: idle cgroup memory exceeds 1 GiB gate (${idle_memory_bytes:-unknown} bytes)" >&2
   exit 1
 fi
 
@@ -68,17 +70,21 @@ SADAR_SMOKE_BASE_URL="http://127.0.0.1:${HOST_PORT}" \
 SADAR_SMOKE_STARTED_AT="$started_at" \
   python3 "$ROOT/scripts/smoke-http.py" &
 smoke_pid=$!
-peak_rss_kib="$idle_rss_kib"
+peak_memory_bytes="$idle_memory_bytes"
 while kill -0 "$smoke_pid" >/dev/null 2>&1; do
-  current_rss_kib="$(docker exec "$NAME" awk '/^VmRSS:/ {print $2}' /proc/1/status)"
-  if [ -n "$current_rss_kib" ] && [ "$current_rss_kib" -gt "$peak_rss_kib" ]; then
-    peak_rss_kib="$current_rss_kib"
+  current_memory_bytes="$(docker exec "$NAME" cat /sys/fs/cgroup/memory.current)"
+  if [ -n "$current_memory_bytes" ] && [ "$current_memory_bytes" -gt "$peak_memory_bytes" ]; then
+    peak_memory_bytes="$current_memory_bytes"
   fi
   sleep 0.1
 done
 wait "$smoke_pid"
-if [ "$peak_rss_kib" -gt "$MAX_PEAK_RSS_KIB" ]; then
-  echo "container smoke: peak RSS exceeds 1.5 GiB gate (${peak_rss_kib} KiB)" >&2
+cgroup_peak_bytes="$(docker exec "$NAME" cat /sys/fs/cgroup/memory.peak)"
+if [ -n "$cgroup_peak_bytes" ] && [ "$cgroup_peak_bytes" -gt "$peak_memory_bytes" ]; then
+  peak_memory_bytes="$cgroup_peak_bytes"
+fi
+if [ "$peak_memory_bytes" -gt "$MAX_PEAK_MEMORY_BYTES" ]; then
+  echo "container smoke: peak cgroup memory exceeds 1.5 GiB gate (${peak_memory_bytes} bytes)" >&2
   exit 1
 fi
 
@@ -96,4 +102,4 @@ if [ "$cleaned" -ne 1 ]; then
   exit 1
 fi
 
-echo "container resource gates: compressed_image_bytes=${compressed_image_bytes} idle_rss_kib=${idle_rss_kib} peak_rss_kib=${peak_rss_kib}"
+echo "container resource gates: compressed_image_bytes=${compressed_image_bytes} idle_memory_bytes=${idle_memory_bytes} peak_memory_bytes=${peak_memory_bytes}"

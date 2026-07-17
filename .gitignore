@@ -53,19 +53,11 @@ coverage.xml
 ########################################
 # Datos y modelos                      #
 ########################################
-data/
+/data/
+/.artifacts/
 backend/models/*
-# EXCEPTION (#27): version the small (~1.4 MB) FROZEN Phase-7 bench so the blind
-# Phase-7 test is byte-identical + reproducible across machines. The big regenerable
-# caches (clean_df/meta parquets, 138 MB) stay ignored via `phase6/*` below.
-!backend/models/phase6/
-backend/models/phase6/*
-!backend/models/phase6/lstm_ae_best.pt
-!backend/models/phase6/knn_train_summary.npy
-!backend/models/phase6/scaler.joblib
-!backend/models/phase6/knn_frozen_manifest.json
-!backend/models/phase6/split_ids.json
 backend/notebooks/
+/backend/docs/
 
 ########################################
 # Node/Frontend                        #
@@ -89,12 +81,23 @@ Thumbs.db
 ########################################
 *.lock
 # The serving image is deliberately resolved and hash-locked for Linux/amd64.
-!backend/serve/requirements-linux-x86_64.lock
+!delivery/container/requirements-linux-x86_64.lock
+!delivery/container/build-requirements.lock
 .claude
 .docs
 .data
 .claude/
-/docs/
+
+########################################
+# Local collaboration workspace         #
+########################################
+# Raw plans, handoffs, task boards, weekly notes, agent instructions and
+# writeup drafts are intentionally local. Durable decisions and evidence live
+# in the tracked docs/ tree; the pre-restructure tag preserves older copies.
+.workspace/
+/CLAUDE.md
+/backend/docs/writeup/
+/docs/writeup/
 
 ########################################
 # Agent-session artifacts              #

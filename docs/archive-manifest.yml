@@ -1,0 +1,35 @@
+schema_version: 1
+archive_tag: pre-restructure-archive-2026-07-16
+local_ignored_copy: .workspace/archive/pre-restructure
+reason: "Working documents and drafts are intentionally excluded from the curated public repository."
+files:
+  - {path: CLAUDE.md, sha256: 8dd97e3dcc646414d540a897c56a6722641260b780d454aa844dfda7dd01333c}
+  - {path: backend/docs/README.md, sha256: cecbf13e077412c8acb93f26e40e66a80b2c8225dfe91c76968ce53c1fef45cd}
+  - {path: backend/docs/architecture/README.md, sha256: fdb3dcb709146c49268de5bdd6cf94a4d18016de8d4a786920828431ca732bd2}
+  - {path: backend/docs/architecture/sadar-merge-design.md, sha256: 55aea604471e79900d7214e1fdb4fa6cd2ed9f4927d66c92ae1738e45452ad10}
+  - {path: backend/docs/designs/12-task-phase2-data-validation.md, sha256: c680f44441cb2f7f521a002e99655fc7031fde7091c302eaef24552521c44572}
+  - {path: backend/docs/designs/27-task-phase6-train.md, sha256: 07245b30786407c3b4ef870c9c7013c5fe6f1c64a320fe1437151b38fff6e87a}
+  - {path: backend/docs/designs/31-task-sadar-release-hardening.md, sha256: 4b94d3a0868daf947570d61ea961d38cc63c4251570cb1e4cba0388673b8943d}
+  - {path: backend/docs/handoff-2026-05-23.md, sha256: 0580856d1b2b072d4fce4de21b7348d4cf9aa2ea6eecc87b334ab70fd4282381}
+  - {path: backend/docs/ml/pending-work.md, sha256: 625f5e5ff769160660bc076bbb756a7d829592ce5e2f9d2824f8baec855c37b1}
+  - {path: backend/docs/tasks/33-approach-conformance-reframe.md, sha256: ed8e29c99410296859098b52ba1cbd74b11b728ede34a54a2925d5d651b954fa}
+  - {path: backend/docs/tasks/README.md, sha256: 58d1f7298fbb03a770c6f514607f6d52beae5bfe2c18bf777a7ec96f99efe744}
+  - {path: backend/docs/tasks/week1.md, sha256: 05dcc997000c3a55d173c4648d7e3a1ed1f6850c6947f370414b6f3741bb77a2}
+  - {path: backend/docs/tasks/week2.md, sha256: 343a27e244b867a6dd0d7e347abe39ed4e8200ba4edbaf0bb90fd04fc582524c}
+  - {path: backend/docs/tasks/week3.md, sha256: 487cc86ecfce1e123d6f45d8e838120b2b4e6b0cc2ed0e955e786e48f5e3c4e5}
+  - {path: backend/docs/tasks/week4.md, sha256: a134187b5f1b7407685583fbf5606e0bccddd11cdf0d3184f701be6c698f8de6}
+  - {path: backend/docs/tasks/week5.md, sha256: 498f3879a195a18a07e1c9b57ed7afa0e03d0ac28fab5e608790a4afb48149f7}
+  - {path: backend/docs/weekly/README.md, sha256: 4f9e453f564bc044ab670aaf2db99789519a48e00edd83c96ac9615fe0f412e2}
+  - {path: backend/docs/weekly/figures/.gitkeep, sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855}
+  - {path: backend/docs/writeup/00-how-we-structured-this.md, sha256: 9b73c41849a1c0f086c230adafa3279d5a7dc9319af540ee21096dfc8ed261cd}
+  - {path: backend/docs/writeup/01-anomaly-detection-vs-classification.md, sha256: d954741db2ade14367a2bde01cfcba0afd7319092319947db67ca7b8610fbf4c}
+  - {path: backend/docs/writeup/02-metrics-explained.md, sha256: 9e513d87e1c4df31c87bee91144aa684f4de9faabd30b8a22331db7667a3594c}
+  - {path: backend/docs/writeup/03-architecture-and-baseline.md, sha256: aa8ce30dfd53682b23f6dbffa77badd79dd6bc9bc80b537ef6c445f8ee95c080}
+  - {path: backend/docs/writeup/04-conditional-normality.md, sha256: 48774799069aa909bee46958f4d99aeb3db2f7faa5026024a6c763aad340fc33}
+  - {path: backend/docs/writeup/05-inference-modes.md, sha256: aec9d6125c895cd2870b83142e97d5a1bc577696d6e22ba30610651cd52f94fb}
+  - {path: backend/docs/writeup/06-validating-the-data.md, sha256: 68bbbd685295112bcc141006d726289ade94696e9adb4a132ee3cdeec1555e4c}
+  - {path: backend/docs/writeup/07-working-with-someones-pipeline.md, sha256: 6bddce83e4b4c6eb3a47f341665bfa9673ee3134ef7c4f29e7dcbb90b3e27f90}
+  - {path: backend/docs/writeup/08-data-engineering-rabbit-holes.md, sha256: e37ee1e42a2825dab497d512f76523f43a28bc32379f717f15aae7decdebcfec}
+  - {path: backend/docs/writeup/09-the-architectural-critique.md, sha256: 51b64b3bf484b03699cb165e7860289ffeb5980286b55daaa05541ebcb7e8e45}
+  - {path: backend/docs/writeup/README.md, sha256: 86232a9996a00c1c9e0490b26ec7f196850def2b633e249ff91a3afca59dfb1e}
+  - {path: backend/docs/writeup/bonus-claude-ml-lifecycle.md, sha256: cade678f34a1b321c708aa137d59ff26b04e063e43dcfe29d4d2e329c74b9479}
