@@ -15,7 +15,6 @@ from . import schema
 ARCHIVE_NAME = "sadar-demo-bundle.tar.gz"
 FetchError = hub_fetch.FetchError
 MAX_LOCK_BYTES = hub_fetch.MAX_LOCK_BYTES
-urllib = hub_fetch.urllib
 
 
 def validate_lock_record(value: object) -> dict[str, object]:

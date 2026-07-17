@@ -51,3 +51,10 @@ working documents or trained-model outputs.
 Canonical JSON, hashing, safe relative paths, deterministic archives and verified
 transport are shared mechanics. Schema-v3 approach evidence and schema-v2 historical
 model releases retain separate validators and semantics.
+
+Artifact storage is not permission to distribute upstream data. The current schema-v3
+and historical demo archives contain bounded OpenSky-derived row-level observations.
+OpenSky's current terms prohibit redistribution without authorization, so those
+archives are a blocked legacy release input rather than a template for future public
+publishing. The next distributable release must use authorized or synthetic evidence,
+and the publication checklist must record that data-rights decision before upload.

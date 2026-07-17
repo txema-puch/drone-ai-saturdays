@@ -14,7 +14,7 @@ from sadar.releases.approach import load_release_directory
 
 REPO = Path(__file__).resolve().parents[3]
 SOURCE = Path(
-    os.environ.get("SADAR_APPROACH_RELEASE_DIR", REPO / "backend/models/sadar_approach_v3")
+    os.environ.get("SADAR_APPROACH_RELEASE_DIR", REPO / ".artifacts/approach-release")
 )
 REVISION = "a" * 40
 URL = (
@@ -25,7 +25,7 @@ URL = (
 
 def test_schema_v3_publication_lock_and_anonymous_fetch_round_trip(tmp_path: Path):
     repository = tmp_path / "repo"
-    lock = repository / "backend/serve" / publish_approach_release.LOCK_NAME
+    lock = repository / "backend/src/sadar/releases" / publish_approach_release.LOCK_NAME
     lock.parent.mkdir(parents=True)
     remote = tmp_path / "remote.tar.gz"
 

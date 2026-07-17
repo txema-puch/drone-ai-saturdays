@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import hashlib
 from pathlib import PurePath
+from typing import Any
 
 from sadar.approach.assessment import assess_approach, extract_approach_attempts
 from sadar.approach.reference import load_approach_reference, validate_reference

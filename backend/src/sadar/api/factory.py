@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import asyncio
+import logging
 from pathlib import Path
 from typing import Annotated, Callable, Literal
 
@@ -23,9 +23,13 @@ from sadar.api.middleware import (
     UploadBodyTimeout,
     UploadBodyTooLarge,
 )
+from sadar.api.evaluation_process import (
+    EvaluationWorkerFailure,
+    run_evaluation_process,
+)
 from sadar.api.presenters import detail, summary
 from sadar.api.settings import Settings
-from sadar.api.state import RuntimeState, build_release_state
+from sadar.api.state import EvaluationSlot, RuntimeState, build_release_state
 
 ApproachLimit = Annotated[int, Query(ge=0, le=5000)]
 ApproachStatus = Literal[
@@ -35,6 +39,7 @@ ApproachStatus = Literal[
     "not_assessable",
 ]
 EvaluationServiceFactory = Callable[..., ApproachUploadEvaluationService]
+logger = logging.getLogger(__name__)
 
 
 def _api_error(
@@ -70,7 +75,7 @@ def create_app(
     """Build an isolated application from explicit settings and validated release data."""
     state = build_release_state(release)
     runtime = RuntimeState(
-        evaluation_lock=asyncio.Lock(),
+        evaluation_slot=EvaluationSlot(),
         evaluation_limiter=EvaluationAdmissionLimiter(
             window_seconds=settings.evaluation_rate_window_s,
             global_limit=settings.evaluation_global_limit,
@@ -179,78 +184,98 @@ def create_app(
     async def evaluate_upload(request: Request) -> dict:
         if not settings.evaluation_enabled:
             _api_error(404, "evaluation_disabled", "Evaluation is not enabled on this deployment.")
-        if runtime.evaluation_lock.locked():
+        if not runtime.evaluation_slot.try_acquire():
             _api_error(429, "analysis_busy", "Another approach evaluation is in progress.", retry_after=1)
-        declared = request.headers.get("content-length")
-        if declared:
+        try:
+            declared = request.headers.get("content-length")
+            if declared:
+                try:
+                    declared_bytes = int(declared)
+                except ValueError:
+                    _api_error(400, "invalid_content_length", "Content-Length must be an integer.")
+                if declared_bytes < 0:
+                    _api_error(400, "invalid_content_length", "Content-Length cannot be negative.")
+                if declared_bytes > settings.maximum_multipart_bytes:
+                    _api_error(413, "request_too_large", "The upload exceeds the 10 MiB limit.")
+            client_id = request.client.host if request.client is not None else "unknown"
+            retry_after = runtime.evaluation_limiter.admit(client_id)
+            if retry_after is not None:
+                _api_error(
+                    429,
+                    "evaluation_rate_limited",
+                    "The public evaluation budget is temporarily exhausted.",
+                    retry_after=retry_after,
+                )
             try:
-                declared_bytes = int(declared)
-            except ValueError:
-                _api_error(400, "invalid_content_length", "Content-Length must be an integer.")
-            if declared_bytes < 0:
-                _api_error(400, "invalid_content_length", "Content-Length cannot be negative.")
-            if declared_bytes > settings.maximum_multipart_bytes:
+                async with request.form(
+                    max_files=1,
+                    max_fields=0,
+                    max_part_size=MAX_INPUT_BYTES + 1,
+                ) as form:
+                    files = form.getlist("file")
+                    if len(files) != 1 or not isinstance(files[0], UploadFile):
+                        _api_error(
+                            422,
+                            "invalid_multipart",
+                            "Provide exactly one multipart file field named 'file'.",
+                        )
+                    upload = files[0]
+                    data = await upload.read(MAX_INPUT_BYTES + 1)
+                    filename = upload.filename or ""
+                    media_type = upload.content_type or ""
+            except UploadBodyTooLarge:
                 _api_error(413, "request_too_large", "The upload exceeds the 10 MiB limit.")
-        client_id = request.client.host if request.client is not None else "unknown"
-        retry_after = runtime.evaluation_limiter.admit(client_id)
-        if retry_after is not None:
-            _api_error(
-                429,
-                "evaluation_rate_limited",
-                "The public evaluation budget is temporarily exhausted.",
-                retry_after=retry_after,
-            )
-        try:
-            async with request.form(
-                max_files=1,
-                max_fields=0,
-                max_part_size=MAX_INPUT_BYTES + 1,
-            ) as form:
-                files = form.getlist("file")
-                if len(files) != 1 or not isinstance(files[0], UploadFile):
-                    _api_error(
-                        422,
-                        "invalid_multipart",
-                        "Provide exactly one multipart file field named 'file'.",
-                    )
-                upload = files[0]
-                data = await upload.read(MAX_INPUT_BYTES + 1)
-                filename = upload.filename or ""
-                media_type = upload.content_type or ""
-        except UploadBodyTooLarge:
-            _api_error(413, "request_too_large", "The upload exceeds the 10 MiB limit.")
-        except UploadBodyTimeout:
-            _api_error(408, "upload_timeout", "The upload body timed out.")
-        except HTTPException:
-            raise
-        except Exception as exc:
-            raise HTTPException(
-                status_code=422,
-                detail={
-                    "code": "invalid_multipart",
-                    "message": "The multipart upload is malformed.",
-                },
-            ) from exc
-        if len(data) > MAX_INPUT_BYTES:
-            _api_error(413, "request_too_large", "The upload exceeds the 10 MiB limit.")
-        if runtime.evaluation_lock.locked():
-            _api_error(429, "analysis_busy", "Another approach evaluation is in progress.", retry_after=1)
-        service = evaluation_service_factory(
-            release_id=state.release_id,
-            reference=dict(state.reference),
-            contextual=state.contextual,
-        )
-        try:
-            async with runtime.evaluation_lock:
+            except UploadBodyTimeout:
+                _api_error(408, "upload_timeout", "The upload body timed out.")
+            except HTTPException:
+                raise
+            except Exception as exc:
+                raise HTTPException(
+                    status_code=422,
+                    detail={
+                        "code": "invalid_multipart",
+                        "message": "The multipart upload is malformed.",
+                    },
+                ) from exc
+            if len(data) > MAX_INPUT_BYTES:
+                _api_error(413, "request_too_large", "The upload exceeds the 10 MiB limit.")
+
+            if evaluation_service_factory is ApproachUploadEvaluationService:
                 return await run_in_threadpool(
-                    service.evaluate,
-                    data,
+                    run_evaluation_process,
+                    release_id=state.release_id,
+                    reference=dict(state.reference),
+                    contextual=state.contextual,
+                    data=data,
                     filename=filename,
                     media_type=media_type,
+                    timeout_seconds=settings.evaluation_timeout_seconds,
                 )
+            service = evaluation_service_factory(
+                release_id=state.release_id,
+                reference=dict(state.reference),
+                contextual=state.contextual,
+            )
+            return await run_in_threadpool(
+                service.evaluate,
+                data,
+                filename=filename,
+                media_type=media_type,
+            )
+        except HTTPException:
+            raise
         except EvaluationError as exc:
             raise HTTPException(status_code=exc.status_code, detail=exc.detail()) from exc
         except Exception as exc:
+            failure_type = (
+                exc.failure_type
+                if isinstance(exc, EvaluationWorkerFailure)
+                else type(exc).__name__
+            )
+            logger.error(
+                "approach evaluation failed",
+                extra={"evaluation_failure_type": failure_type},
+            )
             raise HTTPException(
                 status_code=500,
                 detail={
@@ -258,6 +283,8 @@ def create_app(
                     "message": "The approach evaluation could not be completed.",
                 },
             ) from exc
+        finally:
+            runtime.evaluation_slot.release()
 
     @app.api_route(
         "/api/{api_path:path}",

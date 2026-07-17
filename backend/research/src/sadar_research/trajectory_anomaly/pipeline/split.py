@@ -46,7 +46,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-import numpy as np
 import pandas as pd
 
 from sadar_research.trajectory_anomaly.pipeline.preprocessing import AE_FEATURES

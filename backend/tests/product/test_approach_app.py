@@ -15,7 +15,12 @@ from sadar.releases.approach import load_release_directory
 
 
 REPO = Path(__file__).resolve().parents[3]
-RELEASE_DIR = REPO / "backend/models/sadar_approach_v3"
+RELEASE_DIR = Path(
+    os.environ.get(
+        "SADAR_APPROACH_RELEASE_DIR",
+        REPO / ".artifacts/approach-release",
+    )
+)
 RELEASE = load_release_directory(RELEASE_DIR)
 
 
@@ -136,7 +141,10 @@ def test_enabled_upload_uses_injected_service_and_context_contract(tmp_path: Pat
     assert observed == {
         "release_id": RELEASE["manifest"]["release_id"],
         "reference": RELEASE["reference"],
-        "contextual": False,
+        "contextual": (
+            RELEASE["manifest"].get("contracts", {}).get("engine_version")
+            == "approach_context_v1"
+        ),
     }
 
 
@@ -168,7 +176,7 @@ def test_enabled_upload_rate_limits_before_second_parse(tmp_path: Path):
     assert int(limited.headers["retry-after"]) >= 1
 
 
-def test_enabled_upload_maps_bounded_and_unexpected_errors(tmp_path: Path):
+def test_enabled_upload_maps_bounded_and_unexpected_errors(tmp_path: Path, caplog):
     class Bounded:
         def __init__(self, **_kwargs):
             pass
@@ -204,6 +212,8 @@ def test_enabled_upload_maps_bounded_and_unexpected_errors(tmp_path: Path):
     assert failed.status_code == 500
     assert failed.json()["detail"]["code"] == "evaluation_failed"
     assert "secret-file" not in failed.text and "abc123" not in failed.text
+    assert "approach evaluation failed" in caplog.text
+    assert "secret-file" not in caplog.text and "abc123" not in caplog.text
 
 
 def test_enabled_upload_validates_content_length_and_multipart(tmp_path: Path):

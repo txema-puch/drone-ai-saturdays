@@ -193,7 +193,9 @@ def test_unknown_monday_raises():
 
 def test_manifest_test_set_block_keeps_firewall_closed():
     split = sp.split_by_monday(make_meta(_normal_specs()))
-    block = split.manifest_test_set(holdout_path="backend/models/phase6/test_ids.json")
+    block = split.manifest_test_set(
+        holdout_path=".artifacts/research/trajectory-anomaly/phase6/test_ids.json"
+    )
     assert block["burned"] is False
     assert block["count"] == split.counts["test"]
     assert "temporal-by-Monday" in block["split_strategy"]

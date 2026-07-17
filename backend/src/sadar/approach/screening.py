@@ -19,10 +19,10 @@ from sadar.approach.configuration import (
     ASSESSMENT_SCHEMA_VERSION,
     DEFAULT_CONFIG,
     ENGINE_VERSION,
-    RECONSTRUCTION_POLICY,
     RECONSTRUCTION_POLICY_VERSION,
     ApproachConfig,
     digest,
+    reconstruction_policy,
 )
 from sadar.approach.geometry import (
     GeometryCatalog,
@@ -197,7 +197,7 @@ def assess_approach(
         "provenance": {
             "config_sha256": digest(asdict(config)),
             "reconstruction_policy_version": RECONSTRUCTION_POLICY_VERSION,
-            "reconstruction_policy_sha256": digest(RECONSTRUCTION_POLICY),
+            "reconstruction_policy_sha256": digest(reconstruction_policy(config)),
         },
         "runway_inference": inference,
         "reference": {

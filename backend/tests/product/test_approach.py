@@ -11,6 +11,7 @@ from sadar.approach.assessment import (
     infer_runway,
 )
 from sadar.approach.geometry import EARTH_RADIUS_M, load_lemd_geometry
+from sadar.approach.configuration import ApproachConfig, digest, reconstruction_policy
 
 
 def _fixture(runway_name="18L", *, cross_m=0.0, descent_rate=-3.0, track_offset=0.0):
@@ -58,6 +59,15 @@ def test_stable_fixture_is_partial_until_reference_is_fitted():
     assert result["attempt"]["outcome"] == "final_gate_observed"
     assert len(result["provenance"]["config_sha256"]) == 64
     assert len(result["provenance"]["reconstruction_policy_sha256"]) == 64
+
+
+def test_reconstruction_provenance_tracks_custom_reentry_behavior():
+    config = ApproachConfig(attempt_reentry_gap_s=240)
+    result = assess_approach(_fixture(), config=config)
+
+    assert result["provenance"]["reconstruction_policy_sha256"] == digest(
+        reconstruction_policy(config)
+    )
 
 
 def test_persistent_lateral_deviation_recommends_review():

@@ -413,7 +413,7 @@ def download_public_artifact(
         raise PublicationError("public artifact redownload failed") from exc
 
 
-def _hugging_face_uploader(*, repo_id: str, artifact_name: str, token: str) -> ArtifactUploader:
+def hugging_face_uploader(*, repo_id: str, artifact_name: str, token: str) -> ArtifactUploader:
     """Create the optional Hub adapter without importing it in serving code."""
     if not token:
         raise PublicationError("HF_TOKEN is required for publication")
@@ -447,7 +447,7 @@ def _hugging_face_uploader(*, repo_id: str, artifact_name: str, token: str) -> A
     return upload
 
 
-def _safe_error_message(error: BaseException, *, secret: str) -> str:
+def safe_error_message(error: BaseException, *, secret: str) -> str:
     message = str(error).replace(secret, "[REDACTED]") if secret else str(error)
     return message[:MAX_ERROR_MESSAGE] or error.__class__.__name__
 
@@ -466,7 +466,7 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     token = os.environ.get("HF_TOKEN", "")
     try:
-        uploader = _hugging_face_uploader(
+        uploader = hugging_face_uploader(
             repo_id=args.hf_repo_id,
             artifact_name=args.artifact_name,
             token=token,
@@ -479,7 +479,7 @@ def main(argv: list[str] | None = None) -> int:
             downloader=download_public_artifact,
         )
     except Exception as exc:
-        print(f"publication failed: {_safe_error_message(exc, secret=token)}", file=sys.stderr)
+        print(f"publication failed: {safe_error_message(exc, secret=token)}", file=sys.stderr)
         return 1
     print(f"published release {record['release_id']} at immutable revision {record['revision']}")
     return 0

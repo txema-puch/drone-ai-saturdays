@@ -45,11 +45,10 @@ import numpy as np
 import pandas as pd
 
 from sadar_research.trajectory_anomaly.pipeline.features import apply_segment_derivations
-from sadar_research.trajectory_anomaly.data.geometry import LEMD_RUNWAYS, distance_to_closest_runway
+from sadar_research.trajectory_anomaly.data.geometry import LEMD_RUNWAYS
 from sadar_research.trajectory_anomaly.pipeline.preprocessing import (
     AE_FEATURES,
     MASKED_FEATURES,
-    SCALER_FEATURES,
     to_sequences,
     to_sequences_loss_mask,
 )

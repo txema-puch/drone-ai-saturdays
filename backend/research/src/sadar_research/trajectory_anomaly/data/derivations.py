@@ -3,15 +3,9 @@
 Leaf module: numpy/pandas + `sadar_research.trajectory_anomaly.data.geometry` only. No credentials, no Trino,
 no Supabase (see `backend/research/src/sadar_research/trajectory_anomaly/data/geometry.py` docstring for why that matters).
 
-Canonical home (refactor A1, 2026-06-01) for:
-  - `calculate_flight_phase`  — was in `backend/research/src/sadar_research/trajectory_anomaly/data/opensky.py`
-  - `add_flight_id`, `apply_filter_b`, `apply_derivations` — were in
-    `backend/research/src/sadar_research/trajectory_anomaly/data/download.py`
-
-`crud/opensky.py` re-exports `calculate_flight_phase`. The download script keeps
-its own copies of `apply_derivations`/`apply_filter_b`/`add_flight_id` until it
-has test coverage to migrate against (deferred per the eng-review A1 note); this
-module is the single source of truth they will converge on.
+This is the canonical home for `calculate_flight_phase`, `apply_filter_b`, and
+`apply_derivations`. Both the public-dataset downloader and upload evaluator use
+these implementations. Flight segmentation is owned by `sadar.trajectory.segmentation`.
 
 The derivation math is consumed by the Phase 2 audit (notebook 05) as a
 consistency check — any change here silently changes that check. See

@@ -18,7 +18,8 @@ Artifacts created by the recorded burn:
 
 - `backend/research/src/sadar_research/trajectory_anomaly/evaluation/report_eval.py` (present in the provenance commit; absent from the current
   working tree and therefore not silently recreated here)
-- `backend/models/phase6/phase7_burn_results.json`
+- legacy local `backend/models/phase6/phase7_burn_results.json` (preserved by the
+  recorded provenance commit and the pre-restructure archive tag, not current Git)
 - Phase-7 evaluation notebook (preserved in the provenance commit; it was not part
   of the curated executable notebook set)
 - this evaluation record and the corresponding manifest state

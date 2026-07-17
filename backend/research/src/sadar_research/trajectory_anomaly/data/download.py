@@ -62,19 +62,19 @@ import gzip
 import io
 import logging
 import signal
+import sys
 import tarfile
 import time as time_mod
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
-import numpy as np
 import pandas as pd
 import requests
 
-from sadar_research.trajectory_anomaly.data.derivations import calculate_flight_phase
-from sadar_research.trajectory_anomaly.data.geometry import (
-    MAX_RADIUS_M,
-    distance_to_closest_runway,
+from sadar_research.trajectory_anomaly.data.derivations import (
+    FILTER_B_MAX_MIN_ALT_M,
+    FILTER_B_MAX_MIN_DIST_M,
+    apply_derivations,
 )
 
 
@@ -86,12 +86,6 @@ LEMD_LAT, LEMD_LON = 40.4719, -3.5626
 # (1.8 deg ≈ 200 km at LEMD latitude). Cheap pre-filter applied before the
 # exact haversine cut from distance_to_closest_runway.
 BBOX_HALF_WIDTH_DEG = 1.8
-GAP_THRESHOLD_SEC = 1800  # 30 min → new flight segment
-
-# Filter B thresholds — empirically validated on 2019-10-07 full-day probe
-FILTER_B_MAX_MIN_DIST_M = 10_000
-FILTER_B_MAX_MIN_ALT_M = 3_000
-
 # Bucket coverage observed via S3 listing: 2017-06-05 onward, 259 weekly entries
 BUCKET_FIRST_MONDAY = date(2017, 6, 5)
 BUCKET_LAST_MONDAY = date(2022, 5, 23)
@@ -107,16 +101,6 @@ CSV_COLUMNS = [
     "callsign", "onground", "alert", "spi", "squawk", "baroaltitude",
     "geoaltitude", "lastposupdate", "lastcontact",
 ]
-
-OUTPUT_COLUMNS = [
-    "time", "icao24", "lat", "lon",
-    "baroaltitude", "geoaltitude",
-    "velocity", "heading", "vertrate",
-    "callsign", "onground", "squawk", "alert", "spi", "lastcontact",
-    "flight_id", "operation", "time_utc",
-    "velocity_kmh", "dist_to_runway_m", "flight_phase",
-]
-
 
 _INTERRUPTED = False
 
@@ -229,87 +213,6 @@ def filter_lemd_bbox(df: pd.DataFrame) -> pd.DataFrame:
     return df.loc[mask].copy()
 
 
-# ── Per-row derivations ──────────────────────────────────────────────────────
-
-def add_flight_id(df: pd.DataFrame, gap_threshold_sec: int = GAP_THRESHOLD_SEC) -> pd.DataFrame:
-    """Derive flight_id by segmenting same icao24 with a temporal gap threshold.
-
-    Matches the Trino-path convention: `{icao24}_{firstseen_unix}`.
-    """
-    if df.empty:
-        df = df.copy()
-        df["flight_id"] = pd.Series(dtype=str)
-        return df
-    df = df.sort_values(["icao24", "time"]).reset_index(drop=True)
-    gap = df.groupby("icao24", sort=False)["time"].diff()
-    new_flight = gap.isna() | (gap > gap_threshold_sec)
-    df["_flight_num"] = new_flight.groupby(df["icao24"]).cumsum()
-    firstseen = df.groupby(["icao24", "_flight_num"])["time"].transform("min")
-    df["flight_id"] = df["icao24"].astype(str) + "_" + firstseen.astype(int).astype(str)
-    return df.drop(columns=["_flight_num"])
-
-
-def apply_filter_b(df: pd.DataFrame) -> pd.DataFrame:
-    """Keep only trajectories where min_dist < 10 km AND min_alt < 3 km.
-
-    Run after segmentation (flight_id present) and after distance/altitude
-    columns are available. Removes cruise overflights at FL350-FL410 that
-    transit the 200 km bbox without touching LEMD.
-    """
-    if df.empty:
-        return df
-    stats = df.groupby("flight_id").agg(
-        min_dist=("dist_to_runway_m", "min"),
-        min_alt=("baroaltitude", "min"),
-    )
-    keep_ids = stats[
-        (stats["min_dist"] < FILTER_B_MAX_MIN_DIST_M)
-        & (stats["min_alt"] < FILTER_B_MAX_MIN_ALT_M)
-    ].index
-    return df.loc[df["flight_id"].isin(keep_ids)].copy()
-
-
-def apply_derivations(df: pd.DataFrame) -> pd.DataFrame:
-    """Apply the same per-row derivations as `OpenSkyService.build_master_table`,
-    plus Filter B at the trajectory level."""
-    if df.empty:
-        empty = pd.DataFrame(columns=OUTPUT_COLUMNS)
-        return empty
-
-    df = df.copy()
-    # Defensive coercion — OpenSky CSV sometimes has malformed cells that keep
-    # whole columns as object dtype, which breaks ufuncs downstream.
-    for col in ("velocity", "baroaltitude", "geoaltitude", "vertrate", "heading", "time"):
-        df[col] = pd.to_numeric(df[col], errors="coerce")
-    df["callsign"] = df["callsign"].astype(str).str.strip()
-    df["time_utc"] = pd.to_datetime(df["time"], unit="s", utc=True)
-    df["velocity_kmh"] = df["velocity"] * 3.6
-    df["dist_to_runway_m"] = distance_to_closest_runway(df["lat"], df["lon"])
-
-    # Exact 200 km haversine filter (the bbox was a cheap pre-cut)
-    df = df.loc[df["dist_to_runway_m"] <= MAX_RADIUS_M].copy()
-    if df.empty:
-        return pd.DataFrame(columns=OUTPUT_COLUMNS)
-
-    df = add_flight_id(df)
-
-    # Filter B — drop cruise overflights at the trajectory level
-    df = apply_filter_b(df)
-    if df.empty:
-        return pd.DataFrame(columns=OUTPUT_COLUMNS)
-
-    df["operation"] = "unknown"
-    df["flight_phase"] = calculate_flight_phase(df)
-    df["time"] = pd.to_numeric(df["time"], errors="coerce").fillna(0).astype(int)
-    df["flight_id"] = df["flight_id"].astype(str)
-
-    for c in OUTPUT_COLUMNS:
-        if c not in df.columns:
-            df[c] = None
-
-    return df[OUTPUT_COLUMNS]
-
-
 # ── Per-Monday driver ────────────────────────────────────────────────────────
 
 def process_monday(monday: date, out_dir: Path, session: requests.Session, force: bool) -> dict:
@@ -377,7 +280,7 @@ def parse_args() -> argparse.Namespace:
                    help="Comma-separated YYYY-MM-DD list of specific Mondays to fetch "
                         "(overrides --mondays/--start/--end/--include-covid).")
     p.add_argument("--out", type=Path,
-                   default=ROOT_DIR / "data" / "raw" / "opensky_states",
+                   default=Path.cwd() / "data" / "raw" / "opensky_states",
                    help="Output directory (default: data/raw/opensky_states/).")
     p.add_argument("--include-covid", action="store_true",
                    help="Include 2020-03-15 → 2022-01-01 (excluded by default).")

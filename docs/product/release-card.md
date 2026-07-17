@@ -110,11 +110,16 @@ NOAA NCEI Global Hourly weather and the OpenSky aircraft database. ADS-B does no
 many operational variables required for a true stabilized-approach assessment, including aircraft
 configuration, mass, clearance, intent and indicated airspeed.
 
-No raw OpenSky or NOAA source database is redistributed in these archives. OpenSky-derived work is
-limited to non-profit research and education under the
-[OpenSky terms of use](https://opensky-network.org/about/terms-of-use). The `other` license marker
-reflects the mixed code, artifact and source-data conditions; review the source repository and
-upstream data terms before reuse.
+The current application archives contain bounded, downsampled row-level observations derived from
+OpenSky, including time, trajectory, aircraft-identifier and telemetry fields needed by the
+demonstrator. They do not copy the complete OpenSky source database, but they remain upstream data.
+
+**Distribution gate:** the current
+[OpenSky terms of use](https://opensky-network.org/about/terms-of-use) prohibit redistribution of
+the datasets without authorization and require a written agreement for operational REST API use.
+Do not mirror, redistribute or reuse the pinned archives. Before another public release, replace
+their observation records with authorized or synthetic evidence, or obtain written permission.
+The `other` license marker reflects these mixed code, artifact and source-data conditions.
 
 ## Reproducibility and documentation
 

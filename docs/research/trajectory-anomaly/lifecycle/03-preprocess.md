@@ -6,7 +6,7 @@
 **Work item:** issue #22 · branch `22-task-phase3-preprocessing`
 **Spec:** [D-010](decisions/D-010-filter-d-and-multi-detector-preprocessing.md) (+ amendments below)
 **Evidence base:** `research/trajectory-anomaly/notebooks/lifecycle/07_phase3_preprocess.ipynb` Findings A–E + Part 2 decisions
-**Code:** `backend/research/src/sadar_research/trajectory_anomaly/pipeline/preprocessing.py` · **Tests:** `backend/tests/test_preprocessing.py`
+**Code:** `backend/research/src/sadar_research/trajectory_anomaly/pipeline/preprocessing.py` · **Tests:** `backend/tests/research/test_preprocessing.py`
 
 Phase 3 produces the **unfitted pipeline definition** — the deterministic, fit-free
 transform that turns raw cycle-3 ADS-B into a clean, uniform-grid, imputed,
@@ -110,8 +110,8 @@ computation reproduces 5.9% / 68 to the row (test-verified logic); the per-segme
 
 `haversine` + runway distance → `backend/research/src/sadar_research/trajectory_anomaly/data/geometry.py`; `flight_phase` + Filter-B
 derivations → `backend/research/src/sadar_research/trajectory_anomaly/data/derivations.py` (leaf modules, no credentials).
-`crud/opensky.py` re-exports them so notebook 05 and `download_opensky_states.py`
-keep working unchanged; the downloader's own copies are migrated later under test.
+The research OpenSky ingestion and downloader import those helpers directly, so neither
+path triggers credentials merely to load deterministic geometry code.
 This is what lets `preprocessing.py` and the test-suite import the helpers without
 triggering `Settings()` (which needs `.env`).
 

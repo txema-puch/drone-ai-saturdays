@@ -10,6 +10,7 @@ import pytest
 
 from sadar_research.trajectory_anomaly.releases import publish as publisher
 from sadar_research.trajectory_anomaly.releases import schema as release
+from sadar.releases import hub_publish
 
 
 MANIFEST_PAYLOAD = {
@@ -49,7 +50,11 @@ def make_release(base: Path) -> dict:
 def setup_transaction(tmp_path: Path) -> tuple[Path, Path, Path, dict]:
     repository = tmp_path / "repo"
     repository.mkdir()
-    lock = repository / "backend" / "serve" / publisher.LOCK_NAME
+    lock = (
+        repository
+        / "backend/research/src/sadar_research/trajectory_anomaly/releases"
+        / publisher.LOCK_NAME
+    )
     lock.parent.mkdir(parents=True)
     manifest = make_release(tmp_path / "release")
     lock.write_bytes(b'{"prior":"lock"}\n')
@@ -160,14 +165,14 @@ def test_atomic_replace_failure_preserves_prior_lock_and_cleans_temp(tmp_path: P
     prior = lock.read_bytes()
     remote = tmp_path / "remote.tar.gz"
     uploader, downloader = successful_adapters(remote)
-    real_replace = publisher.os.replace
+    real_replace = hub_publish.os.replace
 
     def fail_lock_replace(source_path, destination_path):
         if Path(destination_path) == lock:
             raise OSError("simulated lock failure")
         return real_replace(source_path, destination_path)
 
-    monkeypatch.setattr(publisher.os, "replace", fail_lock_replace)
+    monkeypatch.setattr(hub_publish.os, "replace", fail_lock_replace)
     with pytest.raises(publisher.PublicationError, match="atomically replace"):
         publish(repository, source, lock, uploader, downloader)
     assert lock.read_bytes() == prior
@@ -297,7 +302,7 @@ def test_public_downloader_enforces_archive_limit_and_removes_partial_file(
         def read(self, _size: int) -> bytes:
             return b"four"
 
-    monkeypatch.setattr(publisher.urllib.request, "urlopen", lambda *_args, **_kwargs: Response())
+    monkeypatch.setattr(hub_publish.urllib.request, "urlopen", lambda *_args, **_kwargs: Response())
     monkeypatch.setattr(release, "MAX_ARCHIVE_BYTES", 3)
     destination = tmp_path / "archive.tar.gz"
     with pytest.raises(publisher.PublicationError, match="byte limit"):
@@ -307,7 +312,9 @@ def test_public_downloader_enforces_archive_limit_and_removes_partial_file(
 
 def test_secret_is_redacted_and_never_written_to_lock(tmp_path: Path):
     secret = "hf_sensitive-token"
-    assert secret not in publisher._safe_error_message(RuntimeError(f"failure {secret}"), secret=secret)
+    assert secret not in hub_publish.safe_error_message(
+        RuntimeError(f"failure {secret}"), secret=secret
+    )
 
     repository, source, lock, _ = setup_transaction(tmp_path)
     remote = tmp_path / "remote.tar.gz"
@@ -326,7 +333,7 @@ def test_relative_paths_are_resolved_from_repository_root(tmp_path: Path, monkey
 
     record = publisher.publish_release(
         release_dir="release",
-        lock_path=f"backend/serve/{publisher.LOCK_NAME}",
+        lock_path=f"backend/research/src/sadar_research/trajectory_anomaly/releases/{publisher.LOCK_NAME}",
         repository_root=repository,
         uploader=uploader,
         downloader=downloader,

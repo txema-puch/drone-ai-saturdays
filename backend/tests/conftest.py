@@ -12,10 +12,10 @@ if str(REPO_ROOT) not in sys.path:
 # defaults. Tests opt into the checked-in fixtures explicitly.
 os.environ.setdefault(
     "SADAR_RESEARCH_BUNDLE_DIR",
-    str(REPO_ROOT / "backend/models/sadar_demo"),
+    str(REPO_ROOT / ".artifacts/trajectory-demo"),
 )
 os.environ.setdefault(
     "SADAR_RESEARCH_MODELS_DIR",
-    str(REPO_ROOT / "backend/models/phase6"),
+    str(REPO_ROOT / ".artifacts/trajectory-training"),
 )
 os.environ.setdefault("SADAR_FRONTEND_DIR", str(REPO_ROOT / "frontend/dist"))

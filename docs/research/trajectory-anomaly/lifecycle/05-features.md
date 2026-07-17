@@ -5,7 +5,7 @@
 **Phase:** features (Phase 5)
 **Work item:** issue #25 · branch `25-task-phase5-features`
 **Spec:** D-010 (runway-relative deferral), D-009 amendment (go-around hold-aside), D-008 Amendment 2 (go-around validation cohort)
-**Code:** `backend/research/src/sadar_research/trajectory_anomaly/pipeline/features.py` (+ contract promotion in `backend/research/src/sadar_research/trajectory_anomaly/pipeline/preprocessing.py`) · **Tests:** `backend/tests/test_features.py`
+**Code:** `backend/research/src/sadar_research/trajectory_anomaly/pipeline/features.py` (+ contract promotion in `backend/research/src/sadar_research/trajectory_anomaly/pipeline/preprocessing.py`) · **Tests:** `backend/tests/research/test_features.py`
 
 Phase 5 turns the Phase-3 clean per-segment frames into the representation the LSTM-AE
 trains on, and builds the held-aside **go-around** cohort the Phase-6 split and Phase-7

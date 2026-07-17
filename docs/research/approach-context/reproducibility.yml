@@ -7,7 +7,8 @@ package: sadar
 environment:
   python: ">=3.11"
   install: "uv sync --project backend --group dev"
-tests: "uv run --project backend pytest backend/tests/product"
+  prepare: "mkdir -p .artifacts && uv run --project backend sadar-fetch-release --lock backend/src/sadar/releases/approach_bundle.lock.json --destination .artifacts/approach-release"
+tests: "SADAR_APPROACH_RELEASE_DIR=$PWD/.artifacts/approach-release uv run --project backend pytest backend/tests/product"
 sources:
   provenance: docs/research/approach-context/lifecycle/source-manifest.json
   passed:
@@ -34,3 +35,4 @@ promotion_gate:
   - independent labels
   - fresh holdout
   - incremental value over ADS-B-only rules
+  - authorized or synthetic distributable application evidence

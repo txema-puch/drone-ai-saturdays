@@ -130,3 +130,81 @@ def test_fetch_uses_bounded_download_and_refuses_existing_destination(tmp_path: 
             destination=destination,
             downloader=downloader,
         )
+
+
+@pytest.mark.parametrize(
+    ("mutation", "message"),
+    (
+        (lambda lock: {**lock, "url": str(lock["url"]).replace("https://", "http://")}, "storage"),
+        (lambda lock: {**lock, "revision": "main"}, "immutable"),
+        (lambda lock: {**lock, "unexpected": True}, "schema"),
+        (lambda lock: {**lock, "research_track": "other"}, "identity"),
+        (
+            lambda lock: {
+                **lock,
+                "files": [*list(lock["files"])[:-1], list(lock["files"])[0]],
+            },
+            "file",
+        ),
+    ),
+)
+def test_lock_validation_rejects_mutable_or_ambiguous_records(tmp_path: Path, mutation, message):
+    _archive, lock = _fixture(tmp_path)
+    mutable_lock = {**lock, "files": list(lock["files"])}
+
+    with pytest.raises(artifacts.TrainingArtifactError, match=message):
+        artifacts.validate_lock(mutation(mutable_lock))
+
+
+def test_manifest_validation_rejects_identity_and_file_drift(tmp_path: Path):
+    _archive, lock = _fixture(tmp_path)
+    expected = lock["files"]
+    manifest = {
+        "files": list(expected),
+        "phase": "eval",
+        "research_track": artifacts.RESEARCH_TRACK,
+        "schema_version": artifacts.MANIFEST_SCHEMA,
+        "source_commit": "a" * 40,
+    }
+
+    with pytest.raises(artifacts.TrainingArtifactError, match="identity"):
+        artifacts._manifest(manifest, expected_files=expected)
+
+    manifest["phase"] = "train"
+    manifest["files"] = list(expected)[:-1]
+    with pytest.raises(artifacts.TrainingArtifactError, match="file list"):
+        artifacts._manifest(manifest, expected_files=expected)
+
+
+def test_install_rejects_symbolic_link_archive_and_destination(tmp_path: Path):
+    archive, lock = _fixture(tmp_path)
+    archive_link = tmp_path / "archive-link.tar.gz"
+    archive_link.symlink_to(archive)
+
+    with pytest.raises(artifacts.TrainingArtifactError, match="regular file"):
+        artifacts.install_archive(archive_link, tmp_path / "from-link", lock=lock)
+
+    destination = tmp_path / "destination-link"
+    destination.symlink_to(tmp_path / "elsewhere")
+    with pytest.raises(artifacts.TrainingArtifactError, match="destination"):
+        artifacts.install_archive(archive, destination, lock=lock)
+
+
+def test_cli_failure_is_bounded_and_does_not_create_destination(
+    tmp_path: Path,
+    monkeypatch,
+    capsys,
+):
+    lock_path = tmp_path / "lock.json"
+    destination = tmp_path / "destination"
+
+    def fail(**_kwargs):
+        raise artifacts.TrainingArtifactError("x" * 1_000)
+
+    monkeypatch.setattr(artifacts, "fetch_locked_training_artifacts", fail)
+
+    assert artifacts.main(["--lock", str(lock_path), "--destination", str(destination)]) == 1
+    error = capsys.readouterr().err
+    assert error.startswith("training-artifact fetch failed: ")
+    assert len(error.removesuffix("\n").split(": ", 1)[1]) == 500
+    assert not destination.exists()

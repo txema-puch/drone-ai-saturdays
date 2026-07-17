@@ -11,12 +11,6 @@ from typing import Any
 ASSESSMENT_SCHEMA_VERSION = "approach_assessment_v1"
 ENGINE_VERSION = "prototype_v1"
 RECONSTRUCTION_POLICY_VERSION = "observed_attempts_v1"
-RECONSTRUCTION_POLICY = {
-    "position_evidence": "observed_rows_only",
-    "time_order": "sort_drop_duplicate_epoch_second",
-    "parallel_candidates": "temporal_cluster_then_infer",
-    "reentry_split_s": 180,
-}
 
 
 @dataclass(frozen=True)
@@ -56,6 +50,19 @@ class ApproachConfig:
 
 
 DEFAULT_CONFIG = ApproachConfig()
+
+
+def reconstruction_policy(config: ApproachConfig = DEFAULT_CONFIG) -> dict[str, Any]:
+    """Return the provenance record for the reconstruction behavior in use."""
+    return {
+        "position_evidence": "observed_rows_only",
+        "time_order": "sort_drop_duplicate_epoch_second",
+        "parallel_candidates": "temporal_cluster_then_infer",
+        "reentry_split_s": config.attempt_reentry_gap_s,
+    }
+
+
+RECONSTRUCTION_POLICY = reconstruction_policy()
 
 
 def digest(value: Any) -> str:

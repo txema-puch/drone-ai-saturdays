@@ -21,9 +21,6 @@ UploadedArtifact = hub_publish.UploadedArtifact
 ArtifactUploader = hub_publish.ArtifactUploader
 ArtifactDownloader = hub_publish.ArtifactDownloader
 assert_clean_git_tree = hub_publish.assert_clean_git_tree
-_safe_error_message = hub_publish._safe_error_message
-os = hub_publish.os
-urllib = hub_publish.urllib
 
 
 def validate_lock_record(value: object) -> dict[str, object]:
@@ -79,7 +76,7 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     token = os.environ.get("HF_TOKEN", "")
     try:
-        uploader = hub_publish._hugging_face_uploader(
+        uploader = hub_publish.hugging_face_uploader(
             repo_id=args.hf_repo_id,
             artifact_name=ARTIFACT_NAME,
             token=token,
@@ -92,7 +89,7 @@ def main(argv: list[str] | None = None) -> int:
             downloader=download_public_artifact,
         )
     except Exception as exc:
-        message = hub_publish._safe_error_message(exc, secret=token)
+        message = hub_publish.safe_error_message(exc, secret=token)
         print(f"historical publication failed: {message}", file=sys.stderr)
         return 1
     print(f"published historical release {record['release_id']} at {record['revision']}")

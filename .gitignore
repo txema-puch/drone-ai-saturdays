@@ -54,6 +54,7 @@ coverage.xml
 # Datos y modelos                      #
 ########################################
 /data/
+/.artifacts/
 backend/models/*
 backend/notebooks/
 /backend/docs/

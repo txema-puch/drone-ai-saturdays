@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 from fastapi.testclient import TestClient
@@ -10,7 +11,12 @@ from sadar.releases.approach import load_release_directory
 
 
 REPO = Path(__file__).resolve().parents[3]
-RELEASE_DIR = REPO / "backend/models/sadar_approach_v3"
+RELEASE_DIR = Path(
+    os.environ.get(
+        "SADAR_APPROACH_RELEASE_DIR",
+        REPO / ".artifacts/approach-release",
+    )
+)
 RELEASE = load_release_directory(RELEASE_DIR)
 
 
@@ -66,7 +72,7 @@ def test_factory_instances_have_isolated_runtime_state(tmp_path: Path):
     first = create_app(settings, RELEASE)
     second = create_app(settings, RELEASE)
     assert first.state.release is not second.state.release
-    assert first.state.runtime.evaluation_lock is not second.state.runtime.evaluation_lock
+    assert first.state.runtime.evaluation_slot is not second.state.runtime.evaluation_slot
     assert first.state.runtime.evaluation_limiter.admit("client", now=0) is None
     assert second.state.runtime.evaluation_limiter.admit("client", now=0) is None
 

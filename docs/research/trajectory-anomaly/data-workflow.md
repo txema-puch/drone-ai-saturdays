@@ -72,10 +72,10 @@ Drive. Together, the parquets accumulate the full training dataset.
 The flow diagram above shows the notebook as a single box. Inside, it
 depends on two modules and writes two things outside the parquet record:
 
-- **Imports from `backend/crud/`:**
-  - `supabase_io.py` — `discover_lemd_tables`, `load_table_paginated`,
+- **Imports from `sadar_research.trajectory_anomaly.data`:**
+  - `supabase_io` — `discover_lemd_tables`, `load_table_paginated`,
     `save_snapshot_parquet`, `compute_file_hash` (operational helpers).
-  - `opensky.py` — `calculate_flight_phase`, `distance_to_closest_runway`
+  - `derivations` and `geometry` — `calculate_flight_phase`, `distance_to_closest_runway`
     (used as **reference implementations** in the consistency check, see
     next subsection).
 - **Outputs not shown in the flow:**
@@ -87,7 +87,7 @@ depends on two modules and writes two things outside the parquet record:
 
 ### Why `opensky.py` is dual-use
 
-`backend/research/src/sadar_research/trajectory_anomaly/data/opensky.py` is both Monica's production extraction code and
+`sadar_research.trajectory_anomaly.data.opensky` is both Monica's production extraction code and
 the audit's reference implementation. Monica's `export_lemd_2025_sample.py`
 and the audit notebook import `calculate_flight_phase` and
 `distance_to_closest_runway` from the same module.

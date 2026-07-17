@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import hashlib
 import time
-from collections import Counter
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 

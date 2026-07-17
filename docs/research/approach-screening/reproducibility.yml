@@ -7,7 +7,8 @@ package: sadar
 environment:
   python: ">=3.11"
   install: "uv sync --project backend --group dev"
-tests: "uv run --project backend pytest backend/tests/product"
+  prepare: "mkdir -p .artifacts && uv run --project backend sadar-fetch-release --lock backend/src/sadar/releases/approach_bundle.lock.json --destination .artifacts/approach-release"
+tests: "SADAR_APPROACH_RELEASE_DIR=$PWD/.artifacts/approach-release uv run --project backend pytest backend/tests/product"
 data:
   authority: external_not_git
   sealed_holdout: lemd_20260310_to_20260314__snapshot_2026-05-11
@@ -31,4 +32,5 @@ limitations:
   - ADS-B cannot observe mass, configuration, clearance, intent, or indicated airspeed
   - runway inference and criteria must abstain when coverage is insufficient
   - no independent labels for correctness or calibration
+  - public redistribution is blocked until the bundled OpenSky-derived observations are authorized or replaced
 successor: docs/research/approach-context/reproducibility.yml

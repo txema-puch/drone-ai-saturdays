@@ -1,21 +1,12 @@
 """Geographic primitives for the LEMD pipeline — haversine + runway distance.
 
-Leaf module: depends only on numpy/pandas. **Do not import `settings`, Trino,
-Supabase, or anything that touches credentials here** — `backend/research/src/sadar_research/trajectory_anomaly/pipeline/preprocessing.py`
-and the test-suite import this module, and they must run with no `.env` present
-(`backend/research/src/sadar_research/trajectory_anomaly/data/opensky.py` evaluates `Settings()` at import, which raises without
-credentials; that is exactly the coupling this extraction breaks — see A1 in
-`~/.claude/plans/phase3-preprocessing-impl.md`).
-
-Canonical home (refactor A1, 2026-06-01). `backend/research/src/sadar_research/trajectory_anomaly/data/opensky.py` re-exports these
-names for backward compatibility (notebook 05 + the OpenSkyService class).
-`backend/research/src/sadar_research/trajectory_anomaly/data/download.py` still imports them via `crud.opensky`
-(re-export) — its migration is deferred until it has test coverage.
+Leaf module: depends only on pandas and stable product geodesy. **Do not import
+settings, Trino, Supabase, or anything that touches credentials here.** The
+preprocessing pipeline and tests import this module without a `.env` file.
 """
 
 from __future__ import annotations
 
-import numpy as np
 import pandas as pd
 
 from sadar.trajectory.geo import EARTH_RADIUS_M, haversine_dist

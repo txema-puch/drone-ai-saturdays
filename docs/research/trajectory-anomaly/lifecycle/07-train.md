@@ -9,7 +9,7 @@
 > number below is TRAIN (fit) or VAL (selection/threshold). The single TEST burn is Phase 7.
 
 Numbers are from the verified end-to-end pipeline run (seed 42); `research/trajectory-anomaly/notebooks/lifecycle/09_phase6_train.ipynb`
-reproduces them from the same `backend/core/*` modules.
+reproduces them from the installed `sadar_research.trajectory_anomaly` modules.
 
 ## 1. Split + firewall
 

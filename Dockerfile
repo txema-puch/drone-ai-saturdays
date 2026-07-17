@@ -19,12 +19,11 @@ ENV UV_CACHE_DIR=/tmp/uv-cache \
     UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy \
     UV_PYTHON_DOWNLOADS=never \
-    UV_REQUIRE_HASHES=1 \
     UV_TORCH_BACKEND=cpu
 COPY --from=uv-bin /uv /uvx /usr/local/bin/
 COPY delivery/container/requirements-linux-x86_64.lock /tmp/requirements.lock
 RUN --mount=type=cache,target=/tmp/uv-cache \
-    uv pip install --system --no-deps --require-hashes -r /tmp/requirements.lock
+    UV_REQUIRE_HASHES=1 uv pip install --system --no-deps --require-hashes -r /tmp/requirements.lock
 
 FROM --platform=linux/amd64 python-deps AS product-wheel
 WORKDIR /build/backend

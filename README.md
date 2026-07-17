@@ -44,12 +44,22 @@ docker run --rm -p 7860:7860 -e SADAR_ENABLE_EVALUATION=true sadar-analyst-conso
 
 Open <http://localhost:7860>.
 
-For backend and frontend development:
+For backend development, from the repository root:
 
 ```bash
 uv sync --project backend --group dev
-uv run --project backend sadar-api --port 8077
+mkdir -p .artifacts
+uv run --project backend sadar-fetch-release \
+  --lock backend/src/sadar/releases/approach_bundle.lock.json \
+  --destination .artifacts/approach-release
+SADAR_APPROACH_RELEASE_DIR="$PWD/.artifacts/approach-release" \
+SADAR_ENABLE_EVALUATION=true \
+  uv run --project backend sadar-api --port 8077
+```
 
+In a second terminal:
+
+```bash
 cd frontend
 npm ci
 npm run dev
@@ -98,9 +108,18 @@ collaboration notes, and writeup drafts are intentionally excluded from source G
 ## Data and attribution
 
 The research uses OpenSky Network ADS-B observations around LEMD. Optional contextual
-inputs use NOAA NCEI Global Hourly weather and the OpenSky aircraft database. No raw
-source database is redistributed in the release artifacts. OpenSky data are used for
-non-profit research and education under its terms of use.
+inputs use NOAA NCEI Global Hourly weather and the OpenSky aircraft database. The
+currently pinned application archives include bounded, downsampled row-level
+OpenSky-derived observations needed by the demonstrator, including trajectory fields
+and aircraft identifiers. They are not a copy of the full source database, but they
+are still upstream data.
+
+**Distribution gate:** the current [OpenSky terms of use](https://opensky-network.org/about/terms-of-use)
+do not permit redistributing those datasets without authorization. The existing
+registry artifacts must therefore not be mirrored or reused, and a public replacement
+release must use authorized or synthetic evidence. Operational OpenSky API ingestion
+also requires a written agreement. This unresolved gate blocks the next public
+deployment; it does not change the repository's non-profit research purpose.
 
 This began as a collaborative Saturdays.AI Madrid course project by Monica Gomez,
 Pablo Rodriguez Campos, Roberto Molero, and Txema Puch. Team members independently

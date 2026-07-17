@@ -7,6 +7,7 @@ import pytest
 
 from sadar_research.trajectory_anomaly.releases import fetch as fetcher
 from sadar_research.trajectory_anomaly.releases import schema as release
+from sadar.releases import hub_fetch
 
 
 MANIFEST_PAYLOAD = {
@@ -269,7 +270,7 @@ def test_public_downloader_enforces_declared_and_actual_byte_bounds(
             self.sent = True
             return b"four"
 
-    monkeypatch.setattr(fetcher.urllib.request, "urlopen", lambda *_args, **_kwargs: Response())
+    monkeypatch.setattr(hub_fetch.urllib.request, "urlopen", lambda *_args, **_kwargs: Response())
     monkeypatch.setattr(release, "MAX_ARCHIVE_BYTES", 3 if mode != "length_mismatch" else 10)
     destination = tmp_path / "archive.tar.gz"
     with pytest.raises(fetcher.FetchError, match="byte limit|length mismatch"):
@@ -300,7 +301,7 @@ def test_public_downloader_sends_no_authorization_header(tmp_path: Path, monkeyp
         observed_headers.update(dict(request.header_items()))
         return Response()
 
-    monkeypatch.setattr(fetcher.urllib.request, "urlopen", open_request)
+    monkeypatch.setattr(hub_fetch.urllib.request, "urlopen", open_request)
     destination = tmp_path / "archive.tar.gz"
     fetcher.download_public_artifact(URL, destination)
     assert destination.read_bytes() == b"abc"

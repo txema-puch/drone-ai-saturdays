@@ -369,8 +369,8 @@ holdout discipline. Missing sources are recorded as failed data gates, not assum
 
 ## What already exists
 
-- Reuse raw-schema validation, derivations, missingness masks, gap segmentation and physical-rate
-  diagnostics from `backend/core` and `backend/src/sadar/api/evaluation.py`.
+- Reuse raw-schema validation and upload evaluation from `sadar.api`, stable trajectory
+  segmentation from `sadar.trajectory`, and historical diagnostics from `sadar_research`.
 - Reuse operation identities, immutable release packaging, same-origin FastAPI/React serving,
   upload bounds, Fly deployment and release-contract tests.
 - Reuse the map and temporal-panel primitives, but change their primary evidence from AE

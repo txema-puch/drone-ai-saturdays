@@ -35,6 +35,11 @@ class Settings(BaseSettings):
         default=5,
         alias="SADAR_EVALUATION_CLIENT_LIMIT",
     )
+    evaluation_timeout_seconds: float = Field(
+        default=60.0,
+        gt=0,
+        alias="SADAR_EVALUATION_TIMEOUT_S",
+    )
     upload_idle_seconds: float = Field(default=5.0, gt=0)
     upload_total_seconds: float = Field(default=60.0, gt=0)
 

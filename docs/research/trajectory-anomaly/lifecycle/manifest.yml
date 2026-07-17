@@ -163,11 +163,11 @@ gates:
       Validated against cycle-3 (notebook 07 Part 3): Filter D 18,928/19,057 = 99.3%,
       2,598 gap-splits, n_imputed_impossible>0 cohort = 513 segments, 4 emergency
       segments, AE matrix NaN-free, strict 10s grid; 19,849 segments / 3.16M rows.
-      27 passing tests (backend/tests/test_preprocessing.py) with 2 CRITICAL guards
+      27 passing tests (backend/tests/research/test_preprocessing.py) with 2 CRITICAL guards
       (interpolation never crosses a segment boundary; make_scaler UNFITTED).
 
       Refactor A1: shared geo/derivation helpers extracted to backend/research/src/sadar_research/trajectory_anomaly/data/geometry.py +
-      backend/research/src/sadar_research/trajectory_anomaly/data/derivations.py (leaf, no credentials); crud/opensky.py re-exports.
+      backend/research/src/sadar_research/trajectory_anomaly/data/derivations.py (leaf, no credentials); ingestion imports it directly.
       ADRs D-010/D-008/D-009/D-006 amended 2026-06-01.
   eda:
     status: "in_progress"
@@ -266,7 +266,7 @@ gates:
       IsolationForest. A kNN-on-summary density baseline (same firewall) scores 0.707 > AE 0.664
       > IF 0.625 — the deep model does NOT earn its complexity on synthetic. "Ship AE / dl
       confirmed" is therefore PROVISIONAL (track_confirmed=false). kNN added as
-      core/baseline.KNNSummaryBaseline + frozen (models/phase6/knn_train_summary.npy + scaler.joblib);
+      models/baseline.KNNSummaryBaseline + frozen Hugging Face Phase-6 training archive;
       AE + kNN both carried, blind, into the Phase-7 real-anomaly burn (07-eval-prep Layer 6) —
       real anomalies decide. The position-density "corridor" idea does NOT rescue zone (0.57).
 

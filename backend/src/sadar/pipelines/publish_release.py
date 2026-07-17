@@ -58,7 +58,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"publication failed: artifact name must be {ARTIFACT_NAME}", file=sys.stderr)
         return 1
     try:
-        uploader = publication._hugging_face_uploader(
+        uploader = publication.hugging_face_uploader(
             repo_id=args.hf_repo_id,
             artifact_name=ARTIFACT_NAME,
             token=token,
@@ -72,7 +72,7 @@ def main(argv: list[str] | None = None) -> int:
         )
     except Exception as exc:
         print(
-            f"publication failed: {publication._safe_error_message(exc, secret=token)}",
+            f"publication failed: {publication.safe_error_message(exc, secret=token)}",
             file=sys.stderr,
         )
         return 1

@@ -7,7 +7,9 @@ package: sadar_research.trajectory_anomaly
 environment:
   python: ">=3.11"
   install: "uv sync --project backend/research --extra data --extra notebooks"
-tests: "uv run --project backend pytest backend/tests/research"
+  prepare_demo: "mkdir -p .artifacts && uv run --project backend/research sadar-research-fetch-release --lock backend/research/src/sadar_research/trajectory_anomaly/releases/demo_bundle.lock.json --destination .artifacts/trajectory-demo"
+  prepare_training: "uv run --project backend/research sadar-research-fetch-training-artifacts --lock backend/research/src/sadar_research/trajectory_anomaly/releases/phase6_training_artifacts.lock.json --destination .artifacts/trajectory-training"
+tests: "SADAR_RESEARCH_BUNDLE_DIR=$PWD/.artifacts/trajectory-demo SADAR_RESEARCH_MODELS_DIR=$PWD/.artifacts/trajectory-training uv run --project backend pytest backend/tests/research"
 notebooks: research/trajectory-anomaly/notebooks/lifecycle
 data:
   authority: external_not_git
@@ -31,4 +33,5 @@ limitations:
   - no independent operational labels
   - anomaly score has no direct emergency or safety semantics
   - Monday-heavy historical coverage and synthetic-validation dependence
+  - public redistribution is blocked until bundled OpenSky-derived records are authorized or replaced
 successor: docs/research/approach-screening/reproducibility.yml

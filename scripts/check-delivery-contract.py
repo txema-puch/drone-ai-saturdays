@@ -21,6 +21,7 @@ FRONTEND_PACKAGE = ROOT / "frontend/package.json"
 FRONTEND_LOCK = ROOT / "frontend/package-lock.json"
 FLY_CONFIG = ROOT / "fly.toml"
 FLY_DEPLOY = ROOT / "scripts/deploy-fly.sh"
+DOCKERIGNORE = ROOT / ".dockerignore"
 PRODUCT_TITLE = "SADAR Analyst Console"
 PACKAGE_NAME = "sadar-analyst-console"
 FLY_APP = "sadar-analyst-console"
@@ -81,6 +82,7 @@ def validate_fly_config(fly_config: str) -> None:
         "Docker build target": (build.get("dockerfile"), "Dockerfile"),
         "runtime port": (env.get("PORT"), "7860"),
         "evaluation capability": (env.get("SADAR_ENABLE_EVALUATION"), "true"),
+        "evaluation execution deadline": (env.get("SADAR_EVALUATION_TIMEOUT_S"), "60"),
         "internal port": (service.get("internal_port"), 7860),
         "HTTPS redirect": (service.get("force_https"), True),
         "default process routing": (service.get("processes"), ["app"]),
@@ -130,6 +132,7 @@ def main() -> None:
         FRONTEND_LOCK,
         FLY_CONFIG,
         FLY_DEPLOY,
+        DOCKERIGNORE,
     ):
         if not path.is_file():
             fail(f"missing tracked input: {path.relative_to(ROOT)}")
@@ -137,6 +140,11 @@ def main() -> None:
         fail("legacy backend/Dockerfile must stay retired")
     if not FLY_DEPLOY.stat().st_mode & 0o111:
         fail("Fly deploy script must be executable")
+
+    dockerignore = DOCKERIGNORE.read_text(encoding="utf-8").splitlines()
+    for private_path in (".agents", ".claude", ".codex", ".workspace", "AGENTS.md", "CLAUDE.md"):
+        if private_path not in dockerignore:
+            fail(f"Docker context must exclude local collaboration material: {private_path}")
 
     dockerfile = DOCKERFILE.read_text(encoding="utf-8")
     image_args = re.findall(
@@ -196,7 +204,7 @@ def main() -> None:
 
     lock = LOCK.read_text(encoding="utf-8")
     requirements = list(re.finditer(r"(?m)^([a-z0-9][a-z0-9._-]*)==[^\s\\]+ \\\n", lock))
-    if len(requirements) != 26:
+    if len(requirements) != 30:
         fail("model-free serving lock package count drifted")
     for index, match in enumerate(requirements):
         end = requirements[index + 1].start() if index + 1 < len(requirements) else len(lock)
@@ -215,6 +223,7 @@ def main() -> None:
         "pyarrow",
         "pydantic-settings",
         "python-multipart",
+        "requests",
         "uvicorn",
     }
     if direct != expected:

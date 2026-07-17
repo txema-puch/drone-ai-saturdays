@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 from dataclasses import dataclass
 from types import MappingProxyType
 from typing import Any, Mapping
@@ -35,8 +34,26 @@ class ReleaseState:
 
 @dataclass(frozen=True)
 class RuntimeState:
-    evaluation_lock: asyncio.Lock
+    evaluation_slot: "EvaluationSlot"
     evaluation_limiter: EvaluationAdmissionLimiter
+
+
+@dataclass
+class EvaluationSlot:
+    """Event-loop-local, non-queuing single-evaluation admission slot."""
+
+    busy: bool = False
+
+    def try_acquire(self) -> bool:
+        if self.busy:
+            return False
+        self.busy = True
+        return True
+
+    def release(self) -> None:
+        if not self.busy:
+            raise RuntimeError("evaluation slot released while idle")
+        self.busy = False
 
 
 def build_release_state(release: Mapping[str, Any]) -> ReleaseState:

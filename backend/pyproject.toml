@@ -10,6 +10,7 @@ dependencies = [
     "pyarrow>=15.0.0",
     "pydantic-settings>=2.2.0",
     "python-multipart>=0.0.22",
+    "requests>=2.32",
     "uvicorn[standard]>=0.30.0",
 ]
 

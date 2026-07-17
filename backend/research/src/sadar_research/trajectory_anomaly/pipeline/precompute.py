@@ -16,8 +16,8 @@ val-chosen threshold 0.222) — NO re-tuning, NO model change. The cohort = the 
 TEST fold (post-hoc audit population) ∪ the held-aside real-anomaly cases (go-around ∪
 emergency) so the queue has genuine anomalies to surface.
 
-Run:  cd backend && uv run python -m serve.precompute
-Out:  backend/models/sadar_demo/releases/<release_id>/
+Run:  uv run --project backend/research python -m sadar_research.trajectory_anomaly.pipeline.precompute
+Out:  .artifacts/research/trajectory-anomaly/demo/releases/<release_id>/
 """
 from __future__ import annotations
 

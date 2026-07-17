@@ -7,6 +7,7 @@ primary_region = "cdg"
 [env]
   PORT = "7860"
   SADAR_ENABLE_EVALUATION = "true"
+  SADAR_EVALUATION_TIMEOUT_S = "60"
 
 [http_service]
   internal_port = 7860

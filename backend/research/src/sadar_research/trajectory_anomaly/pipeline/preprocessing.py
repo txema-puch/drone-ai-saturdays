@@ -19,8 +19,8 @@ Evidence base (measured numbers the notebook Part 3 validates against):
   - Idle-trim removes ~5.9% of rows; drops 68 pure-ground trajectories.
   - The `n_imputed_impossible > 0` cohort sizes to ~500–800 trajectories.
 
-Leaf imports only (`sadar_research.trajectory_anomaly.data.geometry`, numpy/pandas/sklearn) — never `crud.opensky`
-or `settings`, so this runs with no `.env` present (see `geo.py` docstring).
+Leaf imports only (`sadar_research.trajectory_anomaly.data.geometry`, numpy/pandas/sklearn),
+so this runs with no `.env` present.
 """
 
 from __future__ import annotations
@@ -65,9 +65,9 @@ CONTINUOUS_FEATURES = ["lat", "lon", "baroaltitude", "velocity", "vertrate"]  # 
 MASKED_FEATURES = ["lat", "lon", "baroaltitude", "velocity", "vertrate", "heading"]  # get *_missing flags
 # `dist_to_runway_m` promoted to a scaled AE feature in Phase 5 (issue #25): the
 # nonlinear min-over-8-runways zone signal. It is DERIVED (= distance_to_closest_runway
-# (lat, lon)), so it is recompute-not-perturb for injections (see core/features.py
-# apply_segment_derivations) and is not interpolated/masked (its missingness rides on
-# lat/lon's masks).
+# (lat, lon)), so it is recompute-not-perturb for injections. See
+# pipeline/features.py:apply_segment_derivations. It is not interpolated/masked;
+# its missingness rides on lat/lon's masks.
 SCALER_FEATURES = ["lat", "lon", "baroaltitude", "velocity", "vertrate", "dist_to_runway_m"]  # StandardScaler input (6)
 AE_FEATURES = ["lat", "lon", "baroaltitude", "velocity", "vertrate", "dist_to_runway_m",
                "hdg_sin", "hdg_cos", "onground"]                              # the AE input vector (9)

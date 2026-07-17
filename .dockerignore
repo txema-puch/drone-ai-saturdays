@@ -2,8 +2,13 @@
 .github
 .gstack
 .claude
+.agents
+.codex
 .context
+.workspace
 .devcontainer
+AGENTS.md
+CLAUDE.md
 .env
 .env.*
 !.env.example
