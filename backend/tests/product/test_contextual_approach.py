@@ -8,8 +8,8 @@ import pytest
 from sadar.approach.assessment import assess_approach
 from sadar.approach.context import WeatherObservation
 from sadar.approach.contextual import assess_contextual_operation
-from backend.tests.product.test_approach import _fixture
-from backend.tests.product.test_approach_reference import _reference
+from .test_approach import _fixture
+from .test_approach_reference import _reference
 
 
 def _weather(qnh: float = 1003.25) -> list[WeatherObservation]:
