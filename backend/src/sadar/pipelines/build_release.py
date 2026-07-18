@@ -356,7 +356,8 @@ def projection_main(argv: list[str] | None = None) -> int:
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args(argv)
     output = args.output.resolve()
-    if output != PUBLIC_AGGREGATE_RESOURCE.resolve() and Path("/tmp") not in output.parents:
+    temporary_root = Path("/tmp").resolve()
+    if output != PUBLIC_AGGREGATE_RESOURCE.resolve() and output != temporary_root and temporary_root not in output.parents:
         print("aggregate projection output must be the tracked resource or under /tmp", file=sys.stderr)
         return 1
     try:

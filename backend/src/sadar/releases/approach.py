@@ -12,6 +12,7 @@ import re
 import stat
 import sys
 from collections.abc import Mapping
+from itertools import product
 from pathlib import Path, PurePosixPath
 from typing import Any
 
@@ -291,10 +292,12 @@ def _count_map(value: Any, keys: set[str], field: str, *, nonempty_subset: bool 
         raise ApproachReleaseFormatError(f"{field} count labels mismatch")
     for key, cell in value.items():
         _cell(cell, f"{field}.{key}")
-    if "<10" in value.values() and "suppressed" not in value.values():
+    primary_count = list(value.values()).count("<10")
+    companion_count = list(value.values()).count("suppressed")
+    if primary_count and companion_count != 1:
         raise ApproachReleaseFormatError(f"{field} lacks complementary suppression")
-    if value.values().__iter__ and list(value.values()).count("suppressed") > 1:
-        raise ApproachReleaseFormatError(f"{field} has non-deterministic complementary suppression")
+    if not primary_count and companion_count:
+        raise ApproachReleaseFormatError(f"{field} has complementary suppression without a primary cell")
     return value
 
 
@@ -330,6 +333,290 @@ def _check_published_rate(rate: Any, numerator: Any, denominator: Any, field: st
             raise ApproachReleaseFormatError(f"{field} does not match its disclosed operands")
     elif rate is not None:
         raise ApproachReleaseFormatError(f"{field} must be null when operands are suppressed")
+
+
+_MAX_ASSIGNMENT_SEARCH = 100_000
+_STATUS_ORDER = (
+    "criteria_observed", "not_assessable", "partial_observation", "review_required",
+)
+
+
+def _is_deterministic_companion(
+    counts: dict[str, Any], assignment: dict[str, int], companion: str
+) -> bool:
+    candidates = {
+        key: assignment[key]
+        for key, published in counts.items()
+        if published != "<10" and assignment[key] > 0
+    }
+    largest = max(candidates.values())
+    return companion == min(key for key, value in candidates.items() if value == largest)
+
+
+def _count_assignments(
+    counts: dict[str, Any],
+    *,
+    total: int,
+    field: str,
+    fixed: Mapping[str, int] | None = None,
+) -> list[dict[str, int]]:
+    """Enumerate the hidden cells of one published partition under its real total."""
+    fixed = fixed or {}
+    primary = [key for key, value in counts.items() if value == "<10"]
+    companion = [key for key, value in counts.items() if value == "suppressed"]
+    explicit = {
+        key: value for key, value in counts.items() if _plain_int(value)
+    }
+    if not primary:
+        assignment = dict(explicit)
+        if sum(assignment.values()) != total or any(assignment.get(key) != value for key, value in fixed.items()):
+            raise ApproachReleaseFormatError(f"{field} does not partition its published total")
+        return [assignment]
+    if len(companion) != 1:
+        raise ApproachReleaseFormatError(f"{field} suppression shape is invalid")
+    remaining = total - sum(explicit.values())
+    assignments: list[dict[str, int]] = []
+    examined = 0
+    for values in product(range(1, 10), repeat=len(primary)):
+        examined += 1
+        if examined > _MAX_ASSIGNMENT_SEARCH:
+            raise ApproachReleaseFormatError(f"{field} suppression is too complex to prove safe")
+        companion_value = remaining - sum(values)
+        if companion_value < 10:
+            continue
+        assignment = {
+            **explicit,
+            **dict(zip(primary, values, strict=True)),
+            companion[0]: companion_value,
+        }
+        if any(assignment.get(key) != value for key, value in fixed.items()):
+            continue
+        assignments.append(assignment)
+    if not assignments:
+        raise ApproachReleaseFormatError(f"{field} has no feasible suppressed assignment")
+    return assignments
+
+
+def _require_primary_ambiguity(
+    counts: dict[str, Any], assignments: list[dict[str, int]], field: str
+) -> None:
+    for key, value in counts.items():
+        if value == "<10" and len({assignment[key] for assignment in assignments}) <= 1:
+            raise ApproachReleaseFormatError(
+                f"{field}.{key} is uniquely recoverable from published constraints"
+            )
+
+
+def _partition_assignments(
+    counts: dict[str, Any],
+    total: Any,
+    field: str,
+    *,
+    fixed: Mapping[str, int] | None = None,
+    require_ambiguity: bool = True,
+) -> list[dict[str, int]]:
+    if not _plain_int(total):
+        if "<10" in counts.values():
+            raise ApproachReleaseFormatError(f"{field} lacks a published total for suppression proof")
+        return [dict(counts)]
+    assignments = _count_assignments(counts, total=total, field=field, fixed=fixed)
+    if require_ambiguity:
+        _require_primary_ambiguity(counts, assignments, field)
+    companion = next((key for key, value in counts.items() if value == "suppressed"), None)
+    if companion is None:
+        return assignments
+    deterministic = [
+        assignment for assignment in assignments
+        if _is_deterministic_companion(counts, assignment, companion)
+    ]
+    if not deterministic:
+        raise ApproachReleaseFormatError(f"{field} has no feasible deterministic companion")
+    if require_ambiguity:
+        _require_primary_ambiguity(counts, deterministic, field)
+    return deterministic
+
+
+def _overlap_assignments(
+    counts: dict[str, Any],
+    *,
+    base_reviews: set[int],
+    context_reviews: set[int],
+    field: str,
+) -> list[dict[str, int]]:
+    primary = [key for key, value in counts.items() if value == "<10"]
+    companion = [key for key, value in counts.items() if value == "suppressed"]
+    explicit = {key: value for key, value in counts.items() if _plain_int(value)}
+    if not primary:
+        assignment = dict(explicit)
+        if (
+            assignment["base_only"] + assignment["both"] not in base_reviews
+            or assignment["context_only"] + assignment["both"] not in context_reviews
+        ):
+            raise ApproachReleaseFormatError(f"{field} does not match published review counts")
+        return [assignment]
+    assignments: dict[tuple[int, int, int], dict[str, int]] = {}
+    examined = 0
+    for values in product(range(1, 10), repeat=len(primary)):
+        partial = {**explicit, **dict(zip(primary, values, strict=True))}
+        for base_review in base_reviews:
+            for context_review in context_reviews:
+                examined += 1
+                if examined > _MAX_ASSIGNMENT_SEARCH:
+                    raise ApproachReleaseFormatError(f"{field} suppression is too complex to prove safe")
+                if companion == ["base_only"]:
+                    companion_value = base_review - partial["both"]
+                elif companion == ["both"]:
+                    companion_value = base_review - partial["base_only"]
+                    if companion_value != context_review - partial["context_only"]:
+                        continue
+                elif companion == ["context_only"]:
+                    companion_value = context_review - partial["both"]
+                else:
+                    raise ApproachReleaseFormatError(f"{field} suppression shape is invalid")
+                if companion_value < 10:
+                    continue
+                assignment = {**partial, companion[0]: companion_value}
+                if (
+                    assignment["base_only"] + assignment["both"] != base_review
+                    or assignment["context_only"] + assignment["both"] != context_review
+                ):
+                    continue
+                identity = tuple(assignment[key] for key in ("base_only", "both", "context_only"))
+                assignments[identity] = assignment
+    if not assignments:
+        raise ApproachReleaseFormatError(f"{field} has no feasible suppressed assignment")
+    deterministic = [
+        assignment for assignment in assignments.values()
+        if _is_deterministic_companion(counts, assignment, companion[0])
+    ]
+    if not deterministic:
+        raise ApproachReleaseFormatError(f"{field} has no feasible deterministic companion")
+    return deterministic
+
+
+def _validate_reconstruction_safety(aggregate: dict[str, Any]) -> None:
+    """Prove that published totals and related partitions cannot reveal a rare cell."""
+    holdout, context_cohort = aggregate["cohorts"]
+    context = aggregate["findings"]["context_validation"]
+
+    for cohort_index, cohort in enumerate((holdout, context_cohort)):
+        attempts = cohort["attempts"]
+        fixed: dict[str, int] = {}
+        if _plain_int(attempts) and _plain_int(cohort["assessable_attempts"]):
+            not_assessable = attempts - cohort["assessable_attempts"]
+            if not_assessable < 0:
+                raise ApproachReleaseFormatError(f"cohorts[{cohort_index}].assessable_attempts exceeds attempts")
+            fixed["not_assessable"] = not_assessable
+        status_assignments = _partition_assignments(
+            cohort["status_counts"], attempts, f"cohorts[{cohort_index}].status_counts",
+            fixed=fixed, require_ambiguity=cohort_index == 0,
+        )
+        if cohort["outcome_counts"] is not None:
+            _partition_assignments(cohort["outcome_counts"], attempts, f"cohorts[{cohort_index}].outcome_counts")
+        for criterion, counts in cohort["criterion_status_counts"].items():
+            _partition_assignments(counts, attempts, f"cohorts[{cohort_index}].criterion_status_counts.{criterion}")
+        if cohort["runway_direction_counts"] is not None:
+            _partition_assignments(cohort["runway_direction_counts"], attempts, f"cohorts[{cohort_index}].runway_direction_counts")
+        if cohort_index == 1:
+            context_status_assignments = status_assignments
+
+    attempts = context_cohort["attempts"]
+    base_status_assignments = _partition_assignments(
+        context["base_status_counts"], attempts,
+        "findings.context_validation.base_status_counts", require_ambiguity=False,
+    )
+    for family in ("base_criterion_status_counts", "context_criterion_status_counts"):
+        for criterion, counts in context[family].items():
+            _partition_assignments(
+                counts, attempts, f"findings.context_validation.{family}.{criterion}"
+            )
+    transition_assignments = _partition_assignments(
+        context["status_transition_counts"], attempts,
+        "findings.context_validation.status_transition_counts", require_ambiguity=False,
+    )
+
+    base_by_counts = {
+        tuple(assignment[key] for key in _STATUS_ORDER): assignment
+        for assignment in base_status_assignments
+    }
+    context_by_counts = {
+        tuple(assignment[key] for key in _STATUS_ORDER): assignment
+        for assignment in context_status_assignments
+    }
+    linked: list[tuple[dict[str, int], tuple[int, ...], tuple[int, ...]]] = []
+    for assignment in transition_assignments:
+        rows = tuple(
+            sum(
+                assignment.get(f"{source}->{destination}", 0)
+                for destination in _STATUS_ORDER
+            )
+            for source in _STATUS_ORDER
+        )
+        columns = tuple(
+            sum(
+                assignment.get(f"{source}->{destination}", 0)
+                for source in _STATUS_ORDER
+            )
+            for destination in _STATUS_ORDER
+        )
+        if rows in base_by_counts and columns in context_by_counts:
+            linked.append((assignment, rows, columns))
+    if not linked:
+        raise ApproachReleaseFormatError(
+            "findings.context_validation.status_transition_counts does not match status margins"
+        )
+
+    base_reviews = {rows[_STATUS_ORDER.index("review_required")] for _, rows, _ in linked}
+    context_reviews = {columns[_STATUS_ORDER.index("review_required")] for _, _, columns in linked}
+    overlap_assignments = _overlap_assignments(
+        context["review_overlap"], base_reviews=base_reviews,
+        context_reviews=context_reviews, field="findings.context_validation.review_overlap",
+    )
+    review_pairs = {
+        (assignment["base_only"] + assignment["both"], assignment["context_only"] + assignment["both"])
+        for assignment in overlap_assignments
+    }
+    linked = [
+        item for item in linked
+        if (
+            item[1][_STATUS_ORDER.index("review_required")],
+            item[2][_STATUS_ORDER.index("review_required")],
+        ) in review_pairs
+    ]
+    if not linked:
+        raise ApproachReleaseFormatError(
+            "findings.context_validation.review_overlap does not match transition margins"
+        )
+    matched_base = {rows for _, rows, _ in linked}
+    matched_context = {columns for _, _, columns in linked}
+    matched_pairs = {
+        (
+            rows[_STATUS_ORDER.index("review_required")],
+            columns[_STATUS_ORDER.index("review_required")],
+        )
+        for _, rows, columns in linked
+    }
+    base_status_assignments = [
+        assignment for counts, assignment in base_by_counts.items() if counts in matched_base
+    ]
+    context_status_assignments = [
+        assignment for counts, assignment in context_by_counts.items() if counts in matched_context
+    ]
+    transition_assignments = [assignment for assignment, _, _ in linked]
+    overlap_assignments = [
+        assignment for assignment in overlap_assignments
+        if (
+            assignment["base_only"] + assignment["both"],
+            assignment["context_only"] + assignment["both"],
+        ) in matched_pairs
+    ]
+    for counts, assignments, field in (
+        (context["base_status_counts"], base_status_assignments, "findings.context_validation.base_status_counts"),
+        (context["context_status_counts"], context_status_assignments, "findings.context_validation.context_status_counts"),
+        (context["status_transition_counts"], transition_assignments, "findings.context_validation.status_transition_counts"),
+        (context["review_overlap"], overlap_assignments, "findings.context_validation.review_overlap"),
+    ):
+        _require_primary_ambiguity(counts, assignments, field)
 
 
 def _validate_aggregate_results(value: Any) -> None:
@@ -461,6 +748,7 @@ def _validate_aggregate_results(value: Any) -> None:
             stable_limits.append(item)
     if top["limitations"] != stable_limits:
         raise ApproachReleaseFormatError("aggregate_results.limitations projection mismatch")
+    _validate_reconstruction_safety(top)
 
 
 def _validate_reference(reference: Any) -> None:
@@ -590,17 +878,26 @@ def _validate_synthetic_operations(value: Any, scenarios: dict[str, dict[str, An
         _synthetic_common(record, f"demo.operations[{index}]", scenarios)
         if not isinstance(record.get("operation_id"), str) or not record["operation_id"].startswith("syn-op-"):
             raise ApproachReleaseFormatError(f"demo.operations[{index}].operation_id prefix is invalid")
-        forbidden: set[str] = set()
-        pending = [record]
+        forbidden_path: str | None = None
+        pending: list[tuple[Any, str]] = [(record, f"demo.operations[{index}]")]
         while pending:
-            current = pending.pop()
+            current, current_path = pending.pop()
             if isinstance(current, dict):
-                forbidden.update({key.lower() for key in current} & {"source_operation_id", "icao24", "callsign", "flight_id"})
-                pending.extend(current.values())
+                for key, child in current.items():
+                    child_path = f"{current_path}.{key}"
+                    if key.lower() in {"source_operation_id", "icao24", "callsign", "flight_id"}:
+                        forbidden_path = child_path
+                        break
+                    pending.append((child, child_path))
             elif isinstance(current, list):
-                pending.extend(current)
-        if forbidden:
-            raise ApproachReleaseFormatError(f"demo.operations[{index}] contains forbidden identifier field")
+                pending.extend(
+                    (child, f"{current_path}[{child_index}]")
+                    for child_index, child in enumerate(current)
+                )
+            if forbidden_path is not None:
+                break
+        if forbidden_path is not None:
+            raise ApproachReleaseFormatError(f"{forbidden_path} is forbidden")
     return value["operations"]
 
 

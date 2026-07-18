@@ -5,6 +5,7 @@ import hashlib
 import inspect
 import json
 import subprocess
+import uuid
 from pathlib import Path
 
 import pytest
@@ -129,15 +130,19 @@ def _payloads(release: Path) -> dict[str, object]:
     return {path: json.loads((release / path).read_text()) for path in approach_release.REQUIRED_FILES}
 
 
-def _rewrite_release(release: Path, payloads: dict[str, object]) -> None:
+def _replace_payload_without_validation(
+    release: Path, relative: str, payload: object
+) -> None:
     manifest = json.loads((release / approach_release.MANIFEST_NAME).read_text())
-    source = manifest["source"]
-    contracts = manifest["contracts"]
-    for path in approach_release.REQUIRED_FILES:
-        target = release / path
-        target.unlink()
-    (release / approach_release.MANIFEST_NAME).unlink()
-    approach_release.write_release(release, payloads, source=source, contracts=contracts)
+    data = approach_release.canonical_json_bytes(payload)
+    (release / relative).write_bytes(data)
+    record = next(item for item in manifest["files"] if item["path"] == relative)
+    record["bytes"] = len(data)
+    record["sha256"] = hashlib.sha256(data).hexdigest()
+    manifest["release_id"] = approach_release.release_id_for_manifest(manifest)
+    (release / approach_release.MANIFEST_NAME).write_bytes(
+        approach_release.canonical_json_bytes(manifest)
+    )
 
 
 def test_builder_is_deterministic_and_emits_exact_schema_v4(tmp_path: Path) -> None:
@@ -183,7 +188,7 @@ def test_manifest_rejects_schema_v3_and_any_extra_file(tmp_path: Path) -> None:
         ("attempts", lambda record: record.update(attempt_id="a-real"), "prefix"),
         ("cases", lambda record: record.update(case_id="c-real"), "prefix"),
         ("operations", lambda record: record.update(operation_id="op-real"), "prefix"),
-        ("operations", lambda record: record.update(icao24="secret"), "forbidden identifier"),
+        ("operations", lambda record: record.update(icao24="secret"), "icao24"),
     ],
 )
 def test_synthetic_validators_reject_wrong_origin_prefix_and_identifier(
@@ -212,35 +217,73 @@ def test_aggregate_rejects_epoch_small_cell_and_missing_complement(tmp_path: Pat
         approach_release._validate_aggregate_results(aggregate)
 
 
-def test_every_primary_suppression_resists_integer_subtraction_attack() -> None:
+def test_reconstruction_safety_rejects_uniquely_recoverable_primary() -> None:
     aggregate = json.loads(builder.PUBLIC_AGGREGATE_RESOURCE.read_text())
-    count_maps: list[dict[str, object]] = []
+    holdout = aggregate["cohorts"][0]
+    holdout["attempts"] = 525
+    holdout["assessable_attempts"] = 299
+    holdout["status_counts"] = {
+        "criteria_observed": "<10",
+        "not_assessable": 226,
+        "partial_observation": 288,
+        "review_required": "suppressed",
+    }
+    holdout["abstention_rate"] = round(226 / 525, 4)
+    holdout["review_rate_among_assessable"] = None
+    with pytest.raises(approach_release.ApproachReleaseFormatError, match="uniquely recoverable"):
+        approach_release._validate_aggregate_results(aggregate)
 
-    def visit(value: object, key: str = "") -> None:
-        if isinstance(value, dict):
-            if key.endswith("_counts") and "<10" in value.values():
-                count_maps.append(value)
-            for child_key, child in value.items():
-                visit(child, child_key)
-        elif isinstance(value, list):
-            for child in value:
-                visit(child, key)
 
-    visit(aggregate)
-    assert count_maps
-    for count_map in count_maps:
-        assert list(count_map.values()).count("suppressed") == 1
-        explicit = sum(value for value in count_map.values() if isinstance(value, int))
-        # For every plausible partition total, no total can identify the primary
-        # without also knowing the complementary cell. All nine primary values
-        # retain at least one non-negative complementary solution.
-        plausible_total = explicit + 100
-        candidates = {
-            primary
-            for primary in range(1, 10)
-            if plausible_total - explicit - primary >= 0
-        }
-        assert candidates == set(range(1, 10))
+def test_reconstruction_safety_binds_actual_partitions_margins_and_rates() -> None:
+    mutations = []
+
+    def holdout_status(value):
+        value["cohorts"][0]["status_counts"]["criteria_observed"] += 1
+
+    mutations.append(holdout_status)
+
+    def holdout_criterion(value):
+        for target in (
+            value["cohorts"][0]["criterion_status_counts"],
+            value["findings"]["screening_holdout"]["criterion_status_counts"],
+        ):
+            target["barometric_path_proxy"]["within_limit"] += 1
+
+    mutations.append(holdout_criterion)
+
+    def holdout_runway(value):
+        value["cohorts"][0]["runway_direction_counts"]["32"] += 1
+
+    mutations.append(holdout_runway)
+
+    def context_base_criterion(value):
+        value["findings"]["context_validation"]["base_criterion_status_counts"]["late_track_correction"]["within_limit"] += 1
+
+    mutations.append(context_base_criterion)
+
+    def transition_margin(value):
+        value["findings"]["context_validation"]["status_transition_counts"]["criteria_observed->criteria_observed"] += 1
+
+    mutations.append(transition_margin)
+
+    def review_overlap(value):
+        value["findings"]["context_validation"]["review_overlap"]["base_only"] += 1
+
+    mutations.append(review_overlap)
+
+    for mutate in mutations:
+        aggregate = json.loads(builder.PUBLIC_AGGREGATE_RESOURCE.read_text())
+        mutate(aggregate)
+        with pytest.raises(approach_release.ApproachReleaseFormatError):
+            approach_release._validate_aggregate_results(aggregate)
+
+    aggregate = json.loads(builder.PUBLIC_AGGREGATE_RESOURCE.read_text())
+    aggregate["cohorts"][0]["abstention_rate"] = 0.1
+    with pytest.raises(approach_release.ApproachReleaseFormatError, match="disclosed operands"):
+        approach_release._validate_aggregate_results(aggregate)
+
+
+def test_suppression_shape_rejects_small_cells_and_orphan_companions() -> None:
     aggregate = json.loads(builder.PUBLIC_AGGREGATE_RESOURCE.read_text())
     aggregate["cohorts"][0]["status_counts"]["criteria_observed"] = 5
     with pytest.raises(approach_release.ApproachReleaseFormatError, match="unsuppressed"):
@@ -251,19 +294,36 @@ def test_every_primary_suppression_resists_integer_subtraction_attack() -> None:
     count_map[suppressed] = 578
     with pytest.raises(approach_release.ApproachReleaseFormatError, match="complementary"):
         approach_release._validate_aggregate_results(aggregate)
+    aggregate = json.loads(builder.PUBLIC_AGGREGATE_RESOURCE.read_text())
+    aggregate["cohorts"][0]["outcome_counts"]["go_around"] = 0
+    with pytest.raises(approach_release.ApproachReleaseFormatError, match="without a primary"):
+        approach_release._validate_aggregate_results(aggregate)
+    aggregate = json.loads(builder.PUBLIC_AGGREGATE_RESOURCE.read_text())
+    aggregate["cohorts"][0]["outcome_counts"] = {
+        "final_gate_observed": 578,
+        "go_around": "<10",
+        "incomplete": "suppressed",
+    }
+    with pytest.raises(approach_release.ApproachReleaseFormatError, match="no feasible"):
+        approach_release._validate_aggregate_results(aggregate)
 
 
-def test_reference_is_closed_and_digest_bound() -> None:
+@pytest.mark.parametrize(
+    ("location", "match"),
+    [("top", "reference keys"), ("cohort", "reference.cohort"), ("entry", r"reference.entries\[0\]")],
+)
+def test_reference_is_closed_at_every_nesting_level(location: str, match: str) -> None:
     reference = builder._public_reference()
     approach_release._validate_reference(reference)
     assert "diagnostics" not in reference and "stratification" not in reference
     hostile = copy.deepcopy(reference)
-    hostile["renamed_rows"] = [{"x": 40.4, "y": -3.5, "event": 100}]
-    with pytest.raises(approach_release.ApproachReleaseFormatError, match="keys mismatch"):
-        approach_release._validate_reference(hostile)
-    hostile = copy.deepcopy(reference)
-    hostile["entries"][0]["diagnostics"] = {"sample": "private"}
-    with pytest.raises(approach_release.ApproachReleaseFormatError, match="keys mismatch"):
+    if location == "top":
+        hostile["renamed_rows"] = [{"x": 40.4, "y": -3.5, "event": 100}]
+    elif location == "cohort":
+        hostile["cohort"]["renamed_rows"] = [{"x": 40.4, "y": -3.5, "event": 100}]
+    else:
+        hostile["entries"][0]["diagnostics"] = {"sample": "private"}
+    with pytest.raises(approach_release.ApproachReleaseFormatError, match=match):
         approach_release._validate_reference(hostile)
 
 
@@ -278,6 +338,33 @@ def test_production_aggregate_regenerates_byte_for_byte() -> None:
     assert approach_release.canonical_json_bytes(json.loads(AGGREGATE_FIXTURE.read_text())) == builder.PUBLIC_AGGREGATE_RESOURCE.read_bytes()
     assert projected["cohorts"][0]["base_reference_sha256"] == "b485f747154ea8d84ba6b5c980501e3a22bca9caff40c41711de107b03496c56"
     assert projected["cohorts"][1]["context_reference_sha256"] == "68ea1a974a077e0b2ef8322564d7799c5fd52cbd21db42b8d5bf1badad57d328"
+
+
+def test_projection_cli_accepts_canonical_tmp_and_rejects_other_outputs(
+    tmp_path: Path,
+) -> None:
+    output = Path("/tmp") / f"sadar-plan002-{uuid.uuid4().hex}.json"
+    command = [
+        str(REPO / "backend/.venv/bin/sadar-project-public-aggregates"),
+        "--holdout", str(builder.HOLDOUT_ARTIFACT),
+        "--comparison", str(builder.COMPARISON_ARTIFACT),
+        "--coverage", str(builder.COVERAGE_ARTIFACT),
+        "--generated-at", "2026-07-18",
+        "--output", str(output),
+    ]
+    try:
+        accepted = subprocess.run(command, capture_output=True, text=True, check=False)
+        assert accepted.returncode == 0, accepted.stderr
+        assert output.read_bytes() == builder.PUBLIC_AGGREGATE_RESOURCE.read_bytes()
+    finally:
+        output.unlink(missing_ok=True)
+    blocked = tmp_path / "not-allowed.json"
+    rejected = subprocess.run(
+        [*command[:-1], str(blocked)], capture_output=True, text=True, check=False
+    )
+    assert rejected.returncode != 0
+    assert "tracked resource or under /tmp" in rejected.stderr
+    assert not blocked.exists()
 
 
 def test_catalog_hash_binding_fails_closed(tmp_path: Path) -> None:
@@ -321,13 +408,22 @@ def test_context_builder_refuses_before_touching_nonexistent_raw_path(tmp_path: 
     assert not nonexistent.exists()
 
 
-def test_validation_cli_is_quiet_about_rejected_values(tmp_path: Path, capsys) -> None:
+def test_validation_cli_reports_rejected_path_without_forbidden_value(tmp_path: Path) -> None:
     release = build_valid_release(tmp_path)
-    assert approach_release.validation_main(["--release-dir", str(release)]) == 0
-    output = json.loads(capsys.readouterr().out)
+    command = [
+        str(REPO / "backend/.venv/bin/sadar-validate-public-release"),
+        "--release-dir", str(release),
+    ]
+    accepted = subprocess.run(command, capture_output=True, text=True, check=False)
+    assert accepted.returncode == 0, accepted.stderr
+    output = json.loads(accepted.stdout)
     assert set(output) == {"release_id", "schema_version", "demo_count", "cohort_count"}
     payloads = _payloads(release)
     payloads["demo/operations.json"]["operations"][0]["callsign"] = "SECRET-CALLSIGN"
-    with pytest.raises(approach_release.ApproachReleaseFormatError) as error:
-        approach_release._validate_payloads(payloads)
-    assert "SECRET-CALLSIGN" not in str(error.value)
+    _replace_payload_without_validation(
+        release, "demo/operations.json", payloads["demo/operations.json"]
+    )
+    rejected = subprocess.run(command, capture_output=True, text=True, check=False)
+    assert rejected.returncode != 0
+    assert "demo.operations[0].callsign" in rejected.stderr
+    assert "SECRET-CALLSIGN" not in rejected.stderr
