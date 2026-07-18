@@ -25,7 +25,10 @@ from sadar.approach.reference import REFERENCE_RESOURCE
 from sadar.releases.approach import (
     ApproachReleaseError,
     ApproachReleaseFormatError,
+    ApproachReleaseIntegrityError,
+    FILE_LIMITS,
     canonical_json_bytes,
+    read_canonical_json,
     validate_public_release_directory,
     write_release,
 )
@@ -231,8 +234,16 @@ def project_reviewed_aggregate_results(
     }
 
 
-def _public_reference() -> dict[str, Any]:
-    private = _read_json(REFERENCE_RESOURCE)
+def _public_reference(reference_path: Path | None = None) -> dict[str, Any]:
+    source = Path(reference_path) if reference_path is not None else REFERENCE_RESOURCE
+    private = _read_json(source)
+    public_keys = {
+        "schema_version", "fit_fold", "source_reference_sha256", "cohort",
+        "distance_bins_m", "quantiles", "minimum_samples", "minimum_attempts",
+        "accepted_attempts", "entries", "artifact_sha256",
+    }
+    if set(private) == public_keys:
+        return private
     projection = {
         "schema_version": private["schema_version"],
         "fit_fold": private["fit_fold"],
@@ -249,7 +260,7 @@ def _public_reference() -> dict[str, Any]:
     return projection
 
 
-def _methodology_payloads() -> dict[str, Any]:
+def _methodology_payloads(reference_path: Path | None = None) -> dict[str, Any]:
     config = {
         "schema_version": "approach_config_v1",
         "assessment_schema_version": ASSESSMENT_SCHEMA_VERSION,
@@ -261,8 +272,43 @@ def _methodology_payloads() -> dict[str, Any]:
     return {
         "config/approach-config.json": config,
         "config/lemd-geometry.json": _read_json(GEOMETRY_RESOURCE),
-        "reference/approach-reference.json": _public_reference(),
+        "reference/approach-reference.json": _public_reference(reference_path),
     }
+
+
+def _verified_synthetic_payloads(
+    synthetic_payload_dir: Path,
+    methodology: dict[str, Any],
+) -> dict[str, Any]:
+    """Regenerate from the untrusted catalog seed and require exact canonical bytes."""
+    from sadar.demo.catalog import generate_demo_payloads
+
+    demo_root = synthetic_payload_dir / "demo"
+    catalog = read_canonical_json(
+        demo_root / "catalog.json", limit=FILE_LIMITS["demo/catalog.json"]
+    )
+    if not isinstance(catalog, dict):
+        raise ApproachReleaseFormatError("synthetic catalog must be an object")
+    try:
+        expected = generate_demo_payloads(
+            seed=catalog.get("seed"), methodology_payloads=methodology
+        )
+    except (TypeError, ValueError) as exc:
+        raise ApproachReleaseFormatError(
+            f"synthetic payload regeneration failed: {exc}"
+        ) from exc
+    for name, payload in expected.items():
+        path = demo_root / name
+        observed_payload = read_canonical_json(
+            path, limit=FILE_LIMITS[f"demo/{name}"]
+        )
+        observed = canonical_json_bytes(observed_payload)
+        canonical = canonical_json_bytes(payload)
+        if observed != canonical:
+            raise ApproachReleaseIntegrityError(
+                f"synthetic payload does not match generator output: demo/{name}"
+            )
+    return expected
 
 
 def build_public_release(
@@ -283,9 +329,9 @@ def build_public_release(
         "demo/cases.json": "cases.json",
         "demo/operations.json": "operations.json",
     }
+    verified_demo = _verified_synthetic_payloads(synthetic_payload_dir, methodology)
     payloads: dict[str, Any] = {
-        destination: _read_json(synthetic_payload_dir / source)
-        for destination, source in demo_paths.items()
+        destination: verified_demo[source] for destination, source in demo_paths.items()
     }
     payloads.update(methodology)
     payloads["research/aggregate-results.json"] = aggregate

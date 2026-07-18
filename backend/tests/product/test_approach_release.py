@@ -12,6 +12,7 @@ import pytest
 
 from sadar.pipelines import build_context_release as contextual_builder
 from sadar.pipelines import build_release as builder
+from sadar.pipelines.build_synthetic_demo import build_synthetic_demo
 from sadar.releases import approach as approach_release
 
 
@@ -20,98 +21,7 @@ AGGREGATE_FIXTURE = Path(__file__).parent / "fixtures/public_aggregate_results.j
 
 
 def _synthetic_payloads(root: Path) -> Path:
-    root.mkdir(parents=True, exist_ok=True)
-    methodology = builder._methodology_payloads()
-    digests = {
-        key: hashlib.sha256(approach_release.canonical_json_bytes(value)).hexdigest()
-        for key, value in methodology.items()
-    }
-    scenario = {
-        "scenario_id": "stable-approach",
-        "scenario_title": "Stable synthetic approach",
-        "teaching_goal": "Learn the criteria-observed queue state.",
-    }
-    common = {"data_origin": "synthetic", **scenario}
-    attempt = {
-        **common,
-        "attempt_id": "syn-a-stable-001",
-        "case_id": "syn-c-stable-001",
-        "operation_id": "syn-op-stable-001",
-        "sequence": 1,
-        "start_time": 100,
-        "end_time": 110,
-        "status": "criteria_observed",
-        "outcome": "final_gate_observed",
-        "runway": "18L",
-        "runway_direction": "18",
-        "failed_criteria": [],
-        "assessment": {
-            "schema_version": "approach_assessment_v1",
-            "engine_version": "approach_context_v1",
-            "status": "criteria_observed",
-            "attempt": {"observed_samples": 2, "outcome": "final_gate_observed"},
-            "quality": {"fatal_reasons": [], "channel_advisories": {}, "maximum_gap_s": 10},
-            "runway_inference": {
-                "runway": "18L", "direction": "18", "geometry_runway": "18L",
-                "specificity": "runway", "confidence": "high", "score_margin": 1.0,
-            },
-            "criteria": [
-                {
-                    "name": "lateral_path_proxy",
-                    "status": "within_limit",
-                    "severity": "high",
-                    "observed_samples": 2,
-                    "evidence": [],
-                }
-            ],
-            "reasons": [],
-            "maneuvers": [],
-            "provenance": {"generator": "sadar_synthetic_approach_v1"},
-            "geometry": {},
-            "reference": {},
-            "context": {},
-            "altitude_reference": "barometric",
-        },
-    }
-    case = {
-        **common,
-        "case_id": "syn-c-stable-001",
-        "attempt_id": "syn-a-stable-001",
-        "operation_id": "syn-op-stable-001",
-        "observation_count": 2,
-        "observations_downsampled": False,
-        "observations": [
-            {"observation_index": 0, "time": 100, "lat": 40.48, "lon": -3.56, "baroaltitude": 500.0},
-            {"observation_index": 1, "time": 110, "lat": 40.47, "lon": -3.55, "baroaltitude": 450.0},
-        ],
-    }
-    operation = {
-        **common,
-        "operation_id": "syn-op-stable-001",
-        "start_time": 100,
-        "end_time": 110,
-        "attempt_count": 1,
-        "attempt_ids": ["syn-a-stable-001"],
-        "case_ids": ["syn-c-stable-001"],
-        "status_counts": {"criteria_observed": 1},
-        "worst_status": "criteria_observed",
-    }
-    payloads = {
-        "catalog.json": {
-            "schema_version": "approach_synthetic_demo_v1",
-            "generator_version": "sadar_synthetic_approach_v1",
-            "seed": 20260718,
-            "approach_config_sha256": digests["config/approach-config.json"],
-            "geometry_source_sha256": digests["config/lemd-geometry.json"],
-            "reference_sha256": digests["reference/approach-reference.json"],
-            "scenarios": [scenario],
-        },
-        "attempts.json": {"schema_version": "approach_attempts_v1", "attempts": [attempt]},
-        "cases.json": {"schema_version": "approach_cases_v1", "cases": [case]},
-        "operations.json": {"schema_version": "approach_operations_v1", "operations": [operation]},
-    }
-    for name, payload in payloads.items():
-        (root / name).write_bytes(approach_release.canonical_json_bytes(payload))
+    build_synthetic_demo(output=root, seed=20_260_718)
     return root
 
 
@@ -444,10 +354,11 @@ def test_projection_cli_accepts_canonical_tmp_and_rejects_other_outputs(
 
 def test_catalog_hash_binding_fails_closed(tmp_path: Path) -> None:
     synthetic = _synthetic_payloads(tmp_path / "synthetic")
-    catalog = json.loads((synthetic / "catalog.json").read_text())
+    catalog_path = synthetic / "demo/catalog.json"
+    catalog = json.loads(catalog_path.read_text())
     catalog["reference_sha256"] = "0" * 64
-    (synthetic / "catalog.json").write_bytes(approach_release.canonical_json_bytes(catalog))
-    with pytest.raises(approach_release.ApproachReleaseFormatError, match="methodology"):
+    catalog_path.write_bytes(approach_release.canonical_json_bytes(catalog))
+    with pytest.raises(approach_release.ApproachReleaseIntegrityError, match="generator output"):
         builder.build_public_release(
             aggregate_results_path=builder.PUBLIC_AGGREGATE_RESOURCE,
             synthetic_payload_dir=synthetic,
