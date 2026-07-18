@@ -642,13 +642,17 @@ def _validate_aggregate_results(value: Any) -> None:
     }, "aggregate_results.data_access")
     if access["provider"] != "OpenSky Network" or access["terms_url"] != "https://opensky-network.org/about/terms-of-use" or access["access_url"] != "https://opensky-network.org/data/data-access" or access["citation"] != _CITATION:
         raise ApproachReleaseFormatError("aggregate_results.data_access citation contract is invalid")
-    if access["publication_notice_status"] not in {"pending", "sent", "acknowledged"}:
+    status = access["publication_notice_status"]
+    if status not in {"pending", "sent", "acknowledged"}:
         raise ApproachReleaseFormatError("aggregate_results publication_notice_status is invalid")
     date = access["publication_notice_date"]
     if date is not None and (not isinstance(date, str) or not _DATE_RE.fullmatch(date)):
         raise ApproachReleaseFormatError("aggregate_results publication_notice_date is invalid")
-    if access["publication_notice_status"] == "pending" and date is not None:
-        raise ApproachReleaseFormatError("pending publication notice date must be null")
+    if (status == "pending") != (date is None):
+        raise ApproachReleaseFormatError(
+            "aggregate_results publication_notice_date does not match "
+            "publication_notice_status"
+        )
     cohorts = top["cohorts"]
     if not isinstance(cohorts, list) or len(cohorts) != 2:
         raise ApproachReleaseFormatError("aggregate_results.cohorts must contain two ordered cohorts")

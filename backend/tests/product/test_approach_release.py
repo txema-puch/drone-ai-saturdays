@@ -136,9 +136,13 @@ def _replace_payload_without_validation(
     manifest = json.loads((release / approach_release.MANIFEST_NAME).read_text())
     data = approach_release.canonical_json_bytes(payload)
     (release / relative).write_bytes(data)
+    digest = hashlib.sha256(data).hexdigest()
     record = next(item for item in manifest["files"] if item["path"] == relative)
     record["bytes"] = len(data)
-    record["sha256"] = hashlib.sha256(data).hexdigest()
+    record["sha256"] = digest
+    if relative == "research/aggregate-results.json":
+        manifest["source"]["aggregate_artifact_sha256"] = digest
+        manifest["contracts"]["aggregate_results_sha256"] = digest
     manifest["release_id"] = approach_release.release_id_for_manifest(manifest)
     (release / approach_release.MANIFEST_NAME).write_bytes(
         approach_release.canonical_json_bytes(manifest)
@@ -208,6 +212,39 @@ def test_aggregate_rejects_forbidden_keys_at_nested_levels(forbidden: str) -> No
     aggregate["findings"]["screening_holdout"][forbidden] = "private-value"
     with pytest.raises(approach_release.ApproachReleaseFormatError, match=forbidden):
         approach_release._validate_aggregate_results(aggregate)
+
+
+@pytest.mark.parametrize(
+    ("status", "date", "accepted"),
+    [
+        ("pending", None, True),
+        ("pending", "2026-07-18", False),
+        ("sent", "2026-07-18", True),
+        ("sent", None, False),
+        ("acknowledged", "2026-07-18", True),
+        ("acknowledged", None, False),
+    ],
+)
+def test_publication_notice_status_date_matrix(
+    status: str, date: str | None, accepted: bool
+) -> None:
+    aggregate = json.loads(builder.PUBLIC_AGGREGATE_RESOURCE.read_text())
+    aggregate["data_access"]["publication_notice_status"] = status
+    aggregate["data_access"]["publication_notice_date"] = date
+
+    if accepted:
+        approach_release._validate_aggregate_results(aggregate)
+        return
+
+    with pytest.raises(
+        approach_release.ApproachReleaseFormatError,
+        match="publication_notice_date",
+    ) as exc_info:
+        approach_release._validate_aggregate_results(aggregate)
+    message = str(exc_info.value)
+    assert status not in message
+    if date is not None:
+        assert date not in message
 
 
 def test_aggregate_rejects_epoch_small_cell_and_missing_complement(tmp_path: Path) -> None:
@@ -427,3 +464,30 @@ def test_validation_cli_reports_rejected_path_without_forbidden_value(tmp_path: 
     assert rejected.returncode != 0
     assert "demo.operations[0].callsign" in rejected.stderr
     assert "SECRET-CALLSIGN" not in rejected.stderr
+
+
+@pytest.mark.parametrize("status", ["sent", "acknowledged"])
+def test_validation_cli_rejects_publication_notice_without_date(
+    tmp_path: Path, status: str
+) -> None:
+    release = build_valid_release(tmp_path)
+    payloads = _payloads(release)
+    aggregate = payloads["research/aggregate-results.json"]
+    aggregate["data_access"]["publication_notice_status"] = status
+    aggregate["data_access"]["publication_notice_date"] = None
+    _replace_payload_without_validation(
+        release, "research/aggregate-results.json", aggregate
+    )
+
+    rejected = subprocess.run(
+        [
+            str(REPO / "backend/.venv/bin/sadar-validate-public-release"),
+            "--release-dir", str(release),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert rejected.returncode != 0
+    assert "publication_notice_date" in rejected.stderr
+    assert status not in rejected.stderr
