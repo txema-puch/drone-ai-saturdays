@@ -16,6 +16,10 @@ REPO = Path(__file__).resolve().parents[3]
 SOURCE = Path(
     os.environ.get("SADAR_APPROACH_RELEASE_DIR", REPO / ".artifacts/approach-release")
 )
+if not SOURCE.exists():
+    from tests.product.test_approach_release import build_valid_release
+
+    build_valid_release(SOURCE.parent, SOURCE.name)
 
 
 def test_archive_is_deterministic_and_extracts_exact_release(tmp_path: Path):

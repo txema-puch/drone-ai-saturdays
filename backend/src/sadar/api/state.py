@@ -25,8 +25,10 @@ class ReleaseState:
     cases_by_id: Mapping[str, dict[str, Any]]
     operations_by_id: Mapping[str, dict[str, Any]]
     metrics: Mapping[str, Any]
+    aggregate_results: Mapping[str, Any]
     reference: Mapping[str, Any]
     research: Mapping[str, Any] | None
+    demo_data_origin: str
     release_id: str
     schema_version: int
     contextual: bool
@@ -84,12 +86,14 @@ def build_release_state(release: Mapping[str, Any]) -> ReleaseState:
             {item["operation_id"]: item for item in release["operations"]}
         ),
         metrics=MappingProxyType(release["metrics"]),
+        aggregate_results=MappingProxyType(release["aggregate_results"]),
         reference=MappingProxyType(release["reference"]),
         research=(
             MappingProxyType(release["research"])
             if release.get("research") is not None
             else None
         ),
+        demo_data_origin=str(release["demo_data_origin"]),
         release_id=str(manifest["release_id"]),
         schema_version=int(manifest["schema_version"]),
         contextual=(

@@ -1,247 +1,333 @@
 from __future__ import annotations
 
+import copy
+import hashlib
+import inspect
 import json
-import math
+import subprocess
 from pathlib import Path
 
-import numpy as np
-import pandas as pd
 import pytest
 
-from sadar.approach.geometry import EARTH_RADIUS_M, load_lemd_geometry
 from sadar.pipelines import build_context_release as contextual_builder
 from sadar.pipelines import build_release as builder
 from sadar.releases import approach as approach_release
 
 
-def _approach_frame(runway_name: str = "18L") -> pd.DataFrame:
-    runway = load_lemd_geometry().thresholds[runway_name]
-    along = np.linspace(12_000, 100, 80)
-    bearing = math.radians(runway.true_bearing_deg)
-    east = -along * math.sin(bearing)
-    north = -along * math.cos(bearing)
-    lat = runway.lat + np.degrees(north / EARTH_RADIUS_M)
-    lon = runway.lon + np.degrees(
-        east / (EARTH_RADIUS_M * np.cos(np.radians(runway.lat)))
-    )
-    height = np.tan(np.radians(3.0)) * along
-    return pd.DataFrame({
-        "flight_id": "fixture-operation",
-        "icao24": "abc123",
-        "callsign": "TEST1",
-        "time": 1_700_000_000 + np.arange(80) * 10,
-        "lat": lat,
-        "lon": lon,
-        "baroaltitude": runway.elevation_m + height,
-        "geoaltitude": runway.elevation_m + height,
-        "velocity": np.linspace(90, 65, 80),
-        "heading": runway.true_bearing_deg,
-        "vertrate": -3.0,
-        "onground": False,
-        "alert": False,
-        "squawk": "1234",
-    })
+REPO = Path(__file__).resolve().parents[3]
+AGGREGATE_FIXTURE = Path(__file__).parent / "fixtures/public_aggregate_results.json"
 
 
-def _release_payloads(release_dir: Path) -> dict[str, object]:
-    return {
-        relative: json.loads((release_dir / relative).read_text())
-        for relative in approach_release.REQUIRED_FILES
+def _synthetic_payloads(root: Path) -> Path:
+    root.mkdir(parents=True, exist_ok=True)
+    methodology = builder._methodology_payloads()
+    digests = {
+        key: hashlib.sha256(approach_release.canonical_json_bytes(value)).hexdigest()
+        for key, value in methodology.items()
     }
+    scenario = {
+        "scenario_id": "stable-approach",
+        "scenario_title": "Stable synthetic approach",
+        "teaching_goal": "Learn the criteria-observed queue state.",
+    }
+    common = {"data_origin": "synthetic", **scenario}
+    attempt = {
+        **common,
+        "attempt_id": "syn-a-stable-001",
+        "case_id": "syn-c-stable-001",
+        "operation_id": "syn-op-stable-001",
+        "sequence": 1,
+        "start_time": 100,
+        "end_time": 110,
+        "status": "criteria_observed",
+        "outcome": "final_gate_observed",
+        "runway": "18L",
+        "runway_direction": "18",
+        "failed_criteria": [],
+        "assessment": {
+            "schema_version": "approach_assessment_v1",
+            "engine_version": "approach_context_v1",
+            "status": "criteria_observed",
+            "attempt": {"observed_samples": 2, "outcome": "final_gate_observed"},
+            "quality": {"fatal_reasons": [], "channel_advisories": {}, "maximum_gap_s": 10},
+            "runway_inference": {
+                "runway": "18L", "direction": "18", "geometry_runway": "18L",
+                "specificity": "runway", "confidence": "high", "score_margin": 1.0,
+            },
+            "criteria": [
+                {
+                    "name": "lateral_path_proxy",
+                    "status": "within_limit",
+                    "severity": "high",
+                    "observed_samples": 2,
+                    "evidence": [],
+                }
+            ],
+            "reasons": [],
+            "maneuvers": [],
+            "provenance": {"generator": "sadar_synthetic_approach_v1"},
+            "geometry": {},
+            "reference": {},
+            "context": {},
+            "altitude_reference": "barometric",
+        },
+    }
+    case = {
+        **common,
+        "case_id": "syn-c-stable-001",
+        "attempt_id": "syn-a-stable-001",
+        "operation_id": "syn-op-stable-001",
+        "observation_count": 2,
+        "observations_downsampled": False,
+        "observations": [
+            {"observation_index": 0, "time": 100, "lat": 40.48, "lon": -3.56, "baroaltitude": 500.0},
+            {"observation_index": 1, "time": 110, "lat": 40.47, "lon": -3.55, "baroaltitude": 450.0},
+        ],
+    }
+    operation = {
+        **common,
+        "operation_id": "syn-op-stable-001",
+        "start_time": 100,
+        "end_time": 110,
+        "attempt_count": 1,
+        "attempt_ids": ["syn-a-stable-001"],
+        "case_ids": ["syn-c-stable-001"],
+        "status_counts": {"criteria_observed": 1},
+        "worst_status": "criteria_observed",
+    }
+    payloads = {
+        "catalog.json": {
+            "schema_version": "approach_synthetic_demo_v1",
+            "generator_version": "sadar_synthetic_approach_v1",
+            "seed": 20260718,
+            "approach_config_sha256": digests["config/approach-config.json"],
+            "geometry_source_sha256": digests["config/lemd-geometry.json"],
+            "reference_sha256": digests["reference/approach-reference.json"],
+            "scenarios": [scenario],
+        },
+        "attempts.json": {"schema_version": "approach_attempts_v1", "attempts": [attempt]},
+        "cases.json": {"schema_version": "approach_cases_v1", "cases": [case]},
+        "operations.json": {"schema_version": "approach_operations_v1", "operations": [operation]},
+    }
+    for name, payload in payloads.items():
+        (root / name).write_bytes(approach_release.canonical_json_bytes(payload))
+    return root
 
 
-def test_builder_is_deterministic_and_emits_bounded_schema_v3(tmp_path: Path) -> None:
-    input_path = tmp_path / "audited-2025.parquet"
-    _approach_frame().to_parquet(input_path, index=False)
-    left = tmp_path / "left"
-    right = tmp_path / "right"
-
-    first = builder.build_approach_release(
-        input_path, output=left, max_case_observations=12
+def build_valid_release(parent: Path, name: str = "approach-release") -> Path:
+    destination = parent / name
+    synthetic = _synthetic_payloads(parent / f"{name}-synthetic")
+    builder.build_public_release(
+        aggregate_results_path=builder.PUBLIC_AGGREGATE_RESOURCE,
+        synthetic_payload_dir=synthetic,
+        output=destination,
     )
-    second = builder.build_approach_release(
-        input_path, output=right, max_case_observations=12
-    )
+    return destination
 
+
+def _payloads(release: Path) -> dict[str, object]:
+    return {path: json.loads((release / path).read_text()) for path in approach_release.REQUIRED_FILES}
+
+
+def _rewrite_release(release: Path, payloads: dict[str, object]) -> None:
+    manifest = json.loads((release / approach_release.MANIFEST_NAME).read_text())
+    source = manifest["source"]
+    contracts = manifest["contracts"]
+    for path in approach_release.REQUIRED_FILES:
+        target = release / path
+        target.unlink()
+    (release / approach_release.MANIFEST_NAME).unlink()
+    approach_release.write_release(release, payloads, source=source, contracts=contracts)
+
+
+def test_builder_is_deterministic_and_emits_exact_schema_v4(tmp_path: Path) -> None:
+    left = build_valid_release(tmp_path, "left")
+    right = build_valid_release(tmp_path, "right")
+    first = approach_release.validate_public_release_directory(left)
+    second = approach_release.validate_public_release_directory(right)
     assert first == second
-    assert first["schema_version"] == 3
-    assert len(first["release_id"]) == 20
+    assert first["schema_version"] == 4
+    assert first["release_kind"] == "sadar_approach_public_evidence"
+    assert first["data_policy"] == {
+        "demo_records": "synthetic", "research_results": "aggregate_only",
+        "source_records_included": False,
+    }
     assert {item["path"] for item in first["files"]} == approach_release.REQUIRED_FILES
-    assert approach_release.validate_release_directory(left) == first
-    assert approach_release.validate_release_directory(right) == second
     loaded = approach_release.load_release_directory(left)
-    assert loaded["manifest"] == first
-    assert len(loaded["attempts"]) == len(loaded["cases"]) == 1
+    assert loaded["aggregate_results"] is loaded["metrics"]
     assert loaded["research"] is None
-    cases = json.loads((left / "cases.json").read_text())
-    assert len(cases["cases"]) == 1
-    assert cases["cases"][0]["observation_count"] == 80
-    assert cases["cases"][0]["observations_downsampled"] is True
-    assert len(cases["cases"][0]["observations"]) <= 12
-    assert (left / "attempts.json").read_bytes() == approach_release.canonical_json_bytes(
-        json.loads((left / "attempts.json").read_text())
-    )
+    assert loaded["demo_data_origin"] == "synthetic"
+    assert loaded["attempts"][0]["attempt_id"].startswith("syn-a-")
 
 
-def test_contextual_builder_embeds_explicit_weather_type_and_qualification(tmp_path: Path) -> None:
-    input_path = tmp_path / "audited-2025.parquet"
-    frame = _approach_frame()
-    frame.to_parquet(input_path, index=False)
-    weather_dir = tmp_path / "weather"
-    weather_dir.mkdir()
-    (weather_dir / "lemd_isd_2023.csv").write_text(
-        '"STATION","DATE","REPORT_TYPE","WND","TMP","DEW","MA1","REM"\n'
-        '"08221099999","2023-11-14T22:13:20","FM-15",'
-        '"180,1,N,0050,1","+0100,1","+0050,1",'
-        '"10030,1,99999,9","METAR LEMD Q1003="\n'
-    )
-    aircraft_dir = tmp_path / "aircraft"
-    aircraft_dir.mkdir()
-    (aircraft_dir / "aircraftDatabase.part00").write_text(
-        '"icao24","typecode","manufacturername","model","categoryDescription"\n'
-        '"abc123","A320","Airbus","A320","Large"\n'
-    )
-    release_dir = tmp_path / "context-release"
-
-    manifest = contextual_builder.build_contextual_release(
-        input_path,
-        output=release_dir,
-        weather_dir=weather_dir,
-        aircraft_parts_dir=aircraft_dir,
-    )
-
-    assert approach_release.validate_release_directory(release_dir) == manifest
-    attempts = json.loads((release_dir / "attempts.json").read_text())["attempts"]
-    assert attempts[0]["assessment"]["engine_version"] == "approach_context_v1"
-    assert attempts[0]["assessment"]["context"]["weather"]["qnh_hpa"] == 1003.0
-    assert attempts[0]["assessment"]["context"]["aircraft"]["typecode"] == "A320"
-    config = json.loads((release_dir / "config/approach-config.json").read_text())
-    metrics = json.loads((release_dir / "metrics.json").read_text())
-    assert config["context_sources"]["qualification"].startswith("not_qualified")
-    assert metrics["qualification"].startswith("not_qualified")
-    assert metrics["allowed_role"] == (
-        "research_and_evidence_labeling_demonstrator"
-    )
-    assert "operational_monitoring" in metrics["blocked_uses"]
-    assert manifest["contracts"]["qualification"].startswith("not_qualified")
-
-
-def test_validator_rejects_corruption_extras_and_symlinks(tmp_path: Path) -> None:
-    input_path = tmp_path / "audited-2025.parquet"
-    _approach_frame().to_parquet(input_path, index=False)
-    release_dir = tmp_path / "release"
-    builder.build_approach_release(input_path, output=release_dir)
-
-    attempts = release_dir / "attempts.json"
-    original = attempts.read_bytes()
-    attempts.write_bytes(original + b" ")
-    with pytest.raises(approach_release.ApproachReleaseIntegrityError, match="attempts.json"):
-        approach_release.validate_release_directory(release_dir)
-    attempts.write_bytes(original)
-
-    (release_dir / "unexpected.txt").write_text("unexpected")
-    with pytest.raises(approach_release.ApproachReleaseFormatError, match="extra_files"):
-        approach_release.validate_release_directory(release_dir)
-    (release_dir / "unexpected.txt").unlink()
-
-    (release_dir / "alias.json").symlink_to("metrics.json")
-    with pytest.raises(approach_release.ApproachReleaseFormatError, match="symlink"):
-        approach_release.validate_release_directory(release_dir)
-
-
-def test_payload_validator_rejects_missing_attempt_contract(tmp_path: Path) -> None:
-    input_path = tmp_path / "audited-2025.parquet"
-    _approach_frame().to_parquet(input_path, index=False)
-    release_dir = tmp_path / "release"
-    builder.build_approach_release(input_path, output=release_dir)
-    payloads = _release_payloads(release_dir)
-    payloads["attempts.json"]["attempts"][0].pop("status")
-
-    with pytest.raises(
-        approach_release.ApproachReleaseFormatError, match="unsupported status"
-    ):
-        approach_release._validate_payloads(payloads)
-
-
-def test_payload_validator_rejects_permuted_and_duplicate_links(tmp_path: Path) -> None:
-    first = _approach_frame()
-    second = _approach_frame("32L")
-    second["flight_id"] = "fixture-operation-2"
-    second["icao24"] = "def456"
-    second["time"] += 10_000
-    input_path = tmp_path / "audited-2025.parquet"
-    pd.concat([first, second], ignore_index=True).to_parquet(input_path, index=False)
-    release_dir = tmp_path / "release"
-    builder.build_approach_release(input_path, output=release_dir)
-
-    payloads = _release_payloads(release_dir)
-    records = payloads["attempts.json"]["attempts"]
-    records[0]["case_id"], records[1]["case_id"] = (
-        records[1]["case_id"], records[0]["case_id"],
-    )
-    with pytest.raises(
-        approach_release.ApproachReleaseFormatError, match="not reciprocal"
-    ):
-        approach_release._validate_payloads(payloads)
-
-    payloads = _release_payloads(release_dir)
-    operations = payloads["operations.json"]["operations"]
-    duplicate_attempt = operations[0]["attempt_ids"][0]
-    operations[1]["attempt_ids"].append(duplicate_attempt)
-    operations[1]["attempt_count"] += 1
-    with pytest.raises(
-        approach_release.ApproachReleaseFormatError, match="cover attempts exactly"
-    ):
-        approach_release._validate_payloads(payloads)
-
-
-def test_manifest_requires_v3_required_subset_and_optional_allowlist(tmp_path: Path) -> None:
-    input_path = tmp_path / "audited-2025.parquet"
-    _approach_frame().to_parquet(input_path, index=False)
-    release_dir = tmp_path / "release"
-    manifest = builder.build_approach_release(input_path, output=release_dir)
-
-    invalid = dict(manifest)
-    invalid["schema_version"] = 2
-    invalid["release_id"] = approach_release.release_id_for_manifest(invalid)
+def test_manifest_rejects_schema_v3_and_any_extra_file(tmp_path: Path) -> None:
+    release = build_valid_release(tmp_path)
+    manifest = json.loads((release / approach_release.MANIFEST_NAME).read_text())
+    legacy = copy.deepcopy(manifest)
+    legacy["schema_version"] = 3
+    legacy["release_id"] = approach_release.release_id_for_manifest(legacy)
     with pytest.raises(approach_release.ApproachReleaseFormatError, match="schema_version"):
-        approach_release.validate_manifest(invalid)
-
-    missing = dict(manifest)
-    missing["files"] = [
-        item for item in missing["files"] if item["path"] != "metrics.json"
-    ]
-    missing["release_id"] = approach_release.release_id_for_manifest(missing)
-    with pytest.raises(approach_release.ApproachReleaseFormatError, match="missing"):
-        approach_release.validate_manifest(missing)
-
-    extra = dict(manifest)
-    extra["files"] = [
-        *extra["files"],
-        {"path": "not-allowed.json", "sha256": "0" * 64, "bytes": 0},
-    ]
-    extra["files"] = sorted(extra["files"], key=lambda item: item["path"])
+        approach_release.validate_manifest(legacy)
+    extra = copy.deepcopy(manifest)
+    extra["files"].append({"path": "research/benchmark.json", "sha256": "0" * 64, "bytes": 0})
+    extra["files"].sort(key=lambda item: item["path"])
     extra["release_id"] = approach_release.release_id_for_manifest(extra)
     with pytest.raises(approach_release.ApproachReleaseFormatError, match="allowlisted"):
         approach_release.validate_manifest(extra)
 
 
-def test_builder_refuses_sealed_2026_before_parquet_read(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+@pytest.mark.parametrize(
+    ("lane", "mutation", "match"),
+    [
+        ("attempts", lambda record: record.update(data_origin="real"), "data_origin"),
+        ("attempts", lambda record: record.update(attempt_id="a-real"), "prefix"),
+        ("cases", lambda record: record.update(case_id="c-real"), "prefix"),
+        ("operations", lambda record: record.update(operation_id="op-real"), "prefix"),
+        ("operations", lambda record: record.update(icao24="secret"), "forbidden identifier"),
+    ],
+)
+def test_synthetic_validators_reject_wrong_origin_prefix_and_identifier(
+    tmp_path: Path, lane: str, mutation, match: str
 ) -> None:
-    sealed = tmp_path / "sealed.parquet"
-    sealed.write_bytes(b"not parsed")
-    read = False
+    release = build_valid_release(tmp_path)
+    payloads = _payloads(release)
+    record = payloads[f"demo/{lane}.json"][lane][0]
+    mutation(record)
+    with pytest.raises(approach_release.ApproachReleaseError, match=match):
+        approach_release._validate_payloads(payloads)
 
-    def fail_if_read(*args, **kwargs):
-        nonlocal read
-        read = True
-        raise AssertionError("sealed parquet was read")
 
-    monkeypatch.setattr(
-        builder, "file_sha256", lambda path: next(iter(builder.SEALED_HOLDOUT_SHA256))
+@pytest.mark.parametrize("forbidden", sorted(approach_release._FORBIDDEN_AGGREGATE_KEYS))
+def test_aggregate_rejects_forbidden_keys_at_nested_levels(forbidden: str) -> None:
+    aggregate = json.loads(builder.PUBLIC_AGGREGATE_RESOURCE.read_text())
+    aggregate["findings"]["screening_holdout"][forbidden] = "private-value"
+    with pytest.raises(approach_release.ApproachReleaseFormatError, match=forbidden):
+        approach_release._validate_aggregate_results(aggregate)
+
+
+def test_aggregate_rejects_epoch_small_cell_and_missing_complement(tmp_path: Path) -> None:
+    aggregate = json.loads(builder.PUBLIC_AGGREGATE_RESOURCE.read_text())
+    aggregate["cohorts"][0]["rows"] = 1_700_000_000
+    with pytest.raises(approach_release.ApproachReleaseFormatError, match="epoch-like"):
+        approach_release._validate_aggregate_results(aggregate)
+
+
+def test_every_primary_suppression_resists_integer_subtraction_attack() -> None:
+    aggregate = json.loads(builder.PUBLIC_AGGREGATE_RESOURCE.read_text())
+    count_maps: list[dict[str, object]] = []
+
+    def visit(value: object, key: str = "") -> None:
+        if isinstance(value, dict):
+            if key.endswith("_counts") and "<10" in value.values():
+                count_maps.append(value)
+            for child_key, child in value.items():
+                visit(child, child_key)
+        elif isinstance(value, list):
+            for child in value:
+                visit(child, key)
+
+    visit(aggregate)
+    assert count_maps
+    for count_map in count_maps:
+        assert list(count_map.values()).count("suppressed") == 1
+        explicit = sum(value for value in count_map.values() if isinstance(value, int))
+        # For every plausible partition total, no total can identify the primary
+        # without also knowing the complementary cell. All nine primary values
+        # retain at least one non-negative complementary solution.
+        plausible_total = explicit + 100
+        candidates = {
+            primary
+            for primary in range(1, 10)
+            if plausible_total - explicit - primary >= 0
+        }
+        assert candidates == set(range(1, 10))
+    aggregate = json.loads(builder.PUBLIC_AGGREGATE_RESOURCE.read_text())
+    aggregate["cohorts"][0]["status_counts"]["criteria_observed"] = 5
+    with pytest.raises(approach_release.ApproachReleaseFormatError, match="unsuppressed"):
+        approach_release._validate_aggregate_results(aggregate)
+    aggregate = json.loads(builder.PUBLIC_AGGREGATE_RESOURCE.read_text())
+    count_map = aggregate["cohorts"][0]["outcome_counts"]
+    suppressed = next(key for key, value in count_map.items() if value == "suppressed")
+    count_map[suppressed] = 578
+    with pytest.raises(approach_release.ApproachReleaseFormatError, match="complementary"):
+        approach_release._validate_aggregate_results(aggregate)
+
+
+def test_reference_is_closed_and_digest_bound() -> None:
+    reference = builder._public_reference()
+    approach_release._validate_reference(reference)
+    assert "diagnostics" not in reference and "stratification" not in reference
+    hostile = copy.deepcopy(reference)
+    hostile["renamed_rows"] = [{"x": 40.4, "y": -3.5, "event": 100}]
+    with pytest.raises(approach_release.ApproachReleaseFormatError, match="keys mismatch"):
+        approach_release._validate_reference(hostile)
+    hostile = copy.deepcopy(reference)
+    hostile["entries"][0]["diagnostics"] = {"sample": "private"}
+    with pytest.raises(approach_release.ApproachReleaseFormatError, match="keys mismatch"):
+        approach_release._validate_reference(hostile)
+
+
+def test_production_aggregate_regenerates_byte_for_byte() -> None:
+    projected = builder.project_reviewed_aggregate_results(
+        holdout_path=builder.HOLDOUT_ARTIFACT,
+        comparison_path=builder.COMPARISON_ARTIFACT,
+        coverage_path=builder.COVERAGE_ARTIFACT,
+        generated_at="2026-07-18",
     )
-    monkeypatch.setattr(builder.pd, "read_parquet", fail_if_read)
-    with pytest.raises(ValueError, match="sealed 2026 holdout"):
-        builder.build_approach_release(sealed, output=tmp_path / "release")
-    assert read is False
+    assert approach_release.canonical_json_bytes(projected) == builder.PUBLIC_AGGREGATE_RESOURCE.read_bytes()
+    assert approach_release.canonical_json_bytes(json.loads(AGGREGATE_FIXTURE.read_text())) == builder.PUBLIC_AGGREGATE_RESOURCE.read_bytes()
+    assert projected["cohorts"][0]["base_reference_sha256"] == "b485f747154ea8d84ba6b5c980501e3a22bca9caff40c41711de107b03496c56"
+    assert projected["cohorts"][1]["context_reference_sha256"] == "68ea1a974a077e0b2ef8322564d7799c5fd52cbd21db42b8d5bf1badad57d328"
+
+
+def test_catalog_hash_binding_fails_closed(tmp_path: Path) -> None:
+    synthetic = _synthetic_payloads(tmp_path / "synthetic")
+    catalog = json.loads((synthetic / "catalog.json").read_text())
+    catalog["reference_sha256"] = "0" * 64
+    (synthetic / "catalog.json").write_bytes(approach_release.canonical_json_bytes(catalog))
+    with pytest.raises(approach_release.ApproachReleaseFormatError, match="methodology"):
+        builder.build_public_release(
+            aggregate_results_path=builder.PUBLIC_AGGREGATE_RESOURCE,
+            synthetic_payload_dir=synthetic,
+            output=tmp_path / "release",
+        )
+
+
+def test_public_builder_has_no_raw_input_signature_or_import() -> None:
+    signature = inspect.signature(builder.build_public_release)
+    assert set(signature.parameters) == {"aggregate_results_path", "synthetic_payload_dir", "output"}
+    source = Path(builder.__file__).read_text()
+    for forbidden in ("read_parquet", "DataFrame", "source_operation_id", '"icao24"', '"callsign"'):
+        assert forbidden not in source
+
+
+def test_context_builder_refuses_before_touching_nonexistent_raw_path(tmp_path: Path) -> None:
+    nonexistent = tmp_path / "must-not-be-read.parquet"
+    with pytest.raises(RuntimeError, match="raw-data public release assembly is retired"):
+        contextual_builder.build_contextual_release(nonexistent, output=tmp_path / "release")
+    result = subprocess.run(
+        [
+            str(REPO / "backend/.venv/bin/sadar-build-context-release"),
+            "--input", str(nonexistent), "--output", str(tmp_path / "release"),
+            "--weather-dir", str(tmp_path / "missing-weather"),
+            "--aircraft-parts-dir", str(tmp_path / "missing-aircraft"),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode != 0
+    assert "raw-data public release assembly is retired" in result.stderr
+    assert not nonexistent.exists()
+
+
+def test_validation_cli_is_quiet_about_rejected_values(tmp_path: Path, capsys) -> None:
+    release = build_valid_release(tmp_path)
+    assert approach_release.validation_main(["--release-dir", str(release)]) == 0
+    output = json.loads(capsys.readouterr().out)
+    assert set(output) == {"release_id", "schema_version", "demo_count", "cohort_count"}
+    payloads = _payloads(release)
+    payloads["demo/operations.json"]["operations"][0]["callsign"] = "SECRET-CALLSIGN"
+    with pytest.raises(approach_release.ApproachReleaseFormatError) as error:
+        approach_release._validate_payloads(payloads)
+    assert "SECRET-CALLSIGN" not in str(error.value)

@@ -1,4 +1,4 @@
-"""Deterministic, strict archive transport for schema-v3 approach releases.
+"""Deterministic, strict archive transport for schema-v4 public releases.
 
 The serving image uses this standard-library-only boundary to verify a public archive
 before installing it. Publisher credentials and the Hugging Face SDK stay outside the
@@ -40,7 +40,7 @@ ReleaseError = ApproachReleaseError
 ReleaseFormatError = ApproachReleaseFormatError
 ReleaseIntegrityError = ApproachReleaseIntegrityError
 RELEASE_SCHEMA_VERSION = APPROACH_RELEASE_SCHEMA_VERSION
-MAX_ARCHIVE_BYTES = 128 * 1024 * 1024
+MAX_ARCHIVE_BYTES = 64 * 1024 * 1024
 MAX_ARCHIVE_DECOMPRESSED_BYTES = MAX_TOTAL_BYTES + MAX_MANIFEST_BYTES + 16 * 1024 * 1024
 _SHA256_LENGTH = 64
 

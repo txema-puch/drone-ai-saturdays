@@ -21,6 +21,10 @@ RELEASE_DIR = Path(
         REPO / ".artifacts/approach-release",
     )
 )
+if not RELEASE_DIR.exists():
+    from tests.product.test_approach_release import build_valid_release
+
+    build_valid_release(RELEASE_DIR.parent, RELEASE_DIR.name)
 RELEASE = load_release_directory(RELEASE_DIR)
 
 
@@ -56,7 +60,9 @@ def test_health_and_openapi_describe_rules_first_product(tmp_path: Path):
     assert response.status_code == 200
     health = response.json()
     assert health["mode"] == "approach-screening"
-    assert health["schema_version"] == 3
+    assert health["schema_version"] == 4
+    assert health["demo_data_origin"] == "synthetic"
+    assert health["research_data_origin"] == "aggregate_real"
     assert health["attempts"] == sum(health["status_counts"].values())
     assert health["reference"]["artifact_sha256"] == RELEASE["reference"]["artifact_sha256"]
     assert app.title == "SADAR Analyst Console"
@@ -67,7 +73,15 @@ def test_attempt_queue_filters_and_detail_are_release_backed(tmp_path: Path):
     client = TestClient(_app(tmp_path))
     queue = client.get("/api/approaches?limit=5000").json()
     assert len(queue) == len(RELEASE["attempts"])
-    assert queue[0]["status"] == "review_required"
+    priority = {
+        "review_required": 0,
+        "partial_observation": 1,
+        "criteria_observed": 2,
+        "not_assessable": 3,
+    }
+    assert [priority[item["status"]] for item in queue] == sorted(
+        priority[item["status"]] for item in queue
+    )
     selected = queue[0]
     filtered = client.get(f"/api/approaches?status={selected['status']}").json()
     assert filtered

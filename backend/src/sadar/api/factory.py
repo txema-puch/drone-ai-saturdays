@@ -102,6 +102,15 @@ def create_app(
 
     @app.get("/api/health")
     def health() -> dict:
+        status_counts = {
+            status: sum(item["status"] == status for item in state.attempts)
+            for status in (
+                "criteria_observed",
+                "not_assessable",
+                "partial_observation",
+                "review_required",
+            )
+        }
         return {
             "status": "ok",
             "mode": "approach-screening",
@@ -109,7 +118,7 @@ def create_app(
             "schema_version": state.schema_version,
             "attempts": len(state.attempts),
             "operations": len(state.operations_by_id),
-            "status_counts": state.metrics.get("status_counts", {}),
+            "status_counts": status_counts,
             "cases_available": len(state.cases_by_id),
             "reference": {
                 "status": "loaded",
@@ -121,6 +130,8 @@ def create_app(
             "qualification": state.metrics.get("qualification"),
             "allowed_role": state.metrics.get("allowed_role"),
             "blocked_uses": state.metrics.get("blocked_uses", []),
+            "demo_data_origin": state.demo_data_origin,
+            "research_data_origin": "aggregate_real",
         }
 
     @app.get("/api/approaches")

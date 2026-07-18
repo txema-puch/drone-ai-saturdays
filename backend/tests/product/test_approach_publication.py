@@ -16,14 +16,18 @@ REPO = Path(__file__).resolve().parents[3]
 SOURCE = Path(
     os.environ.get("SADAR_APPROACH_RELEASE_DIR", REPO / ".artifacts/approach-release")
 )
+if not SOURCE.exists():
+    from tests.product.test_approach_release import build_valid_release
+
+    build_valid_release(SOURCE.parent, SOURCE.name)
 REVISION = "a" * 40
 URL = (
-    "https://huggingface.co/Txemapuch/sadar-demo-release/resolve/"
+    "https://huggingface.co/Txemapuch/sadar-analyst-console-release/resolve/"
     f"{REVISION}/{publish_approach_release.ARTIFACT_NAME}"
 )
 
 
-def test_schema_v3_publication_lock_and_anonymous_fetch_round_trip(tmp_path: Path):
+def test_schema_v4_publication_lock_and_anonymous_fetch_round_trip(tmp_path: Path):
     repository = tmp_path / "repo"
     lock = repository / "backend/src/sadar/releases" / publish_approach_release.LOCK_NAME
     lock.parent.mkdir(parents=True)
@@ -46,7 +50,7 @@ def test_schema_v3_publication_lock_and_anonymous_fetch_round_trip(tmp_path: Pat
         clock=lambda: datetime(2026, 7, 14, 12, 0, tzinfo=UTC),
     )
     assert json.loads(lock.read_text()) == record
-    assert record["schema_version"] == 3
+    assert record["schema_version"] == 4
 
     destination = tmp_path / "runtime/release"
     installed = fetch_approach_release.fetch_locked_release(
