@@ -12,6 +12,7 @@ import re
 import stat
 import sys
 from collections.abc import Mapping
+from datetime import date as calendar_date
 from itertools import product
 from pathlib import Path, PurePosixPath
 from typing import Any
@@ -51,6 +52,13 @@ _DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 _FORBIDDEN_AGGREGATE_KEYS = {
     "lat", "lon", "latitude", "longitude", "icao24", "callsign", "flight_id",
     "source_operation_id", "observations", "trajectory", "path", "squawk", "alert",
+}
+_FORBIDDEN_DEMO_IDENTIFIER_KEYS = {
+    "source_operation_id", "icao24", "callsign", "flight_id",
+}
+_OBSERVATION_KEYS = {
+    "observation_index", "time", "lat", "lon", "baroaltitude", "geoaltitude",
+    "velocity", "heading", "vertrate", "onground",
 }
 _STATUS_KEYS = {
     "criteria_observed", "not_assessable", "partial_observation", "review_required",
@@ -164,6 +172,32 @@ def _text(value: Any, field: str) -> str:
     if not isinstance(value, str) or not value.strip() or value != value.strip() or len(value) > 500:
         raise ApproachReleaseFormatError(f"{field} must be trimmed non-empty text")
     return value
+
+
+def _scan_forbidden_keys(value: Any, field: str, forbidden: set[str]) -> None:
+    pending: list[tuple[Any, str]] = [(value, field)]
+    while pending:
+        current, current_path = pending.pop()
+        if isinstance(current, dict):
+            for key, child in current.items():
+                child_path = f"{current_path}.{key}"
+                if key.lower() in forbidden:
+                    raise ApproachReleaseFormatError(f"{child_path} is forbidden")
+                pending.append((child, child_path))
+        elif isinstance(current, list):
+            pending.extend(
+                (child, f"{current_path}[{index}]")
+                for index, child in enumerate(current)
+            )
+
+
+def _optional_number(value: Any, field: str) -> None:
+    if value is not None and (
+        isinstance(value, bool)
+        or not isinstance(value, (int, float))
+        or not math.isfinite(float(value))
+    ):
+        raise ApproachReleaseFormatError(f"{field} must be a finite number or null")
 
 
 def _total(value: Any, field: str, *, nullable: bool = False) -> int | None:
@@ -648,6 +682,17 @@ def _validate_aggregate_results(value: Any) -> None:
     date = access["publication_notice_date"]
     if date is not None and (not isinstance(date, str) or not _DATE_RE.fullmatch(date)):
         raise ApproachReleaseFormatError("aggregate_results publication_notice_date is invalid")
+    if date is not None:
+        try:
+            parsed_notice_date = calendar_date.fromisoformat(date)
+        except ValueError as exc:
+            raise ApproachReleaseFormatError(
+                "aggregate_results publication_notice_date is invalid"
+            ) from exc
+        if parsed_notice_date > calendar_date.fromisoformat(top["generated_at"]):
+            raise ApproachReleaseFormatError(
+                "aggregate_results publication_notice_date is invalid"
+            )
     if (status == "pending") != (date is None):
         raise ApproachReleaseFormatError(
             "aggregate_results publication_notice_date does not match "
@@ -836,6 +881,7 @@ def _validate_catalog(catalog: Any) -> dict[str, dict[str, Any]]:
 def _synthetic_common(record: Any, field: str, scenarios: dict[str, dict[str, Any]]) -> None:
     if not isinstance(record, dict) or record.get("data_origin") != "synthetic":
         raise ApproachReleaseFormatError(f"{field}.data_origin must be synthetic")
+    _scan_forbidden_keys(record, field, _FORBIDDEN_DEMO_IDENTIFIER_KEYS)
     scenario = scenarios.get(record.get("scenario_id"))
     if scenario is None:
         raise ApproachReleaseFormatError(f"{field}.scenario_id is unknown")
@@ -856,6 +902,30 @@ def _validate_synthetic_attempts(value: Any, scenarios: dict[str, dict[str, Any]
             raise ApproachReleaseFormatError(f"demo.attempts[{index}].attempt_id prefix is invalid")
         if record.get("status") not in _STATUS_KEYS:
             raise ApproachReleaseFormatError(f"demo.attempts[{index}].status is invalid")
+        assessment = record.get("assessment")
+        if not isinstance(assessment, dict):
+            raise ApproachReleaseFormatError(f"demo.attempts[{index}].assessment must be an object")
+        for key in ("attempt", "quality", "runway_inference"):
+            child = assessment.get(key)
+            if child is not None and not isinstance(child, dict):
+                raise ApproachReleaseFormatError(
+                    f"demo.attempts[{index}].assessment.{key} must be an object or null"
+                )
+        for key in ("criteria", "reasons", "maneuvers"):
+            child = assessment.get(key)
+            if child is not None and not isinstance(child, list):
+                raise ApproachReleaseFormatError(
+                    f"demo.attempts[{index}].assessment.{key} must be an array or null"
+                )
+        if assessment.get("status") != record["status"]:
+            raise ApproachReleaseFormatError(
+                f"demo.attempts[{index}].assessment.status mismatch"
+            )
+        for criterion_index, criterion in enumerate(assessment.get("criteria") or []):
+            if not isinstance(criterion, dict) or not isinstance(criterion.get("evidence"), list):
+                raise ApproachReleaseFormatError(
+                    f"demo.attempts[{index}].assessment.criteria[{criterion_index}] is invalid"
+                )
     return value["attempts"]
 
 
@@ -871,6 +941,21 @@ def _validate_synthetic_cases(value: Any, scenarios: dict[str, dict[str, Any]]) 
             raise ApproachReleaseFormatError(f"demo.cases[{index}].observations must be an array")
         if len(record["observations"]) > 600:
             raise ApproachReleaseFormatError(f"demo.cases[{index}].observations exceeds limit")
+        if record.get("observation_count") != len(record["observations"]):
+            raise ApproachReleaseFormatError(f"demo.cases[{index}].observation_count mismatch")
+        for observation_index, observation in enumerate(record["observations"]):
+            field = f"demo.cases[{index}].observations[{observation_index}]"
+            if not isinstance(observation, dict) or not {
+                "observation_index", "time", "lat", "lon", "baroaltitude",
+            }.issubset(observation) or not set(observation).issubset(_OBSERVATION_KEYS):
+                raise ApproachReleaseFormatError(f"{field} shape is invalid")
+            if observation["observation_index"] != observation_index:
+                raise ApproachReleaseFormatError(f"{field}.observation_index mismatch")
+            for key in _OBSERVATION_KEYS - {"observation_index", "onground"}:
+                if key in observation:
+                    _optional_number(observation[key], f"{field}.{key}")
+            if "onground" in observation and not isinstance(observation["onground"], bool):
+                raise ApproachReleaseFormatError(f"{field}.onground must be boolean")
     return value["cases"]
 
 
@@ -882,26 +967,15 @@ def _validate_synthetic_operations(value: Any, scenarios: dict[str, dict[str, An
         _synthetic_common(record, f"demo.operations[{index}]", scenarios)
         if not isinstance(record.get("operation_id"), str) or not record["operation_id"].startswith("syn-op-"):
             raise ApproachReleaseFormatError(f"demo.operations[{index}].operation_id prefix is invalid")
-        forbidden_path: str | None = None
-        pending: list[tuple[Any, str]] = [(record, f"demo.operations[{index}]")]
-        while pending:
-            current, current_path = pending.pop()
-            if isinstance(current, dict):
-                for key, child in current.items():
-                    child_path = f"{current_path}.{key}"
-                    if key.lower() in {"source_operation_id", "icao24", "callsign", "flight_id"}:
-                        forbidden_path = child_path
-                        break
-                    pending.append((child, child_path))
-            elif isinstance(current, list):
-                pending.extend(
-                    (child, f"{current_path}[{child_index}]")
-                    for child_index, child in enumerate(current)
-                )
-            if forbidden_path is not None:
-                break
-        if forbidden_path is not None:
-            raise ApproachReleaseFormatError(f"{forbidden_path} is forbidden")
+        for key in ("attempt_ids", "case_ids"):
+            if not isinstance(record.get(key), list) or not all(
+                isinstance(item, str) for item in record[key]
+            ):
+                raise ApproachReleaseFormatError(f"demo.operations[{index}].{key} is invalid")
+        if not _plain_int(record.get("attempt_count")) or record["attempt_count"] < 0:
+            raise ApproachReleaseFormatError(
+                f"demo.operations[{index}].attempt_count is invalid"
+            )
     return value["operations"]
 
 
@@ -915,9 +989,20 @@ def _validate_cross_references(attempts: list[dict[str, Any]], cases: list[dict[
     attempt_ids, case_ids, operation_ids = identifiers
     attempts_by_id = {item["attempt_id"]: item for item in attempts}
     cases_by_id = {item["case_id"]: item for item in cases}
+    if len({item.get("case_id") for item in attempts}) != len(attempts):
+        raise ApproachReleaseFormatError("synthetic attempt/case links must be one-to-one")
+    if len({item.get("attempt_id") for item in cases}) != len(cases):
+        raise ApproachReleaseFormatError("synthetic case/attempt links must be one-to-one")
     for attempt in attempts:
         if attempt.get("case_id") not in case_ids or attempt.get("operation_id") not in operation_ids:
             raise ApproachReleaseFormatError("synthetic attempt cross reference is invalid")
+        case = cases_by_id[attempt["case_id"]]
+        if (
+            case.get("attempt_id") != attempt["attempt_id"]
+            or case.get("operation_id") != attempt["operation_id"]
+            or case.get("scenario_id") != attempt.get("scenario_id")
+        ):
+            raise ApproachReleaseFormatError("synthetic attempt/case links are not reciprocal")
     for case in cases:
         if case.get("attempt_id") not in attempt_ids or case.get("operation_id") not in operation_ids:
             raise ApproachReleaseFormatError("synthetic case cross reference is invalid")
@@ -934,10 +1019,18 @@ def _validate_cross_references(attempts: list[dict[str, Any]], cases: list[dict[
         if operation.get("attempt_count") != len(operation.get("attempt_ids", [])):
             raise ApproachReleaseFormatError("synthetic operation attempt_count is inconsistent")
         for attempt_id in operation.get("attempt_ids", []):
-            if attempts_by_id[attempt_id].get("operation_id") != operation["operation_id"]:
+            attempt = attempts_by_id[attempt_id]
+            if (
+                attempt.get("operation_id") != operation["operation_id"]
+                or attempt.get("scenario_id") != operation.get("scenario_id")
+            ):
                 raise ApproachReleaseFormatError("synthetic grouped attempt owner is invalid")
         for case_id in operation.get("case_ids", []):
-            if cases_by_id[case_id].get("operation_id") != operation["operation_id"]:
+            case = cases_by_id[case_id]
+            if (
+                case.get("operation_id") != operation["operation_id"]
+                or case.get("scenario_id") != operation.get("scenario_id")
+            ):
                 raise ApproachReleaseFormatError("synthetic grouped case owner is invalid")
 
 

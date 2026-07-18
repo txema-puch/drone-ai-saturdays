@@ -190,7 +190,9 @@ def test_manifest_rejects_schema_v3_and_any_extra_file(tmp_path: Path) -> None:
     [
         ("attempts", lambda record: record.update(data_origin="real"), "data_origin"),
         ("attempts", lambda record: record.update(attempt_id="a-real"), "prefix"),
+        ("attempts", lambda record: record["assessment"].update(icao24="secret"), "icao24"),
         ("cases", lambda record: record.update(case_id="c-real"), "prefix"),
+        ("cases", lambda record: record["observations"][0].update(callsign="secret"), "callsign"),
         ("operations", lambda record: record.update(operation_id="op-real"), "prefix"),
         ("operations", lambda record: record.update(icao24="secret"), "icao24"),
     ],
@@ -204,6 +206,42 @@ def test_synthetic_validators_reject_wrong_origin_prefix_and_identifier(
     mutation(record)
     with pytest.raises(approach_release.ApproachReleaseError, match=match):
         approach_release._validate_payloads(payloads)
+
+
+@pytest.mark.parametrize(
+    ("mutation", "match"),
+    [
+        (lambda payloads: payloads["demo/attempts.json"]["attempts"][0].pop("assessment"), "assessment"),
+        (
+            lambda payloads: payloads["demo/cases.json"]["cases"][0]["observations"][0].update(lat="invalid"),
+            "lat",
+        ),
+        (
+            lambda payloads: payloads["demo/cases.json"]["cases"][0].update(observation_count=99),
+            "observation_count",
+        ),
+    ],
+)
+def test_synthetic_validators_reject_runtime_unsafe_shapes(
+    tmp_path: Path, mutation, match: str
+) -> None:
+    release = build_valid_release(tmp_path)
+    payloads = _payloads(release)
+    mutation(payloads)
+    with pytest.raises(approach_release.ApproachReleaseError, match=match):
+        approach_release._validate_payloads(payloads)
+
+
+@pytest.mark.parametrize("bad_date", ["2026-99-99", "2026-02-30", "2026-07-19"])
+def test_publication_notice_rejects_impossible_or_future_dates(bad_date: str) -> None:
+    aggregate = json.loads(builder.PUBLIC_AGGREGATE_RESOURCE.read_text())
+    aggregate["data_access"]["publication_notice_status"] = "sent"
+    aggregate["data_access"]["publication_notice_date"] = bad_date
+    with pytest.raises(
+        approach_release.ApproachReleaseFormatError,
+        match="publication_notice_date",
+    ):
+        approach_release._validate_aggregate_results(aggregate)
 
 
 @pytest.mark.parametrize("forbidden", sorted(approach_release._FORBIDDEN_AGGREGATE_KEYS))

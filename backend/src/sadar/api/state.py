@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections import Counter
 from dataclasses import dataclass
 from types import MappingProxyType
 from typing import Any, Mapping
@@ -25,6 +26,7 @@ class ReleaseState:
     cases_by_id: Mapping[str, dict[str, Any]]
     operations_by_id: Mapping[str, dict[str, Any]]
     metrics: Mapping[str, Any]
+    status_counts: Mapping[str, int]
     aggregate_results: Mapping[str, Any]
     reference: Mapping[str, Any]
     research: Mapping[str, Any] | None
@@ -60,6 +62,10 @@ class EvaluationSlot:
 
 def build_release_state(release: Mapping[str, Any]) -> ReleaseState:
     attempts = tuple(release["attempts"])
+    observed_status_counts = Counter(item["status"] for item in attempts)
+    status_counts = MappingProxyType(
+        {status: observed_status_counts[status] for status in STATUS_PRIORITY}
+    )
     attempts_by_id = MappingProxyType(
         {item["attempt_id"]: item for item in attempts}
     )
@@ -86,6 +92,7 @@ def build_release_state(release: Mapping[str, Any]) -> ReleaseState:
             {item["operation_id"]: item for item in release["operations"]}
         ),
         metrics=MappingProxyType(release["metrics"]),
+        status_counts=status_counts,
         aggregate_results=MappingProxyType(release["aggregate_results"]),
         reference=MappingProxyType(release["reference"]),
         research=(
