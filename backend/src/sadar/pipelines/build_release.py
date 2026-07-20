@@ -39,7 +39,9 @@ HOLDOUT_ARTIFACT = REPO_ROOT / "docs/research/approach-screening/lifecycle/artif
 COMPARISON_ARTIFACT = REPO_ROOT / "docs/research/approach-context/lifecycle/artifacts/val-comparison.json"
 COVERAGE_ARTIFACT = REPO_ROOT / "docs/research/approach-context/lifecycle/artifacts/val-coverage.json"
 PUBLIC_AGGREGATE_RESOURCE = Path(__file__).resolve().parents[1] / "approach/resources/lemd_public_aggregate_results_v1.json"
-PRODUCTION_GENERATED_AT = "2026-07-18"
+PRODUCTION_GENERATED_AT = "2026-07-20"
+PRODUCTION_PUBLICATION_NOTICE_STATUS = "sent"
+PRODUCTION_PUBLICATION_NOTICE_DATE = "2026-07-20"
 MAX_CASE_OBSERVATIONS = 600
 
 
@@ -109,7 +111,7 @@ def project_reviewed_aggregate_results(
     holdout_path, comparison_path, coverage_path = map(Path, (holdout_path, comparison_path, coverage_path))
     _assert_reviewed_paths(holdout_path, comparison_path, coverage_path)
     if generated_at != PRODUCTION_GENERATED_AT:
-        raise ValueError("generated_at must equal the reviewed 2026-07-18 decision")
+        raise ValueError("generated_at must equal the reviewed 2026-07-20 publication")
     holdout = _exact(_read_json(holdout_path), {
         "holdout", "interpretation_limits", "policy", "reference_sha256", "release_id",
         "release_source_sha256", "schema_version", "source_commit",
@@ -228,8 +230,8 @@ def project_reviewed_aggregate_results(
             "terms_url": "https://opensky-network.org/about/terms-of-use",
             "access_url": "https://opensky-network.org/data/data-access",
             "citation": "Matthias Schäfer, Martin Strohmeier, Vincent Lenders, Ivan Martinovic, and Matthias Wilhelm. Bringing Up OpenSky: A Large-scale ADS-B Sensor Network for Research. IPSN 2014.",
-            "publication_notice_status": "pending",
-            "publication_notice_date": None,
+            "publication_notice_status": PRODUCTION_PUBLICATION_NOTICE_STATUS,
+            "publication_notice_date": PRODUCTION_PUBLICATION_NOTICE_DATE,
         },
     }
 

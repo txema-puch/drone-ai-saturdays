@@ -679,8 +679,8 @@ def _validate_aggregate_results(value: Any) -> None:
     }, "aggregate_results")
     if top["schema_version"] != "approach_aggregate_results_v1" or top["basis"] != "real_opensky_research_data":
         raise ApproachReleaseFormatError("aggregate_results schema or basis is unsupported")
-    if top["generated_at"] != "2026-07-18":
-        raise ApproachReleaseFormatError("aggregate_results.generated_at must equal 2026-07-18")
+    if top["generated_at"] != "2026-07-20":
+        raise ApproachReleaseFormatError("aggregate_results.generated_at must equal 2026-07-20")
     if top["qualification"] != "not_qualified_no_independent_labels_or_fresh_holdout":
         raise ApproachReleaseFormatError("aggregate_results.qualification is invalid")
     if top["allowed_role"] != "research_and_evidence_labeling_demonstrator":

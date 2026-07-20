@@ -409,7 +409,7 @@ def test_observations_downsampled_must_be_boolean(
         approach_release._validate_payloads(payloads)
 
 
-@pytest.mark.parametrize("bad_date", ["2026-99-99", "2026-02-30", "2026-07-19"])
+@pytest.mark.parametrize("bad_date", ["2026-99-99", "2026-02-30", "2026-07-21"])
 def test_publication_notice_rejects_impossible_or_future_dates(bad_date: str) -> None:
     aggregate = json.loads(builder.PUBLIC_AGGREGATE_RESOURCE.read_text())
     aggregate["data_access"]["publication_notice_status"] = "sent"
@@ -433,10 +433,10 @@ def test_aggregate_rejects_forbidden_keys_at_nested_levels(forbidden: str) -> No
     ("status", "date", "accepted"),
     [
         ("pending", None, True),
-        ("pending", "2026-07-18", False),
-        ("sent", "2026-07-18", True),
+        ("pending", "2026-07-20", False),
+        ("sent", "2026-07-20", True),
         ("sent", None, False),
-        ("acknowledged", "2026-07-18", True),
+        ("acknowledged", "2026-07-20", True),
         ("acknowledged", None, False),
     ],
 )
@@ -584,7 +584,7 @@ def test_production_aggregate_regenerates_byte_for_byte() -> None:
         holdout_path=builder.HOLDOUT_ARTIFACT,
         comparison_path=builder.COMPARISON_ARTIFACT,
         coverage_path=builder.COVERAGE_ARTIFACT,
-        generated_at="2026-07-18",
+        generated_at="2026-07-20",
     )
     assert approach_release.canonical_json_bytes(projected) == builder.PUBLIC_AGGREGATE_RESOURCE.read_bytes()
     assert approach_release.canonical_json_bytes(json.loads(AGGREGATE_FIXTURE.read_text())) == builder.PUBLIC_AGGREGATE_RESOURCE.read_bytes()
@@ -601,7 +601,7 @@ def test_projection_cli_accepts_canonical_tmp_and_rejects_other_outputs(
         "--holdout", str(builder.HOLDOUT_ARTIFACT),
         "--comparison", str(builder.COMPARISON_ARTIFACT),
         "--coverage", str(builder.COVERAGE_ARTIFACT),
-        "--generated-at", "2026-07-18",
+        "--generated-at", "2026-07-20",
         "--output", str(output),
     ]
     try:
