@@ -24,11 +24,14 @@ FRONTEND_LOCK = ROOT / "frontend/package-lock.json"
 FLY_CONFIG = ROOT / "fly.toml"
 FLY_DEPLOY = ROOT / "scripts/deploy-fly.sh"
 WORKFLOW = ROOT / ".github/workflows/clean-checkout.yml"
+PRODUCT_RELEASE_LOCK = ROOT / "backend/src/sadar/releases/approach_bundle.lock.json"
 SMOKE_HTTP = ROOT / "scripts/smoke-http.py"
 DOCKERIGNORE = ROOT / ".dockerignore"
 PRODUCT_TITLE = "SADAR Analyst Console"
 PACKAGE_NAME = "sadar-analyst-console"
 FLY_APP = "sadar-analyst-console"
+PUBLIC_RELEASE_REPOSITORY = "Txemapuch/sadar-analyst-console-release"
+PUBLIC_RELEASE_ARTIFACT = "sadar-approach-public-release.tar.gz"
 
 
 def fail(message: str) -> None:
@@ -127,14 +130,47 @@ def validate_fly_deploy_script(deploy_script: str) -> None:
             fail(f"Fly deploy script must preserve {label}")
 
 
+def validate_public_release_lock(lock: dict) -> None:
+    expected_keys = {
+        "archive_sha256",
+        "published_at",
+        "release_id",
+        "revision",
+        "schema_version",
+        "url",
+    }
+    if set(lock) != expected_keys:
+        fail("product release lock must have the exact schema-v4 fields")
+    if lock.get("schema_version") != 4:
+        fail("product release lock must require schema 4")
+    release_id = lock.get("release_id")
+    revision = lock.get("revision")
+    digest = lock.get("archive_sha256")
+    published_at = lock.get("published_at")
+    if not isinstance(release_id, str) or not re.fullmatch(r"[0-9a-f]{20}", release_id):
+        fail("product release lock must contain a 20-character release ID")
+    if not isinstance(revision, str) or not re.fullmatch(r"[0-9a-f]{40,64}", revision):
+        fail("product release lock must contain an immutable revision")
+    if not isinstance(digest, str) or not re.fullmatch(r"[0-9a-f]{64}", digest):
+        fail("product release lock must contain a SHA-256 archive digest")
+    if not isinstance(published_at, str) or not re.fullmatch(
+        r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", published_at
+    ):
+        fail("product release lock must contain a UTC publication timestamp")
+    expected_url = (
+        "https://huggingface.co/datasets/"
+        f"{PUBLIC_RELEASE_REPOSITORY}/resolve/{revision}/{PUBLIC_RELEASE_ARTIFACT}"
+    )
+    if lock.get("url") != expected_url:
+        fail("product release lock must target the immutable public dataset artifact")
+
+
 def validate_release_delivery(
     *,
     dockerfile: str,
     workflow: str,
     smoke_http: str,
 ) -> None:
-    if "backend/src/sadar/releases/approach_bundle.lock.json" in workflow:
-        fail("local-reviewed CI must not read the retired product lock")
     for private_historical_dependency in (
         "demo_bundle.lock.json",
         "phase6_training_artifacts.lock.json",
@@ -149,18 +185,25 @@ def validate_release_delivery(
             )
     workflow_fragments = (
         "uv sync --project backend/research",
+        "backend/src/sadar/releases/approach_bundle.lock.json",
+        "sadar-fetch-release",
         "sadar-build-synthetic-demo",
         "--seed 20260718",
         "sadar-build-release",
         "lemd_public_aggregate_results_v1.json",
-        "SADAR_APPROACH_RELEASE_DIR: /tmp/sadar-ci-approach-release",
-        "--build-context approach-release-context=/tmp/sadar-ci-approach-release",
-        "--build-arg SADAR_RELEASE_SOURCE=local-reviewed",
+        "SADAR_APPROACH_RELEASE_DIR: /tmp/sadar-ci-locked-release",
+        "--build-arg SADAR_RELEASE_SOURCE=locked-public",
         "--build-arg SOURCE_COMMIT=${{ github.sha }}",
     )
     for fragment in workflow_fragments:
         if fragment not in workflow:
             fail(f"CI is missing schema-v4 delivery fragment: {fragment!r}")
+    for forbidden_local_delivery in (
+        "--build-context approach-release-context=",
+        "--build-arg SADAR_RELEASE_SOURCE=local-reviewed",
+    ):
+        if forbidden_local_delivery in workflow:
+            fail("public CI must use only the locked-public delivery path")
 
     docker_fragments = (
         "AS approach-release-context",
@@ -221,6 +264,7 @@ def main() -> None:
         FLY_CONFIG,
         FLY_DEPLOY,
         WORKFLOW,
+        PRODUCT_RELEASE_LOCK,
         SMOKE_HTTP,
         DOCKERIGNORE,
     ):
@@ -298,6 +342,9 @@ def main() -> None:
         package_lock=json.loads(FRONTEND_LOCK.read_text(encoding="utf-8")),
     )
     validate_fly_config(FLY_CONFIG.read_text(encoding="utf-8"))
+    validate_public_release_lock(
+        json.loads(PRODUCT_RELEASE_LOCK.read_text(encoding="utf-8"))
+    )
     validate_fly_deploy_script(FLY_DEPLOY.read_text(encoding="utf-8"))
     validate_release_delivery(
         dockerfile=dockerfile,

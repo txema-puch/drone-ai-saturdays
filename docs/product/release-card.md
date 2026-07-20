@@ -10,7 +10,7 @@ tags:
 
 # SADAR Analyst Console public evidence release
 
-This card describes the pre-publication schema-v4 archive for SADAR Analyst Console,
+This card describes the published schema-v4 archive for SADAR Analyst Console,
 a research demonstrator for post-flight inspection of ADS-B-observable approach
 criteria at Madrid-Barajas Airport (LEMD).
 
@@ -18,10 +18,11 @@ The archive is a **dataset/application evidence bundle**, not a Hugging Face mod
 hosted inference endpoint, or model-serving package. The rules-first application does
 not load the historical LSTM model.
 
-## Pre-publication identity
+## Release identity
 
 - Dataset repository: `Txemapuch/sadar-analyst-console-release`
 - Artifact: `sadar-approach-public-release.tar.gz`
+- Artifact revision: `5f6b8522acf2e73e3478ba9033698fd44d5b6a1d`
 - Release ID: `86a6eba6309600f56cd5`
 - Schema: `4`
 - Release kind: `sadar_approach_public_evidence`
@@ -30,10 +31,12 @@ not load the historical LSTM model.
 - Synthetic generator: `sadar_synthetic_approach_v1`
 - Seed: `20260718`
 - OpenSky publication notice: **sent 2026-07-20**; acknowledgement is not claimed
-- Hub publication status: **pending**; no public revision is claimed
+- Hub publication status: **public**, anonymously verified
+- Reviewed source revision:
+  [`193c45604c1f644803c8547924b822bbd892215c`](https://github.com/txema-puch/drone-ai-saturdays/tree/193c45604c1f644803c8547924b822bbd892215c)
 
-The publication transaction will publish the immutable revision, anonymously
-redownload it, revalidate the archive and only then replace the product lock.
+The immutable revision was anonymously redownloaded and revalidated before the
+product lock was replaced.
 
 ## Three evidence lanes
 
@@ -110,9 +113,8 @@ artifacts only; neither can affect the current Analyst Console verdict or priori
 Source Git explains and reproduces the release; the dataset registry stores the
 generated immutable archive. A clean checkout deterministically generates the fourteen
 synthetic cases, combines them with the tracked aggregate resource, validates schema 4,
-builds the archive twice and compares its bytes. Pre-publication containers use an
-explicit `local-reviewed` BuildKit context. Production remains fail-closed until an
-immutable schema-v4 lock exists.
+rebuilds the archive and proves its digest matches the public lock. Production uses the
+explicit `locked-public` path and fails closed if that immutable schema-v4 lock drifts.
 
 - [Source repository](https://github.com/txema-puch/drone-ai-saturdays)
 - [Product overview](https://github.com/txema-puch/drone-ai-saturdays/blob/main/docs/product/overview.md)
