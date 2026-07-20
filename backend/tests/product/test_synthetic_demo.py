@@ -389,15 +389,10 @@ def test_schema_v4_release_integration_validates(tmp_path: Path) -> None:
 
 
 def test_generator_source_has_no_row_level_reader() -> None:
-    result = subprocess.run(
-        [
-            "rg", "-n", "read_parquet|read_csv|data/raw|models/",
-            "backend/src/sadar/demo", "backend/src/sadar/pipelines/build_synthetic_demo.py",
-        ],
-        cwd=REPO,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    assert result.returncode == 1, result.stdout
+    sources = sorted((REPO / "backend/src/sadar/demo").rglob("*.py"))
+    sources.append(REPO / "backend/src/sadar/pipelines/build_synthetic_demo.py")
+    for source in sources:
+        text = source.read_text(encoding="utf-8")
+        for forbidden in ("read_parquet", "read_csv", "data/raw", "models/"):
+            assert forbidden not in text, f"{source} contains {forbidden}"
     assert GENERATOR_VERSION == "sadar_synthetic_approach_v1"

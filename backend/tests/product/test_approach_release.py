@@ -610,13 +610,16 @@ def test_projection_cli_accepts_canonical_tmp_and_rejects_other_outputs(
         assert output.read_bytes() == builder.PUBLIC_AGGREGATE_RESOURCE.read_bytes()
     finally:
         output.unlink(missing_ok=True)
-    blocked = tmp_path / "not-allowed.json"
-    rejected = subprocess.run(
-        [*command[:-1], str(blocked)], capture_output=True, text=True, check=False
-    )
-    assert rejected.returncode != 0
-    assert "tracked resource or under /tmp" in rejected.stderr
-    assert not blocked.exists()
+    blocked = Path.home() / f".sadar-plan002-not-allowed-{uuid.uuid4().hex}.json"
+    try:
+        rejected = subprocess.run(
+            [*command[:-1], str(blocked)], capture_output=True, text=True, check=False
+        )
+        assert rejected.returncode != 0
+        assert "tracked resource or under /tmp" in rejected.stderr
+        assert not blocked.exists()
+    finally:
+        blocked.unlink(missing_ok=True)
 
 
 def test_catalog_hash_binding_fails_closed(tmp_path: Path) -> None:
