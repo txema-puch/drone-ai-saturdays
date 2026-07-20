@@ -22,16 +22,17 @@ not load the historical LSTM model.
 
 - Dataset repository: `Txemapuch/sadar-analyst-console-release`
 - Artifact: `sadar-approach-public-release.tar.gz`
-- Release ID: `c8ab38b575a7408c851a`
+- Release ID: `86a6eba6309600f56cd5`
 - Schema: `4`
 - Release kind: `sadar_approach_public_evidence`
 - Deterministic archive SHA-256:
-  `9fca03825aa5ae3353c39478ece06fb34dd0f1459161e9f891e91fd286520eae`
+  `a1ce22743243b845c69d71f31d520a05ffb8e752efac4a12e858327fe74a7143`
 - Synthetic generator: `sadar_synthetic_approach_v1`
 - Seed: `20260718`
-- Publication status: **pending**; no Hub revision or publication date is claimed
+- OpenSky publication notice: **sent 2026-07-20**; acknowledgement is not claimed
+- Hub publication status: **pending**; no public revision is claimed
 
-The publication transaction will create the immutable revision, anonymously
+The publication transaction will publish the immutable revision, anonymously
 redownload it, revalidate the archive and only then replace the product lock.
 
 ## Three evidence lanes
@@ -73,8 +74,8 @@ LEMD. To obtain source observations, use
 [OpenSky data access](https://opensky-network.org/data/data-access) directly and comply
 with the [OpenSky terms of use](https://opensky-network.org/about/terms-of-use).
 
-Publication notice status is **pending** and its date is therefore null. This card does
-not claim that notice has been sent or acknowledged.
+Publication notice status is **sent**, dated 2026-07-20. This card does not claim that
+OpenSky has acknowledged the notice.
 
 OpenSky citation:
 

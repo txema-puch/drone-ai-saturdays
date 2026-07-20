@@ -128,7 +128,8 @@ row, trajectory, aircraft identifier or exact timestamp. Obtain source data thro
 [OpenSky data access](https://opensky-network.org/data/data-access) and follow the
 [OpenSky terms](https://opensky-network.org/about/terms-of-use).
 
-Publication notice to OpenSky is still **pending**; no notice date is claimed. Cite:
+Publication notice was sent to OpenSky on **2026-07-20**; acknowledgement is not
+claimed. Cite:
 Matthias Schäfer, Martin Strohmeier, Vincent Lenders, Ivan Martinovic, and Matthias
 Wilhelm. “Bringing Up OpenSky: A Large-scale ADS-B Sensor Network for Research.” IPSN
 2014.
