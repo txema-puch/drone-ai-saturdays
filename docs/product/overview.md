@@ -48,8 +48,8 @@ Real aggregate findings cite: Matthias Schäfer, Martin Strohmeier, Vincent Lend
 Ivan Martinovic, and Matthias Wilhelm. “Bringing Up OpenSky: A Large-scale ADS-B
 Sensor Network for Research.” IPSN 2014. Users obtain source observations through
 [OpenSky data access](https://opensky-network.org/data/data-access) under the
-[OpenSky terms](https://opensky-network.org/about/terms-of-use). Publication notice is
-pending and therefore has no notice date.
+[OpenSky terms](https://opensky-network.org/about/terms-of-use). Publication notice was
+sent on 2026-07-20; acknowledgement is not claimed.
 
 The former schema-3 application archive was withdrawn from the delivery path because
 it contained row-level upstream data. Schema 4 keeps real results in aggregate, uses
