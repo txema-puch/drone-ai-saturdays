@@ -5,7 +5,8 @@
 - Git stores source, methodology, decisions, human-readable evidence, checksums,
   artifact locks and reproducibility contracts.
 - Hugging Face stores trained weights, generated numerical outputs and immutable
-  release archives.
+  release archives. The current application target is a Hugging Face **dataset**
+  repository because its archive is application evidence, not a model.
 - `docs/` stores curated public product and research documentation.
 - `.workspace/` stores ignored local collaboration material and drafts.
 
@@ -35,9 +36,19 @@ import `sadar_research`.
 
 The Fly image installs only the `sadar` wheel and its generated hash-locked Linux
 dependencies. The Vite build is copied to an explicit directory configured with
-`SADAR_FRONTEND_DIR`; it is not embedded in the wheel. The immutable approach release
-is fetched and verified separately. The image contains no research package, notebooks,
-working documents or trained-model outputs.
+`SADAR_FRONTEND_DIR`; it is not embedded in the wheel. Before publication, CI supplies
+a deterministic local-reviewed schema-v4 directory through a BuildKit named context;
+after publication, production fetches the immutable dataset lock anonymously. Both
+modes run the same schema-v4 validator and install the same manifest plus eight
+allowlisted payload files. The image contains no research package, notebooks, working
+documents or trained-model outputs.
+
+`SADAR_RELEASE_SOURCE` accepts only `local-reviewed` and `locked-public`.
+`local-reviewed` requires the named context and never reads the retired product lock.
+`locked-public` requires the marker-only fallback context and fetches the immutable
+lock. Unknown modes, a missing local context, the fallback marker entering runtime, a
+non-schema-v4 release, and a non-40-hex source revision fail the image build.
+Credentials are not Docker inputs.
 
 ## Shared symbol ownership
 
@@ -49,12 +60,14 @@ working documents or trained-model outputs.
 ## Release boundary
 
 Canonical JSON, hashing, safe relative paths, deterministic archives and verified
-transport are shared mechanics. Schema-v3 approach evidence and schema-v2 historical
-model releases retain separate validators and semantics.
+transport are shared mechanics. Schema-v4 public approach evidence and schema-v2
+historical model releases retain separate validators and semantics.
 
-Artifact storage is not permission to distribute upstream data. The current schema-v3
-and historical demo archives contain bounded OpenSky-derived row-level observations.
-OpenSky's current terms prohibit redistribution without authorization, so those
-archives are a blocked legacy release input rather than a template for future public
-publishing. The next distributable release must use authorized or synthetic evidence,
-and the publication checklist must record that data-rights decision before upload.
+Schema v4 has three hard-separated lanes: synthetic demo records, real-data aggregate
+research findings and ephemeral user uploads. The public archive contains the first
+two; uploads are never persisted. The aggregate lane cites OpenSky, links users to
+[OpenSky data access](https://opensky-network.org/data/data-access), records the current
+[terms](https://opensky-network.org/about/terms-of-use), and carries a pending
+publication-notice status with no date. The withdrawn schema-3 product artifact is not
+a template: it contained row-level upstream observations and remains blocked from the
+delivery path.

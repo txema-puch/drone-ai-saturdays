@@ -80,6 +80,7 @@ def main(argv: list[str] | None = None) -> int:
             repo_id=args.hf_repo_id,
             artifact_name=ARTIFACT_NAME,
             token=token,
+            repo_type="model",
         )
         record = publish_release(
             release_dir=args.release_dir,

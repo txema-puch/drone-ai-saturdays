@@ -23,6 +23,8 @@ FRONTEND_PACKAGE = ROOT / "frontend/package.json"
 FRONTEND_LOCK = ROOT / "frontend/package-lock.json"
 FLY_CONFIG = ROOT / "fly.toml"
 FLY_DEPLOY = ROOT / "scripts/deploy-fly.sh"
+WORKFLOW = ROOT / ".github/workflows/clean-checkout.yml"
+SMOKE_HTTP = ROOT / "scripts/smoke-http.py"
 DOCKERIGNORE = ROOT / ".dockerignore"
 PRODUCT_TITLE = "SADAR Analyst Console"
 PACKAGE_NAME = "sadar-analyst-console"
@@ -116,10 +118,80 @@ def validate_fly_deploy_script(deploy_script: str) -> None:
         "single-Machine deployment": "--ha=false",
         "explicit app selection": '--app "$app"',
         "source revision label": '--build-arg "SOURCE_COMMIT=$source_commit"',
+        "locked public mode": '--build-arg "SADAR_RELEASE_SOURCE=locked-public"',
+        "schema-v4 deployment gate": 'if [ "$schema_version" != "4" ]',
+        "local-reviewed deployment rejection": 'if [ "$release_source" != "locked-public" ]',
     }
     for label, fragment in required.items():
         if fragment not in deploy_script:
             fail(f"Fly deploy script must preserve {label}")
+
+
+def validate_release_delivery(*, dockerfile: str, workflow: str, smoke_http: str) -> None:
+    if "backend/src/sadar/releases/approach_bundle.lock.json" in workflow:
+        fail("local-reviewed CI must not read the retired product lock")
+    for historical_lock in (
+        "demo_bundle.lock.json",
+        "phase6_training_artifacts.lock.json",
+    ):
+        if historical_lock not in workflow:
+            fail(f"CI must preserve historical research lock fetch: {historical_lock}")
+    workflow_fragments = (
+        "sadar-build-synthetic-demo",
+        "--seed 20260718",
+        "sadar-build-release",
+        "lemd_public_aggregate_results_v1.json",
+        "SADAR_APPROACH_RELEASE_DIR: /tmp/sadar-ci-approach-release",
+        "--build-context approach-release-context=/tmp/sadar-ci-approach-release",
+        "--build-arg SADAR_RELEASE_SOURCE=local-reviewed",
+        "--build-arg SOURCE_COMMIT=${{ github.sha }}",
+    )
+    for fragment in workflow_fragments:
+        if fragment not in workflow:
+            fail(f"CI is missing schema-v4 delivery fragment: {fragment!r}")
+
+    docker_fragments = (
+        "AS approach-release-context",
+        ".sadar-missing-approach-release-context",
+        'ARG SADAR_RELEASE_SOURCE="locked-public"',
+        "AS release-local-reviewed",
+        "AS release-locked-public",
+        "FROM --platform=linux/amd64 release-${SADAR_RELEASE_SOURCE} AS release-install",
+        "AS release-install",
+        "sadar-fetch-release",
+        "sadar-validate-public-release --release-dir /tmp/approach-release-context",
+        "sadar-validate-public-release --release-dir /opt/sadar/release",
+        'test "$(find /opt/sadar/release -type f | wc -l | tr -d \' \')" = "9"',
+        "ARG SOURCE_COMMIT",
+        "SADAR_SOURCE_COMMIT=${SOURCE_COMMIT}",
+        "COPY --from=release-install",
+    )
+    for fragment in docker_fragments:
+        if fragment not in dockerfile:
+            fail(f"Dockerfile is missing schema-v4 delivery fragment: {fragment!r}")
+    local_stage_start = dockerfile.index("AS release-local-reviewed")
+    locked_stage_start = dockerfile.index("AS release-locked-public")
+    local_stage = dockerfile[local_stage_start:locked_stage_start]
+    if "backend/src/sadar/releases/approach_bundle.lock.json" in local_stage:
+        fail("local-reviewed Docker stage must not read the retired product lock")
+    if re.search(r"ARG\s+(?:HF_TOKEN|HUGGING_FACE_HUB_TOKEN)", dockerfile):
+        fail("Dockerfile must not expose publisher credentials as build arguments")
+
+    smoke_fragments = (
+        'health["schema_version"] != 4',
+        'health.get("demo_data_origin") != "synthetic"',
+        'health.get("research_data_origin") != "aggregate_real"',
+        'health.get("evaluation_data_handling") != "ephemeral_not_retained"',
+        'not item["attempt_id"].startswith("syn-a-")',
+        'detail.get("data_origin") != "synthetic"',
+        'evidence.get("basis") != "real_opensky_research_data"',
+        'evaluation.get("data_origin") != "user_upload_ephemeral"',
+        'evaluation.get("reference_origin") != "derived_from_aggregate_real_research"',
+        "ephemeral upload mutated the release-backed demo queue",
+    )
+    for fragment in smoke_fragments:
+        if fragment not in smoke_http:
+            fail(f"container smoke is missing origin assertion: {fragment!r}")
 
 
 def main() -> None:
@@ -136,6 +208,8 @@ def main() -> None:
         FRONTEND_LOCK,
         FLY_CONFIG,
         FLY_DEPLOY,
+        WORKFLOW,
+        SMOKE_HTTP,
         DOCKERIGNORE,
     ):
         if not path.is_file():
@@ -171,7 +245,7 @@ def main() -> None:
         "AS python-deps",
         "AS product-wheel",
         "AS product-install",
-        "AS release-fetch",
+        "AS release-install",
         "AS runtime",
         "USER 1000:1000",
         "EXPOSE 7860",
@@ -213,6 +287,11 @@ def main() -> None:
     )
     validate_fly_config(FLY_CONFIG.read_text(encoding="utf-8"))
     validate_fly_deploy_script(FLY_DEPLOY.read_text(encoding="utf-8"))
+    validate_release_delivery(
+        dockerfile=dockerfile,
+        workflow=WORKFLOW.read_text(encoding="utf-8"),
+        smoke_http=SMOKE_HTTP.read_text(encoding="utf-8"),
+    )
 
     lock = LOCK.read_text(encoding="utf-8")
     requirements = list(re.finditer(r"(?m)^([a-z0-9][a-z0-9._-]*)==[^\s\\]+ \\\n", lock))

@@ -35,3 +35,24 @@ Every route carries the same origin boundary: `Synthetic demo cases · Real rese
 results shown only in aggregate.` Research qualification is adjacent but secondary.
 No demo or aggregate result is presented as representative operational performance or
 certified safety evidence.
+
+## Qualification and source access
+
+The frozen qualification is
+`not_qualified_no_independent_labels_or_fresh_holdout`; the only allowed role is
+`research_and_evidence_labeling_demonstrator`. Operational monitoring, emergency
+detection, stabilized-approach certification, ATC decision support and
+safety-performance claims are explicitly blocked.
+
+Real aggregate findings cite: Matthias Schäfer, Martin Strohmeier, Vincent Lenders,
+Ivan Martinovic, and Matthias Wilhelm. “Bringing Up OpenSky: A Large-scale ADS-B
+Sensor Network for Research.” IPSN 2014. Users obtain source observations through
+[OpenSky data access](https://opensky-network.org/data/data-access) under the
+[OpenSky terms](https://opensky-network.org/about/terms-of-use). Publication notice is
+pending and therefore has no notice date.
+
+The former schema-3 application archive was withdrawn from the delivery path because
+it contained row-level upstream data. Schema 4 keeps real results in aggregate, uses
+deterministic synthetic scenarios for interactive records, and treats user uploads as
+ephemeral. The schema-v4 archive is a dataset/application evidence bundle, not a served
+model.

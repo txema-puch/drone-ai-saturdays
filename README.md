@@ -5,8 +5,8 @@ ADS-B-observable approach attempts at Madrid-Barajas Airport (LEMD). It reconstr
 attempts, checks observation quality, infers runway-relative geometry when supported,
 and presents deterministic criterion evidence in an analyst workflow.
 
-- **Live application:** <https://sadar-analyst-console.fly.dev>
-- **Release registry:** <https://huggingface.co/Txemapuch/sadar-demo-release>
+- **Application URL:** <https://sadar-analyst-console.fly.dev> (schema-v4 redeploy gated on publication)
+- **Planned evidence registry:** <https://huggingface.co/datasets/Txemapuch/sadar-analyst-console-release>
 - **Documentation:** [`docs/`](docs/)
 - **Release card and limitations:** [`docs/product/release-card.md`](docs/product/release-card.md)
 
@@ -18,7 +18,10 @@ is therefore a research and evidence-labeling demonstrator, not an operational s
 
 ## Current product
 
-The deployed product is rules-first and does not load the historical LSTM model.
+The product is rules-first and does not load the historical LSTM model. Its public
+boundary contains three independent lanes: deterministic synthetic demo scenarios,
+suppression-safe aggregate findings from real OpenSky research cohorts, and bounded
+user uploads evaluated ephemerally without joining either published lane.
 
 1. Bounded OpenSky-style CSV or Parquet rows are canonicalized and separated into
    operations and approach attempts.
@@ -35,10 +38,24 @@ memory while suspended; do not upload confidential or proprietary data.
 
 ## Run locally
 
-The production-equivalent route is the container:
+Until the schema-v4 dataset artifact is published, build the production-equivalent
+container from an explicitly generated and reviewed local release:
 
 ```bash
-docker build --platform linux/amd64 -t sadar-analyst-console .
+rm -rf /tmp/sadar-synthetic-demo /tmp/sadar-approach-release
+uv run --project backend sadar-build-synthetic-demo \
+  --seed 20260718 --output /tmp/sadar-synthetic-demo
+uv run --project backend sadar-build-release \
+  --aggregate-results backend/src/sadar/approach/resources/lemd_public_aggregate_results_v1.json \
+  --synthetic-payload-dir /tmp/sadar-synthetic-demo \
+  --output /tmp/sadar-approach-release
+uv run --project backend sadar-validate-public-release \
+  --release-dir /tmp/sadar-approach-release
+docker build --platform linux/amd64 --target runtime \
+  --build-context approach-release-context=/tmp/sadar-approach-release \
+  --build-arg SADAR_RELEASE_SOURCE=local-reviewed \
+  --build-arg SOURCE_COMMIT="$(git rev-parse HEAD)" \
+  -t sadar-analyst-console .
 docker run --rm -p 7860:7860 -e SADAR_ENABLE_EVALUATION=true sadar-analyst-console
 ```
 
@@ -49,10 +66,7 @@ For backend development, from the repository root:
 ```bash
 uv sync --project backend --group dev
 mkdir -p .artifacts
-uv run --project backend sadar-fetch-release \
-  --lock backend/src/sadar/releases/approach_bundle.lock.json \
-  --destination .artifacts/approach-release
-SADAR_APPROACH_RELEASE_DIR="$PWD/.artifacts/approach-release" \
+SADAR_APPROACH_RELEASE_DIR=/tmp/sadar-approach-release \
 SADAR_ENABLE_EVALUATION=true \
   uv run --project backend sadar-api --port 8077
 ```
@@ -65,9 +79,9 @@ npm ci
 npm run dev
 ```
 
-The API loads the immutable release identified by
-`backend/src/sadar/releases/approach_bundle.lock.json`. Configure an alternate verified
-release or frontend directory through the documented `SADAR_*` environment variables.
+The committed product lock still identifies the withdrawn schema-3 artifact and is
+deliberately unused by pre-publication CI and local-reviewed builds. After publication,
+locked-public mode will anonymously fetch the immutable schema-v4 dataset artifact.
 
 ## Evidence and research history
 
@@ -102,24 +116,29 @@ scripts/                  repository and delivery checks
 ```
 
 Git owns source, methodology, decisions, checksums, and artifact locks. Hugging Face
-owns trained weights and generated release archives. Raw datasets, local models,
+owns trained weights and generated release archives; the schema-v4 application archive
+is a dataset/application evidence bundle, not a model. Raw datasets, local models,
 collaboration notes, and writeup drafts are intentionally excluded from source Git.
 
 ## Data and attribution
 
-The research uses OpenSky Network ADS-B observations around LEMD. Optional contextual
-inputs use NOAA NCEI Global Hourly weather and the OpenSky aircraft database. The
-currently pinned application archives include bounded, downsampled row-level
-OpenSky-derived observations needed by the demonstrator, including trajectory fields
-and aircraft identifiers. They are not a copy of the full source database, but they
-are still upstream data.
+The real-data aggregate lane was derived from OpenSky Network ADS-B observations around
+LEMD. It contains counts, rates, coverage, provenance and limitations only—no source
+row, trajectory, aircraft identifier or exact timestamp. Obtain source data through
+[OpenSky data access](https://opensky-network.org/data/data-access) and follow the
+[OpenSky terms](https://opensky-network.org/about/terms-of-use).
 
-**Distribution gate:** the current [OpenSky terms of use](https://opensky-network.org/about/terms-of-use)
-do not permit redistributing those datasets without authorization. The existing
-registry artifacts must therefore not be mirrored or reused, and a public replacement
-release must use authorized or synthetic evidence. Operational OpenSky API ingestion
-also requires a written agreement. This unresolved gate blocks the next public
-deployment; it does not change the repository's non-profit research purpose.
+Publication notice to OpenSky is still **pending**; no notice date is claimed. Cite:
+Matthias Schäfer, Martin Strohmeier, Vincent Lenders, Ivan Martinovic, and Matthias
+Wilhelm. “Bringing Up OpenSky: A Large-scale ADS-B Sensor Network for Research.” IPSN
+2014.
+
+The schema-3 application artifact was withdrawn from the public-delivery path because
+it contained row-level upstream observations. The replacement keeps real findings only
+in aggregate and uses synthetic records for the interactive demo. It is not qualified:
+there are no independent labels or fresh holdout, and operational monitoring, emergency
+detection, stabilized-approach certification, ATC decision support and
+safety-performance claims are blocked.
 
 This began as a collaborative Saturdays.AI Madrid course project by Monica Gomez,
 Pablo Rodriguez Campos, Roberto Molero, and Txema Puch. Team members independently

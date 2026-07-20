@@ -140,7 +140,36 @@ def sample_upload() -> dict:
     forbidden = {"label", "case_id", "case_ref", "model_id", "score", "report"}
     if forbidden.intersection(evaluation["results"][0]):
         raise AssertionError("uploaded evidence leaked case or ground-truth fields")
+    if evaluation.get("data_origin") != "user_upload_ephemeral":
+        raise AssertionError("upload response did not preserve ephemeral origin")
+    if evaluation.get("reference_origin") != "derived_from_aggregate_real_research":
+        raise AssertionError("upload response did not preserve aggregate reference origin")
     return evaluation
+
+
+def assert_no_research_records(value: object, *, path: str = "evidence") -> None:
+    forbidden = {
+        "source_operation_id",
+        "icao24",
+        "callsign",
+        "flight_id",
+        "lat",
+        "lon",
+        "latitude",
+        "longitude",
+        "observations",
+        "trajectory",
+        "path",
+    }
+    if isinstance(value, dict):
+        leaked = forbidden.intersection(key.lower() for key in value)
+        if leaked:
+            raise AssertionError(f"{path} contains forbidden record keys: {sorted(leaked)}")
+        for key, child in value.items():
+            assert_no_research_records(child, path=f"{path}.{key}")
+    elif isinstance(value, list):
+        for index, child in enumerate(value):
+            assert_no_research_records(child, path=f"{path}[{index}]")
 
 
 def assert_evaluation_shape(evaluation: dict, *, rows: int, segments: int) -> None:
@@ -243,17 +272,34 @@ def main() -> None:
     for key in ("release_id", "schema_version", "attempts", "status_counts", "evaluation_enabled"):
         if key not in health:
             raise AssertionError(f"health is missing {key}")
-    if health.get("mode") != "approach-screening" or health["schema_version"] != 3:
+    if health.get("mode") != "approach-screening" or health["schema_version"] != 4:
         raise AssertionError(f"unexpected release schema: {health['schema_version']}")
+    if health.get("demo_data_origin") != "synthetic":
+        raise AssertionError("health did not declare the synthetic demo lane")
+    if health.get("research_data_origin") != "aggregate_real":
+        raise AssertionError("health did not declare the aggregate real-data lane")
+    if health.get("evaluation_data_handling") != "ephemeral_not_retained":
+        raise AssertionError("health did not declare ephemeral evaluation handling")
+    expected_commit = os.environ.get("SADAR_SMOKE_SOURCE_COMMIT")
+    if expected_commit and health.get("source_commit") != expected_commit:
+        raise AssertionError("health source commit did not match the image build revision")
     if os.environ.get("SADAR_SMOKE_HEALTH_ONLY") == "1":
         print(f"container health: ok release={health['release_id']}")
         return
 
-    status, queue = json_request("/api/approaches?limit=1")
+    status, queue = json_request("/api/approaches?limit=100")
     if status != 200 or not isinstance(queue, list) or not queue:
         raise AssertionError("queue did not expose a smoke-test attempt")
+    if len(queue) != health["attempts"] or any(
+        not isinstance(item.get("attempt_id"), str)
+        or not item["attempt_id"].startswith("syn-a-")
+        or item.get("data_origin") != "synthetic"
+        for item in queue
+    ):
+        raise AssertionError("queue did not expose only synthetic release attempts")
+    queue_length = len(queue)
     attempt_id = queue[0].get("attempt_id")
-    if not isinstance(attempt_id, str) or not attempt_id.startswith("a_"):
+    if not isinstance(attempt_id, str) or not attempt_id.startswith("syn-a-"):
         raise AssertionError("queue attempt identity is invalid")
     started_at = float(os.environ.get("SADAR_SMOKE_STARTED_AT", str(time.time())))
     startup_seconds = time.time() - started_at
@@ -262,8 +308,17 @@ def main() -> None:
             f"startup exceeded {STARTUP_GATE_SECONDS:g}s gate: {startup_seconds:.3f}s"
         )
     status, detail = json_request(f"/api/approaches/{attempt_id}")
-    if status != 200 or detail.get("attempt_id") != attempt_id or not detail.get("path"):
+    if (
+        status != 200
+        or detail.get("attempt_id") != attempt_id
+        or detail.get("data_origin") != "synthetic"
+        or not detail.get("path")
+    ):
         raise AssertionError("attempt dossier is not bound to its requested identity")
+    status, evidence = json_request("/api/evidence")
+    if status != 200 or evidence.get("basis") != "real_opensky_research_data":
+        raise AssertionError("research evidence did not expose its aggregate OpenSky basis")
+    assert_no_research_records(evidence)
     read_samples = []
     for _ in range(100):
         started = time.perf_counter()
@@ -283,6 +338,9 @@ def main() -> None:
     evaluation = sample_upload()
     if evaluation.get("release_id") != health["release_id"]:
         raise AssertionError("evaluation release provenance drifted")
+    status, queue_after_upload = json_request("/api/approaches?limit=100")
+    if status != 200 or len(queue_after_upload) != queue_length:
+        raise AssertionError("ephemeral upload mutated the release-backed demo queue")
     performance = evaluation_performance()
 
     print(

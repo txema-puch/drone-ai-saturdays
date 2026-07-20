@@ -12,6 +12,7 @@ from sadar.releases import hub_fetch as fetching
 
 
 ARCHIVE_NAME = "sadar-approach-public-release.tar.gz"
+REPOSITORY_ID = "Txemapuch/sadar-analyst-console-release"
 
 
 def fetch_locked_release(
@@ -27,6 +28,8 @@ def fetch_locked_release(
         contract=approach_transport,
         expected_schema_version=approach_transport.RELEASE_SCHEMA_VERSION,
         archive_name=ARCHIVE_NAME,
+        repo_type="dataset",
+        expected_repo_id=REPOSITORY_ID,
     )
 
 

@@ -49,11 +49,20 @@ FLY_DEPLOY = """exec fly deploy
 git status --porcelain
 app="${FLY_APP:-sadar-analyst-console}"
 source_commit="$(git rev-parse HEAD)"
+release_source="${SADAR_RELEASE_SOURCE:-locked-public}"
+if [ "$release_source" != "locked-public" ]; then exit 1; fi
+schema_version="4"
+if [ "$schema_version" != "4" ]; then exit 1; fi
 --remote-only
 --ha=false
 --app "$app"
+--build-arg "SADAR_RELEASE_SOURCE=locked-public"
 --build-arg "SOURCE_COMMIT=$source_commit"
 """
+ROOT = SCRIPT.parents[1]
+REAL_DOCKERFILE = (ROOT / "Dockerfile").read_text(encoding="utf-8")
+REAL_WORKFLOW = (ROOT / ".github/workflows/clean-checkout.yml").read_text(encoding="utf-8")
+REAL_SMOKE = (ROOT / "scripts/smoke-http.py").read_text(encoding="utf-8")
 
 
 def validate(**overrides):
@@ -77,6 +86,14 @@ def test_fly_contract_accepts_suspend_and_autostart():
 
 def test_fly_deploy_contract_accepts_single_machine_remote_build():
     delivery.validate_fly_deploy_script(FLY_DEPLOY)
+
+
+def test_schema_v4_local_reviewed_delivery_contract_accepts_repository_sources():
+    delivery.validate_release_delivery(
+        dockerfile=REAL_DOCKERFILE,
+        workflow=REAL_WORKFLOW,
+        smoke_http=REAL_SMOKE,
+    )
 
 
 def test_fly_deploy_contract_rejects_forwarded_flag_overrides(capsys):
@@ -148,6 +165,9 @@ def test_fly_contract_rejects_runtime_drift(old, new, message, capsys):
         ("--ha=false", "single-Machine deployment"),
         ('--app "$app"', "explicit app selection"),
         ('--build-arg "SOURCE_COMMIT=$source_commit"', "source revision label"),
+        ('--build-arg "SADAR_RELEASE_SOURCE=locked-public"', "locked public mode"),
+        ('if [ "$schema_version" != "4" ]', "schema-v4 deployment gate"),
+        ('if [ "$release_source" != "locked-public" ]', "local-reviewed deployment rejection"),
     ],
 )
 def test_fly_deploy_contract_rejects_safety_drift(fragment, message, capsys):
@@ -156,3 +176,47 @@ def test_fly_deploy_contract_rejects_safety_drift(fragment, message, capsys):
 
     assert raised.value.code == 1
     assert message in capsys.readouterr().err
+
+
+@pytest.mark.parametrize(
+    ("source", "fragment", "message"),
+    [
+        ("workflow", "demo_bundle.lock.json", "historical research lock"),
+        ("workflow", "sadar-build-synthetic-demo", "schema-v4 delivery fragment"),
+        ("workflow", "--build-context approach-release-context=/tmp/sadar-ci-approach-release", "schema-v4 delivery fragment"),
+        ("dockerfile", "AS release-local-reviewed", "schema-v4 delivery fragment"),
+        ("dockerfile", "sadar-validate-public-release --release-dir /opt/sadar/release", "schema-v4 delivery fragment"),
+        ("dockerfile", "SADAR_SOURCE_COMMIT=${SOURCE_COMMIT}", "schema-v4 delivery fragment"),
+        ("smoke_http", 'evaluation.get("data_origin") != "user_upload_ephemeral"', "origin assertion"),
+    ],
+)
+def test_schema_v4_delivery_contract_rejects_boundary_drift(source, fragment, message, capsys):
+    values = {
+        "dockerfile": REAL_DOCKERFILE,
+        "workflow": REAL_WORKFLOW,
+        "smoke_http": REAL_SMOKE,
+    }
+    values[source] = values[source].replace(fragment, "")
+    with pytest.raises(SystemExit) as raised:
+        delivery.validate_release_delivery(**values)
+
+    assert raised.value.code == 1
+    assert message in capsys.readouterr().err
+
+
+def test_local_reviewed_stage_rejects_retired_product_lock_dependency(capsys):
+    drifted_dockerfile = REAL_DOCKERFILE.replace(
+        "FROM --platform=linux/amd64 product-install AS release-locked-public",
+        "COPY backend/src/sadar/releases/approach_bundle.lock.json /tmp/local.lock\n"
+        "FROM --platform=linux/amd64 product-install AS release-locked-public",
+    )
+
+    with pytest.raises(SystemExit) as raised:
+        delivery.validate_release_delivery(
+            dockerfile=drifted_dockerfile,
+            workflow=REAL_WORKFLOW,
+            smoke_http=REAL_SMOKE,
+        )
+
+    assert raised.value.code == 1
+    assert "local-reviewed Docker stage" in capsys.readouterr().err

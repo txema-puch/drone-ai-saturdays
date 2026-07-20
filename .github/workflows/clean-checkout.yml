@@ -38,7 +38,7 @@ jobs:
           scripts/compile-build-lock.sh
           cmp /tmp/build-requirements.lock delivery/container/build-requirements.lock
 
-      - name: Fetch the immutable releases for backend integration tests
+      - name: Fetch the immutable historical research releases
         run: |
           uv run --project backend/research sadar-research-fetch-release \
             --lock backend/research/src/sadar_research/trajectory_anomaly/releases/demo_bundle.lock.json \
@@ -46,9 +46,28 @@ jobs:
           uv run --project backend/research sadar-research-fetch-training-artifacts \
             --lock backend/research/src/sadar_research/trajectory_anomaly/releases/phase6_training_artifacts.lock.json \
             --destination /tmp/sadar-ci-phase6
-          uv run --project backend sadar-fetch-release \
-            --lock backend/src/sadar/releases/approach_bundle.lock.json \
-            --destination /tmp/sadar-ci-approach-release
+
+      - name: Build and verify the deterministic schema-v4 pre-publication release
+        run: |
+          rm -rf /tmp/sadar-synthetic-demo /tmp/sadar-ci-approach-release /tmp/sadar-ci-first.tar.gz /tmp/sadar-ci-second.tar.gz
+          uv run --project backend sadar-build-synthetic-demo \
+            --seed 20260718 \
+            --output /tmp/sadar-synthetic-demo
+          uv run --project backend sadar-build-release \
+            --aggregate-results backend/src/sadar/approach/resources/lemd_public_aggregate_results_v1.json \
+            --synthetic-payload-dir /tmp/sadar-synthetic-demo \
+            --output /tmp/sadar-ci-approach-release
+          uv run --project backend sadar-validate-public-release --release-dir /tmp/sadar-ci-approach-release
+          uv run --project backend sadar-validate-public-release --release-dir /tmp/sadar-ci-approach-release
+          uv run --project backend python - <<'PY'
+          from pathlib import Path
+          from sadar.releases.archive import create_deterministic_archive
+          source = Path("/tmp/sadar-ci-approach-release")
+          first = Path("/tmp/sadar-ci-first.tar.gz")
+          second = Path("/tmp/sadar-ci-second.tar.gz")
+          assert create_deterministic_archive(source, first) == create_deterministic_archive(source, second)
+          assert first.read_bytes() == second.read_bytes()
+          PY
 
       - name: Run the full backend suite against the immutable release
         env:
@@ -78,13 +97,21 @@ jobs:
       - name: Check out tracked inputs only
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
 
-      - name: Enforce the immutable approach-release gate
+      - name: Install the lockfile compiler
         run: |
-          if ! test -f backend/src/sadar/releases/approach_bundle.lock.json; then
-            echo '::error::Publish and redownload-verify schema v3, then commit the product release lock.'
-            echo 'Final image build and smoke were not claimed.' >> "$GITHUB_STEP_SUMMARY"
-            exit 1
-          fi
+          python3 -m pip install --disable-pip-version-check uv==0.11.13
+
+      - name: Build the deterministic schema-v4 local-reviewed context
+        run: |
+          rm -rf /tmp/sadar-synthetic-demo /tmp/sadar-ci-approach-release
+          uv run --project backend sadar-build-synthetic-demo \
+            --seed 20260718 \
+            --output /tmp/sadar-synthetic-demo
+          uv run --project backend sadar-build-release \
+            --aggregate-results backend/src/sadar/approach/resources/lemd_public_aggregate_results_v1.json \
+            --synthetic-payload-dir /tmp/sadar-synthetic-demo \
+            --output /tmp/sadar-ci-approach-release
+          uv run --project backend sadar-validate-public-release --release-dir /tmp/sadar-ci-approach-release
 
       - name: Build the digest-pinned frontend stage
         run: docker build --platform linux/amd64 --target frontend-build --tag sadar-frontend:${{ github.sha }} .
@@ -95,8 +122,12 @@ jobs:
       - name: Build the final linux/amd64 image
         run: >-
           docker build --platform linux/amd64 --target runtime
+          --build-context approach-release-context=/tmp/sadar-ci-approach-release
+          --build-arg SADAR_RELEASE_SOURCE=local-reviewed
           --build-arg SOURCE_COMMIT=${{ github.sha }}
           --tag sadar:${{ github.sha }} .
 
       - name: Smoke the distributed image
+        env:
+          SADAR_SMOKE_SOURCE_COMMIT: ${{ github.sha }}
         run: scripts/container-smoke.sh sadar:${{ github.sha }}

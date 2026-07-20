@@ -21,7 +21,7 @@ import urllib.parse
 import urllib.request
 from datetime import datetime
 from pathlib import Path
-from typing import Any, BinaryIO, Protocol
+from typing import Any, BinaryIO, Literal, Protocol
 
 from sadar.releases import archive as release
 
@@ -89,7 +89,19 @@ def read_bounded_json_lock(path: Path | str, *, contract=release) -> Any:
     return _read_bounded_lock(path, contract=contract)
 
 
-def _validate_public_url(value: object, *, revision: str) -> str:
+RepositoryType = Literal["model", "dataset"]
+
+
+def _validate_public_url(
+    value: object,
+    *,
+    revision: str,
+    repo_type: RepositoryType = "model",
+    expected_repo_id: str | None = None,
+    expected_artifact_name: str | None = None,
+) -> str:
+    if repo_type not in ("model", "dataset"):
+        raise FetchError("release repository type must be model or dataset")
     if not isinstance(value, str) or len(value.encode("utf-8")) > MAX_URL_BYTES:
         raise FetchError("release lock URL is invalid")
     try:
@@ -108,15 +120,35 @@ def _validate_public_url(value: object, *, revision: str) -> str:
     ):
         raise FetchError("release lock URL must be public immutable HTTPS on huggingface.co")
     parts = tuple(part for part in parsed.path.split("/") if part)
+    prefix = ("datasets",) if repo_type == "dataset" else ()
+    expected_length = 6 if repo_type == "dataset" else 5
+    owner_index = len(prefix)
+    repository_index = owner_index + 1
+    resolve_index = owner_index + 2
+    revision_index = owner_index + 3
+    artifact_index = owner_index + 4
     if (
-        len(parts) != 5
+        len(parts) != expected_length
         or parsed.path != "/" + "/".join(parts)
-        or parts[2] != "resolve"
-        or parts[3] != revision
-        or not all(_HF_REPOSITORY_COMPONENT_RE.fullmatch(part) for part in (parts[0], parts[1]))
-        or not _ARTIFACT_NAME_RE.fullmatch(parts[4])
+        or parts[: len(prefix)] != prefix
+        or parts[resolve_index] != "resolve"
+        or parts[revision_index] != revision
+        or not all(
+            _HF_REPOSITORY_COMPONENT_RE.fullmatch(part)
+            for part in (parts[owner_index], parts[repository_index])
+        )
+        or not _ARTIFACT_NAME_RE.fullmatch(parts[artifact_index])
+        or (
+            expected_repo_id is not None
+            and "/".join((parts[owner_index], parts[repository_index]))
+            != expected_repo_id
+        )
+        or (
+            expected_artifact_name is not None
+            and parts[artifact_index] != expected_artifact_name
+        )
     ):
-        raise FetchError("release lock URL must contain owner/repository/resolve/revision/artifact")
+        raise FetchError("release lock URL does not match the required immutable repository path")
     return value
 
 
@@ -124,6 +156,9 @@ def validate_lock_record(
     value: object,
     *,
     expected_schema_version: int = release.RELEASE_SCHEMA_VERSION,
+    repo_type: RepositoryType = "model",
+    expected_repo_id: str | None = None,
+    expected_artifact_name: str | None = None,
 ) -> dict[str, object]:
     """Validate the exact, bounded serving lock schema."""
     if not isinstance(value, dict) or set(value) != LOCK_KEYS:
@@ -131,7 +166,13 @@ def validate_lock_record(
     revision = value["revision"]
     if not isinstance(revision, str) or not _IMMUTABLE_REVISION_RE.fullmatch(revision):
         raise FetchError("release lock revision must be an immutable hexadecimal revision")
-    url = _validate_public_url(value["url"], revision=revision)
+    url = _validate_public_url(
+        value["url"],
+        revision=revision,
+        repo_type=repo_type,
+        expected_repo_id=expected_repo_id,
+        expected_artifact_name=expected_artifact_name,
+    )
     archive_sha256 = value["archive_sha256"]
     release_id = value["release_id"]
     schema_version = value["schema_version"]
@@ -169,10 +210,16 @@ def read_lock(
     *,
     contract=release,
     expected_schema_version: int = release.RELEASE_SCHEMA_VERSION,
+    repo_type: RepositoryType = "model",
+    expected_repo_id: str | None = None,
+    expected_artifact_name: str | None = None,
 ) -> dict[str, object]:
     return validate_lock_record(
         _read_bounded_lock(path, contract=contract),
         expected_schema_version=expected_schema_version,
+        repo_type=repo_type,
+        expected_repo_id=expected_repo_id,
+        expected_artifact_name=expected_artifact_name,
     )
 
 
@@ -272,12 +319,17 @@ def fetch_locked_release(
     contract=release,
     expected_schema_version: int = release.RELEASE_SCHEMA_VERSION,
     archive_name: str = "sadar-release.tar.gz",
+    repo_type: RepositoryType = "model",
+    expected_repo_id: str | None = None,
 ) -> dict[str, Any]:
     """Download, verify, and atomically install the release named by a lock."""
     lock = read_lock(
         lock_path,
         contract=contract,
         expected_schema_version=expected_schema_version,
+        repo_type=repo_type,
+        expected_repo_id=expected_repo_id,
+        expected_artifact_name=archive_name,
     )
     target = _safe_destination(destination)
     try:
