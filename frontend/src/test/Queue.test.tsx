@@ -26,17 +26,26 @@ function renderQueue(entry = "/") {
 describe("attempt queue", () => {
   it("leads with review status, evidence, coverage and cohort scope", async () => {
     renderQueue();
-    const links = await screen.findAllByRole("link", { name: /Open approach attempt/ });
-    expect(links[0]).toHaveAccessibleName(/att-op-1-01: Review Required, runway 32L/i);
+    const links = await screen.findAllByRole("link", { name: /Open synthetic scenario/ });
+    expect(links[0]).toHaveAccessibleName(/Open synthetic scenario Lower-than-reference speed: Review Required, runway 32L/i);
     expect(screen.getByText("Observed Descent Rate")).toBeInTheDocument();
     expect(screen.getByText("96% observed")).toBeInTheDocument();
     expect(screen.getByText("release approach-release-33")).toBeInTheDocument();
-    expect(screen.getByText(/does not detect emergencies/i)).toBeInTheDocument();
+    expect(screen.getByText("Explore generated examples of the screening workflow. These are not recorded flights.")).toBeInTheDocument();
+    expect(screen.getByLabelText("Synthetic demo set")).toHaveTextContent("14 scenarios");
+    expect(screen.getByLabelText("Synthetic demo status summary")).toBeInTheDocument();
+    expect(screen.queryByText(/Loaded cohort/i)).not.toBeInTheDocument();
+  });
+
+  it("keeps the synthetic boundary in the empty filter state", async () => {
+    vi.mocked(api.getApproaches).mockResolvedValueOnce([]);
+    renderQueue("/?status=review_required");
+    expect(await screen.findByText(/The synthetic demo set loaded successfully/i)).toBeInTheDocument();
   });
 
   it("persists server filters in the URL contract", async () => {
     renderQueue("/?status=partial_observation&direction=18");
-    await screen.findByText("att-op-2-01");
+    await screen.findByText("Evidence ends before the runway");
     await waitFor(() => expect(api.getApproaches).toHaveBeenCalledWith(
       expect.objectContaining({ status: "partial_observation", direction: "18" }),
       expect.any(AbortSignal),
@@ -48,7 +57,7 @@ describe("attempt queue", () => {
     vi.mocked(api.getApproaches).mockRejectedValueOnce(new Error("offline")).mockResolvedValueOnce([REVIEW_ATTEMPT]);
     renderQueue("/?status=review_required");
     await userEvent.click(await screen.findByRole("button", { name: "Retry with these filters" }));
-    expect(await screen.findByText("att-op-1-01")).toBeInTheDocument();
+    expect(await screen.findByText("Lower-than-reference speed")).toBeInTheDocument();
     expect(screen.getByLabelText("Status")).toHaveValue("review_required");
   });
 });

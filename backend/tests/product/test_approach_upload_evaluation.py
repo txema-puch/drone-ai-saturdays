@@ -65,11 +65,13 @@ def test_fixture_evaluates_without_model_and_returns_exact_rules_dto(service):
     )
 
     assert set(response) == {
-        "schema_version", "release_id", "reference_sha256", "dataset_digest",
+        "schema_version", "data_origin", "reference_origin", "release_id", "reference_sha256", "dataset_digest",
         "upload_sha256", "raw_rows", "canonical_rows", "duplicate_rows_collapsed",
         "operations", "attempts", "status_counts", "rejection_reasons", "results",
     }
     assert response["schema_version"] == "approach_upload_evaluation_v1"
+    assert response["data_origin"] == "user_upload_ephemeral"
+    assert response["reference_origin"] == "derived_from_aggregate_real_research"
     assert response["release_id"] == "approach-fixture-v1"
     assert len(response["reference_sha256"]) == 64
     assert response["operations"] == 1

@@ -16,6 +16,14 @@ export interface Health {
   schema_version?: number | string;
   attempts?: number;
   operations?: number;
+  demo_attempts?: number;
+  demo_operations?: number;
+  demo_data_origin?: "synthetic";
+  research_data_origin?: "aggregate_real";
+  evaluation_data_handling?: "ephemeral_not_retained";
+  source_commit?: string;
+  demo_status_counts?: Partial<Record<ApproachStatus, number>>;
+  demo_outcome_counts?: Record<string, number>;
   evaluation_enabled?: boolean;
   context_enabled?: boolean;
   qualification?: string | null;
@@ -74,6 +82,10 @@ export interface ApproachPathPoint {
 export interface ApproachSummary {
   attempt_id: string;
   operation_ref: string;
+  data_origin: "synthetic";
+  scenario_id: string;
+  scenario_title: string;
+  teaching_goal: string;
   status: ApproachStatus;
   direction?: string | null;
   runway?: string | null;
@@ -83,6 +95,11 @@ export interface ApproachSummary {
   runway_score_margin?: number | null;
   failed_criteria: string[];
   outcome?: string | null;
+  landing_outcome?: {
+    available: boolean;
+    reason: string | null;
+    evidence_end_along_track_m: number;
+  };
   observed_samples?: number;
   coverage?: number | ApproachCoverage | null;
   start_time?: number | null;
@@ -117,12 +134,82 @@ export interface ApproachDetail extends ApproachSummary {
   } | null;
   schema_version?: string;
   engine_version?: string;
+  demo_clock?: boolean;
   research_benchmark?: ApproachResearchBenchmark | null;
 }
 
 export interface ApproachOperation {
   operation_ref: string;
+  data_origin: "synthetic";
+  scenario_id: string;
+  scenario_title: string;
+  teaching_goal: string;
   attempts: ApproachSummary[];
+}
+
+export type AggregateCell = number | "<10" | "suppressed";
+
+export interface ResearchCohort {
+  cohort_id: string;
+  period: string;
+  role: string;
+  rows: number | null;
+  operations: number;
+  operations_with_attempts: number | null;
+  attempts: number;
+  assessable_attempts: number;
+  abstention_rate: number | null;
+  review_rate_among_assessable: number | null;
+  status_counts: Record<string, AggregateCell>;
+  outcome_counts: Record<string, AggregateCell> | null;
+  criterion_status_counts: Record<string, Record<string, AggregateCell>>;
+  interpretation_limits: string[];
+}
+
+export interface ScreeningHoldoutFinding {
+  cohort_id: string;
+  policy: string;
+  reason_counts: Record<string, AggregateCell>;
+  criterion_status_counts: Record<string, Record<string, AggregateCell>>;
+  interpretation_limits: string[];
+}
+
+export interface ContextValidationFinding {
+  cohort_id: string;
+  decision: string;
+  base_review_rate_among_assessable: number | null;
+  context_review_rate_among_assessable: number | null;
+  base_status_counts: Record<string, AggregateCell>;
+  context_status_counts: Record<string, AggregateCell>;
+  base_criterion_status_counts: Record<string, Record<string, AggregateCell>>;
+  context_criterion_status_counts: Record<string, Record<string, AggregateCell>>;
+  review_overlap: Record<string, AggregateCell>;
+  status_transition_counts: Record<string, AggregateCell>;
+  context_coverage: Record<string, number | null>;
+  interpretation_limits: string[];
+}
+
+export interface ResearchEvidence {
+  schema_version: string;
+  basis: "real_opensky_research_data";
+  generated_at: string;
+  qualification: string;
+  allowed_role: string;
+  blocked_uses: string[];
+  limitations: string[];
+  cohorts: ResearchCohort[];
+  findings: {
+    screening_holdout: ScreeningHoldoutFinding;
+    context_validation: ContextValidationFinding;
+  };
+  data_access: {
+    provider: string;
+    access_url: string;
+    terms_url: string;
+    citation: string;
+    publication_notice_status: string;
+    publication_notice_date: string | null;
+  };
 }
 
 export interface ApproachFilters {
@@ -249,6 +336,10 @@ export function getHealth(signal?: AbortSignal): Promise<Health> {
   return getJson("/health", signal);
 }
 
+export function getEvidence(signal?: AbortSignal): Promise<ResearchEvidence> {
+  return getJson("/evidence", signal);
+}
+
 function approachQuery(filters: ApproachFilters): string {
   const params = new URLSearchParams();
   params.set("limit", String(filters.limit ?? 500));
@@ -290,6 +381,8 @@ export interface ApproachEvaluationRejection {
 
 export interface ApproachUploadResponse {
   schema_version?: string;
+  data_origin: "user_upload_ephemeral";
+  reference_origin: "derived_from_aggregate_real_research";
   release_id: string;
   reference_sha256?: string;
   dataset_digest?: string;
@@ -307,7 +400,11 @@ export interface ApproachUploadResponse {
   native_response?: NativeApproachUploadResponse;
 }
 
-export interface ApproachUploadAttempt extends ApproachSummary {
+export interface ApproachUploadAttempt extends Omit<
+  ApproachSummary,
+  "data_origin" | "scenario_id" | "scenario_title" | "teaching_goal"
+> {
+  data_origin: "user_upload_ephemeral";
   criteria?: ApproachCriterion[];
   quality?: Record<string, unknown> | null;
   maneuvers?: Array<Record<string, unknown>>;
@@ -360,6 +457,8 @@ interface NativeApproachEvaluationResult {
 
 export interface NativeApproachUploadResponse {
   schema_version?: string;
+  data_origin: "user_upload_ephemeral";
+  reference_origin: "derived_from_aggregate_real_research";
   release_id: string;
   reference_sha256?: string;
   dataset_digest?: string;
@@ -385,8 +484,20 @@ export async function evaluateApproachFile(
     body,
     signal,
   });
+  if (
+    payload.data_origin !== "user_upload_ephemeral"
+    || payload.reference_origin !== "derived_from_aggregate_real_research"
+  ) {
+    throw new ApiError(
+      502,
+      "invalid_response",
+      "Evaluation response origin is invalid.",
+    );
+  }
   return {
     schema_version: payload.schema_version,
+    data_origin: payload.data_origin,
+    reference_origin: payload.reference_origin,
     release_id: payload.release_id,
     reference_sha256: payload.reference_sha256,
     dataset_digest: payload.dataset_digest,
@@ -403,6 +514,7 @@ export async function evaluateApproachFile(
     attempts: payload.results.map((result) => ({
       attempt_id: result.evaluation_ref,
       operation_ref: result.operation_id,
+      data_origin: "user_upload_ephemeral",
       status: result.status,
       direction: result.runway?.direction ?? null,
       runway: result.runway?.designator ?? null,

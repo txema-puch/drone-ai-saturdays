@@ -133,9 +133,11 @@ export default function CaseFile() {
 
       <header className="dossier-header">
         <div>
-          <p className="eyebrow">Approach dossier · runway {runway}</p>
+          <p className="eyebrow">Synthetic demonstration case · runway {runway}</p>
+          <span className="origin-badge sans">Synthetic demonstration case</span>
           <h1>{STATUS_COPY[detail.status].label}</h1>
           <p className="dossier-explanation sans">{STATUS_COPY[detail.status].explanation}</p>
+          <p className="scenario-context sans"><b>{detail.scenario_title}</b> · {detail.teaching_goal}</p>
         </div>
         <div className="dossier-status sans">
           <ApproachStatus status={detail.status} />
@@ -147,6 +149,7 @@ export default function CaseFile() {
         <div><dt>Runway inference</dt><dd>{runway}{pairLevel ? " · pair-level" : ""}</dd></div>
         {pairLevel && <div><dt>Geometry anchor</dt><dd>{detail.geometry_runway ?? "Unavailable"} · provisional computation only</dd></div>}
         <div><dt>Outcome</dt><dd>{humanize(detail.outcome)}</dd></div>
+        <div><dt>Evidence origin</dt><dd>Synthetic scenario · generated UTC clock</dd></div>
         <div><dt>Coverage</dt><dd>{formatCoverage(detail.coverage, detail.observed_samples)}</dd></div>
         <div><dt>Observed interval</dt><dd>{formatTime(startTime)} – {formatTime(endTime)}</dd></div>
         <div><dt>Operation</dt><dd><Link to={`/approach-operations/${encodeURIComponent(detail.operation_ref)}`}>{detail.operation_ref}</Link></dd></div>
@@ -172,7 +175,7 @@ export default function CaseFile() {
         <div className="dossier-main">
           <section className="evidence-section" aria-labelledby="trajectory-title">
             <div className="section-heading sans">
-              <div><p className="eyebrow">Synchronized evidence</p><h2 id="trajectory-title">Observed ground track and criterion timeline</h2></div>
+              <div><p className="eyebrow">Synchronized generated evidence</p><h2 id="trajectory-title">Generated evidence path</h2><p>All values shown are inside this generated scenario. No recorded flight is represented.</p></div>
               <span aria-live="polite">
                 {activePoint ? `${formatTime(activePoint.time ?? activeTime)} · ${activePoint.along_track_m == null ? "position observed" : `${Math.round(activePoint.along_track_m / 100) / 10} km from threshold`}` : "No position selected"}
               </span>

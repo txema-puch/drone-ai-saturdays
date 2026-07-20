@@ -226,6 +226,16 @@ evidence-labeling candidate with these limitations visible.
 
 ## UX contract
 
+- A persistent shell boundary states that cases are synthetic and real research results
+  are aggregate-only on every route, at desktop and mobile widths.
+- Queue, case and operation views name the synthetic scenario and teaching goal; generated
+  clocks and paths never imply a recorded flight.
+- The Research evidence route is the only UI surface for real cohort findings. It uses
+  captioned tables, explicit denominators and suppression-safe text, never charts whose
+  denominator must be guessed.
+- Upload evaluation is a third, ephemeral lane. It discloses non-retention, use of public
+  rules/reference parameters, user responsibility for permission and separation from both
+  published lanes before a file is selected and again after success.
 - Queue rows show approach status, inferred runway, failed criteria, and assessability before any model score.
 - Case files lead with the approach verdict and evidence timeline.
 - Reference labels such as emergency squawk or go-around heuristic are contextual metadata, never model detections.
@@ -240,24 +250,30 @@ on narrow screens. Cards are reserved for interactive evidence modules, not page
 
 ```text
 SADAR Analyst Console
-├── Attempts (default)
-│   ├── cohort scope + status counts
+├── Attempts (default, synthetic demonstration)
+│   ├── synthetic scenario scope + demo-only status counts
 │   ├── filters: status / direction / criterion / outcome / quality
 │   └── attempt table: status → runway → evidence → coverage → time
 ├── Attempt dossier
+│   ├── synthetic origin + scenario teaching goal
 │   ├── plain-language status + assessability reason
 │   ├── runway-relative trajectory and synchronized evidence timeline
 │   ├── criterion rows with observed band, span and provenance
 │   ├── quality / missing-context disclosure
 │   └── Research benchmark (collapsed, visually separated)
-└── Evaluate data
+├── Research evidence (aggregate real-data findings only)
+│   ├── reviewed cohort counts/rates + suppression-safe tables
+│   ├── interpretation and qualification limits
+│   └── OpenSky source access, citation + publication notice
+└── Evaluate data (ephemeral user upload)
     ├── schema/privacy/limits
     ├── upload progress and bounded errors
     └── results using the identical attempt dossier vocabulary
 ```
 
-The first viewport answers only three questions: what cohort is loaded, which attempts need
-review, and why the first row is prioritized. Raw model score is never one of those three.
+The first viewport answers only three questions: what synthetic demo set is loaded, which
+scenarios demonstrate review states, and why the first row is prioritized. Raw model score
+is never one of those three. Real research totals remain on the separate evidence route.
 
 ### Interaction states
 

@@ -6,6 +6,8 @@ import sys
 from pathlib import Path
 
 from fastapi.testclient import TestClient
+import pytest
+from pydantic import ValidationError
 
 from sadar.api.evaluation import EvaluationError
 from sadar.api.factory import create_app
@@ -21,6 +23,10 @@ RELEASE_DIR = Path(
         REPO / ".artifacts/approach-release",
     )
 )
+if not RELEASE_DIR.exists():
+    from tests.product.test_approach_release import build_valid_release
+
+    build_valid_release(RELEASE_DIR.parent, RELEASE_DIR.name)
 RELEASE = load_release_directory(RELEASE_DIR)
 
 
@@ -56,19 +62,54 @@ def test_health_and_openapi_describe_rules_first_product(tmp_path: Path):
     assert response.status_code == 200
     health = response.json()
     assert health["mode"] == "approach-screening"
-    assert health["schema_version"] == 3
-    assert health["attempts"] == sum(health["status_counts"].values())
+    assert health["schema_version"] == 4
+    assert health["demo_data_origin"] == "synthetic"
+    assert health["research_data_origin"] == "aggregate_real"
+    assert health["demo_attempts"] == sum(health["demo_status_counts"].values())
+    assert health["attempts"] == health["demo_attempts"]
+    assert health["status_counts"] == health["demo_status_counts"]
     assert health["reference"]["artifact_sha256"] == RELEASE["reference"]["artifact_sha256"]
     assert app.title == "SADAR Analyst Console"
     assert "LSTM" not in app.description
+
+
+@pytest.mark.parametrize("value", ["ABCDEF", "0" * 39, "g" * 40, "A" * 40])
+def test_source_commit_rejects_noncanonical_values(value: str):
+    with pytest.raises(ValidationError, match="40 lowercase hex characters or unknown"):
+        Settings(release_dir=RELEASE_DIR, source_commit=value)
+
+
+def test_source_commit_is_exposed_when_canonical(tmp_path: Path):
+    source_commit = "a" * 40
+    settings = Settings(
+        release_dir=RELEASE_DIR,
+        frontend_dir=_frontend(tmp_path),
+        source_commit=source_commit,
+    )
+    assert TestClient(create_app(settings, RELEASE)).get("/api/health").json()["source_commit"] == source_commit
 
 
 def test_attempt_queue_filters_and_detail_are_release_backed(tmp_path: Path):
     client = TestClient(_app(tmp_path))
     queue = client.get("/api/approaches?limit=5000").json()
     assert len(queue) == len(RELEASE["attempts"])
-    assert queue[0]["status"] == "review_required"
+    priority = {
+        "review_required": 0,
+        "partial_observation": 1,
+        "criteria_observed": 2,
+        "not_assessable": 3,
+    }
+    assert [priority[item["status"]] for item in queue] == sorted(
+        priority[item["status"]] for item in queue
+    )
     selected = queue[0]
+    assert selected["data_origin"] == "synthetic"
+    assert selected["scenario_id"]
+    assert selected["scenario_title"]
+    assert selected["teaching_goal"]
+    assert set(selected["landing_outcome"]) == {
+        "available", "reason", "evidence_end_along_track_m",
+    }
     filtered = client.get(f"/api/approaches?status={selected['status']}").json()
     assert filtered
     assert {item["status"] for item in filtered} == {selected["status"]}
@@ -76,6 +117,8 @@ def test_attempt_queue_filters_and_detail_are_release_backed(tmp_path: Path):
     assert payload["attempt_id"] == selected["attempt_id"]
     assert payload["path"] and payload["criteria"]
     assert payload["research_benchmark"] is None
+    assert payload["demo_clock"] is True
+    assert payload["scenario_id"] == selected["scenario_id"]
     assert all(point["observed"] is True for point in payload["path"])
 
 
@@ -88,7 +131,10 @@ def test_operation_groups_exact_release_attempts(tmp_path: Path):
         f"/api/approach-operations/{operation['operation_id']}"
     )
     assert response.status_code == 200
-    assert [item["attempt_id"] for item in response.json()["attempts"]] == operation["attempt_ids"]
+    payload = response.json()
+    assert [item["attempt_id"] for item in payload["attempts"]] == operation["attempt_ids"]
+    assert payload["data_origin"] == "synthetic"
+    assert payload["scenario_title"]
 
 
 def test_product_import_does_not_load_historical_model_stack():
@@ -129,9 +175,10 @@ def test_enabled_upload_uses_injected_service_and_context_contract(tmp_path: Pat
         def evaluate(self, data, *, filename, media_type):
             return {"filename": filename, "media_type": media_type, "bytes": len(data)}
 
-    client = TestClient(
-        _app(tmp_path, evaluation_enabled=True, service_factory=StubService)
-    )
+    app = _app(tmp_path, evaluation_enabled=True, service_factory=StubService)
+    client = TestClient(app)
+    attempts_before = app.state.release.attempts
+    operations_before = tuple(app.state.release.operations_by_id)
     response = client.post(
         "/api/evaluations",
         files={"file": ("sample.csv", b"time\n1\n", "text/csv")},
@@ -146,6 +193,8 @@ def test_enabled_upload_uses_injected_service_and_context_contract(tmp_path: Pat
             == "approach_context_v1"
         ),
     }
+    assert app.state.release.attempts == attempts_before
+    assert tuple(app.state.release.operations_by_id) == operations_before
 
 
 def test_enabled_upload_rate_limits_before_second_parse(tmp_path: Path):

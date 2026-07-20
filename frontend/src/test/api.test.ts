@@ -6,6 +6,7 @@ import {
   getApproach,
   getApproaches,
   getApproachOperation,
+  getEvidence,
   getHealth,
 } from "../api";
 
@@ -25,10 +26,12 @@ describe("approach API client", () => {
     await getApproaches({ limit: 25, status: "review_required", direction: "all" });
     await getApproach("att/one");
     await getApproachOperation("OP one");
+    await getEvidence();
     expect(seen).toEqual([
       "/api/approaches?limit=25&status=review_required",
       "/api/approaches/att%2Fone",
       "/api/approach-operations/OP%20one",
+      "/api/evidence",
     ]);
   });
 
@@ -40,6 +43,8 @@ describe("approach API client", () => {
         ok: true,
         json: () => Promise.resolve({
           schema_version: "approach_evaluation_v1",
+          data_origin: "user_upload_ephemeral",
+          reference_origin: "derived_from_aggregate_real_research",
           release_id: "release-33",
           reference_sha256: "ref123",
           dataset_digest: "data123",
@@ -78,12 +83,15 @@ describe("approach API client", () => {
     expect((seenInit?.body as FormData).get("file")).toBe(file);
     expect(response).toMatchObject({
       release_id: "release-33",
+      data_origin: "user_upload_ephemeral",
+      reference_origin: "derived_from_aggregate_real_research",
       accepted_rows: 18,
       operation_count: 1,
       attempt_count: 1,
       attempts: [{
         attempt_id: "eval-01",
         operation_ref: "op-01",
+        data_origin: "user_upload_ephemeral",
         status: "partial_observation",
         runway: "32L",
         direction: "32",
@@ -98,6 +106,25 @@ describe("approach API client", () => {
       runway: { specificity: "exact", confidence: 0.91 },
       trajectory: { sampling: "evenly_spaced_v1", observed_points: 11 },
       channels: { time: [100], ground_speed_mps: [71.2] },
+    });
+  });
+
+  it("rejects evaluation responses without the promised origin boundary", async () => {
+    mockFetch(() => ({
+      ok: true,
+      json: () => Promise.resolve({
+        release_id: "release-33",
+        data_origin: "synthetic",
+        reference_origin: "derived_from_aggregate_real_research",
+        results: [],
+      }),
+    }));
+    const error = await evaluateApproachFile(new File(["rows"], "sample.csv"))
+      .catch((caught) => caught as ApiError);
+    expect(error).toMatchObject({
+      status: 502,
+      code: "invalid_response",
+      message: "Evaluation response origin is invalid.",
     });
   });
 

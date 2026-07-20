@@ -120,9 +120,9 @@ export default function Evaluate() {
     <main className="workspace evaluate-workspace">
       <header className="workspace-header">
         <div>
-          <p className="eyebrow">Rules-first evaluation</p>
+          <p className="eyebrow">Ephemeral user-upload evaluation</p>
           <h1>Evaluate operational data</h1>
-          <p className="workspace-subtitle sans">Upload observed ADS-B rows and receive the same approach-attempt evidence contract used by the loaded cohort.</p>
+          <p className="workspace-subtitle sans">Your file is a third, separate lane: it is processed ephemerally, never retained, and never joins the synthetic demo or real aggregate research results.</p>
         </div>
         <div className="cohort-summary sans">
           <span>Evaluation engine</span>
@@ -158,7 +158,7 @@ export default function Evaluate() {
                   onChange={(event) => chooseFile(event.target.files?.[0] ?? null)}
                 />
                 <b>{file ? file.name : "No file selected"}</b>
-                <small>{file ? `${(file.size / 1024 / 1024).toFixed(2)} MB · retained if validation fails` : "Maximum size and row limits are enforced by the release."}</small>
+                <small>{file ? `${(file.size / 1024 / 1024).toFixed(2)} MB · selected locally for retry, never retained by the server` : "Maximum size and row limits are enforced by the release."}</small>
               </label>
               <div className="upload-actions">
                 <button type="submit" disabled={!file || phase === "uploading"}>{phase === "uploading" ? "Evaluating observed rows…" : "Evaluate approach attempts"}</button>
@@ -184,7 +184,7 @@ export default function Evaluate() {
           {phase === "success" && result && (
             <section className="upload-results" aria-labelledby="results-title">
               <div className="section-heading sans">
-                <div><p className="eyebrow">Evaluation complete</p><h2 id="results-title">{result.attempts.length} approach attempts</h2></div>
+                <div><p className="eyebrow">Ephemeral upload result</p><h2 id="results-title">{result.attempts.length} approach attempts</h2><p>Origin: {humanize(result.data_origin)} · Reference: {humanize(result.reference_origin)} · not retained.</p></div>
                 <button className="secondary-button" onClick={() => downloadEvidence(result)}>Export evidence JSON</button>
               </div>
               <dl className="result-facts sans">
@@ -248,7 +248,8 @@ export default function Evaluate() {
           )}
           <p>Kinematic cells may be null when unobserved. Missing channels abstain instead of being invented.</p>
           <h2>Privacy and limits</h2>
-          <p>Uploads are evaluated in memory for this request. The browser and server do not save the source file.</p>
+          <p>Uploads are evaluated in memory for this request. The server does not retain the source file or append results to the demo cases or research aggregates.</p>
+          <p>Evaluation uses the public rules and reference parameters derived from aggregate real-data research. You are responsible for permission to process the file.</p>
           <h2>Assessment language</h2>
           <p>Results screen observable approach criteria. They are not emergency detections, safety certifications or causal findings.</p>
           <h2>Qualification</h2>

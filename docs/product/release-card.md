@@ -3,135 +3,117 @@ license: other
 tags:
   - aviation
   - ads-b
-  - trajectory-analysis
   - approach-conformance
-  - anomaly-detection
+  - synthetic-data
   - research
 ---
 
-# SADAR Analyst Console release artifacts
+# SADAR Analyst Console public evidence release
 
-This repository publishes the immutable release artifacts used by
-[SADAR Analyst Console](https://sadar-analyst-console.fly.dev), a research demonstrator for
-post-flight screening of ADS-B-observable approach attempts at Madrid-Barajas Airport (LEMD).
+This card describes the pre-publication schema-v4 archive for SADAR Analyst Console,
+a research demonstrator for post-flight inspection of ADS-B-observable approach
+criteria at Madrid-Barajas Airport (LEMD).
 
-This repository is an artifact registry, not a Hugging Face Transformers model or hosted
-inference endpoint. It contains application release evidence plus a frozen historical training
-archive. The current product is rules-first: it reconstructs approach attempts, checks telemetry
-quality, infers runway-relative geometry when supported, and exposes criterion evidence for
-analyst review.
+The archive is a **dataset/application evidence bundle**, not a Hugging Face model,
+hosted inference endpoint, or model-serving package. The rules-first application does
+not load the historical LSTM model.
 
-## Why there are three artifact groups
+## Pre-publication identity
 
-| Artifact | Status | What it contains |
-|---|---|---|
-| `sadar-approach-release.tar.gz` | **Current release candidate** | Schema-v3 approach evidence, deterministic rules, statistical references, contextual provenance and precomputed analyst records. Release `491f81fb1d896b0d793e`, engine `approach_context_v1`. |
-| `sadar-demo-bundle.tar.gz` | **Historical benchmark only** | Schema-v2 behavioral-anomaly demo bundle with the earlier whole-segment LSTM autoencoder evidence. Release `fb116d628a274309a387`. It cannot affect current statuses or queue priority. |
-| `research/trajectory-anomaly/phase6/sadar-phase6-training-artifacts.tar.gz` | **Historical training replay only** | Frozen Phase-6 LSTM checkpoint, fitted scaler, and kNN summary matrix used to reproduce the old model comparison. This is neither a served model nor an application release. |
+- Dataset repository: `Txemapuch/sadar-analyst-console-release`
+- Artifact: `sadar-approach-public-release.tar.gz`
+- Release ID: `c8ab38b575a7408c851a`
+- Schema: `4`
+- Release kind: `sadar_approach_public_evidence`
+- Deterministic archive SHA-256:
+  `9fca03825aa5ae3353c39478ece06fb34dd0f1459161e9f891e91fd286520eae`
+- Synthetic generator: `sadar_synthetic_approach_v1`
+- Seed: `20260718`
+- Publication status: **pending**; no Hub revision or publication date is claimed
 
-The schema-v2 bundle is a precomputed application-evidence bundle: it combines historical model
-outputs with the records needed by that older demo. The Phase-6 archive contains the smaller
-training outputs needed to replay the model comparison. Neither is a second production model or
-part of the current decision path.
+The publication transaction will create the immutable revision, anonymously
+redownload it, revalidate the archive and only then replace the product lock.
 
-The Phase-6 archive is pinned at revision
-`fd21b357b7e24a8f1f3f1c8de6c5927cedaab7ad` with SHA-256
-`1bc57e16c03773875335bdf38b94e3c8377250f0b933dfe5bcf149a8f1b946d0`; its per-file hashes
-are recorded in
-`backend/research/src/sadar_research/trajectory_anomaly/releases/phase6_training_artifacts.lock.json`.
+## Three evidence lanes
 
-## Current immutable release
+| Lane | Included in archive | Meaning |
+|---|---:|---|
+| Deterministic synthetic demo | Yes | Fourteen generated scenarios, one attempt/case/operation each, for exercising the analyst workflow. They are not recorded flights and do not estimate prevalence. |
+| Aggregate real-data research | Yes | Suppression-safe counts, rates, coverage, provenance and limitations derived from real OpenSky research cohorts. No row, trajectory, aircraft identifier or exact source timestamp is included. |
+| Ephemeral user upload | No | Bounded CSV or Parquet data evaluated in memory. Inputs and results are not intentionally retained and never alter the demo queue or aggregate findings. |
 
-- Release ID: `491f81fb1d896b0d793e`
-- Hub revision: `db1a1a9232b3b96276a169a070852f619eec7c21`
-- Archive SHA-256: `1f135728a0c235c245b5107a509cb73f1757ac4ced7346f123a1ea70a732c093`
-- Reference digest: `68ea1a974a077e0b2ef8322564d7799c5fd52cbd21db42b8d5bf1badad57d328`
-- Schema: `3`
+The eight payload files are `demo/catalog.json`, `demo/attempts.json`,
+`demo/cases.json`, `demo/operations.json`, `research/aggregate-results.json`,
+`config/approach-config.json`, `config/lemd-geometry.json`, and
+`reference/approach-reference.json`. A release manifest binds every byte and contract.
 
-Download the exact pinned artifact:
+## Qualification
 
-```bash
-hf download Txemapuch/sadar-demo-release sadar-approach-release.tar.gz \
-  --revision db1a1a9232b3b96276a169a070852f619eec7c21 \
-  --local-dir .
-```
+This candidate is
+`not_qualified_no_independent_labels_or_fresh_holdout`. Its only allowed role is
+`research_and_evidence_labeling_demonstrator`.
 
-The application verifies the archive hash, release manifest, file hashes, schema, provenance
-links and safe extraction boundaries before serving it.
+Blocked uses:
 
-## What the current release does
-
-1. Reconstructs bounded OpenSky-style CSV or Parquet rows into operations and separate approach
-   attempts.
-2. Abstains when coverage, telemetry consistency, terminal evidence or runway geometry is not
-   sufficient.
-3. Evaluates transparent evidence for lateral path, barometric-path proxy, observed descent rate,
-   ground-speed envelope and late track correction.
-4. Uses supplied QNH, wind and supported aircraft-type references when available, with explicit
-   fallback when context is missing.
-5. Produces analyst-facing statuses and evidence exports. It does not produce a safety verdict.
-
-## Evaluation status
-
-This candidate is **not operationally qualified**.
-
-- The sealed 2026 ADS-B-only evaluation retained 63.1% of reconstructed attempts, below the
-  precommitted 65% target.
-- No independent analyst labels exist, so review precision, recall and calibration are unknown.
-- The contextual successor has no fresh untouched holdout. Its changes measure different
-  rule/reference behavior, not improved correctness.
-- The earlier LSTM autoencoder was evaluated as a trajectory-anomaly research benchmark. Its
-  anomaly score does not establish emergency, incident or unstable-approach detection.
-
-The release is useful for inspecting evidence, collecting independent labels, testing the analyst
-workflow and learning which additional data are required.
-
-## Intended and prohibited uses
-
-Appropriate uses:
-
-- non-profit research and education;
-- post-flight evidence inspection;
-- analyst workflow evaluation and label collection;
-- reproducibility and comparison with the historical LSTM benchmark.
-
-Do not use it for:
-
-- emergency or incident detection;
-- real-time alerts or operational monitoring;
+- operational monitoring;
+- emergency detection;
 - stabilized-approach certification;
-- ATC, flight-crew or safety decisions;
-- claims about aircraft intent, clearance, configuration, mass or airspeed.
+- ATC decision support; and
+- safety-performance claims.
 
-## Data and limitations
+There are no independent analyst labels from which to estimate precision, recall,
+AUROC, calibration or safety performance. The 2026 cohort is already burned, the
+contextual comparison has no fresh untouched holdout, and status transitions measure
+rule/reference behavior rather than correctness.
 
-The research uses OpenSky Network ADS-B observations around LEMD. Optional contextual inputs use
-NOAA NCEI Global Hourly weather and the OpenSky aircraft database. ADS-B does not directly provide
-many operational variables required for a true stabilized-approach assessment, including aircraft
-configuration, mass, clearance, intent and indicated airspeed.
+## Data source, access and notice
 
-The current application archives contain bounded, downsampled row-level observations derived from
-OpenSky, including time, trajectory, aircraft-identifier and telemetry fields needed by the
-demonstrator. They do not copy the complete OpenSky source database, but they remain upstream data.
+The real aggregate lane was derived from OpenSky Network ADS-B observations around
+LEMD. To obtain source observations, use
+[OpenSky data access](https://opensky-network.org/data/data-access) directly and comply
+with the [OpenSky terms of use](https://opensky-network.org/about/terms-of-use).
 
-**Distribution gate:** the current
-[OpenSky terms of use](https://opensky-network.org/about/terms-of-use) prohibit redistribution of
-the datasets without authorization and require a written agreement for operational REST API use.
-Do not mirror, redistribute or reuse the pinned archives. Before another public release, replace
-their observation records with authorized or synthetic evidence, or obtain written permission.
-The `other` license marker reflects these mixed code, artifact and source-data conditions.
+Publication notice status is **pending** and its date is therefore null. This card does
+not claim that notice has been sent or acknowledged.
 
-## Reproducibility and documentation
+OpenSky citation:
+
+> Matthias Schäfer, Martin Strohmeier, Vincent Lenders, Ivan Martinovic, and Matthias
+> Wilhelm. “Bringing Up OpenSky: A Large-scale ADS-B Sensor Network for Research.”
+> IPSN 2014.
+
+## What the application does
+
+1. Shows deterministic synthetic scenarios in a queue and analyst dossier.
+2. Separates insufficient observation quality from observed criterion evidence.
+3. Uses runway-relative geometry and transparent rules for lateral path, barometric
+   path proxy, observed descent rate, ground-speed envelope and late track correction.
+4. Shows real research findings only as aggregates with denominators, suppression and
+   interpretation limits.
+5. Evaluates a user-supplied bounded file ephemerally against the published rules and
+   aggregate-derived reference parameters.
+
+It does not detect emergencies, establish stabilized-approach compliance, infer intent,
+clearance, configuration or mass, or certify operational safety.
+
+## Withdrawal history
+
+The former schema-3 application archive was withdrawn from the public-delivery path
+because it contained row-level OpenSky-derived observations, including trajectory and
+aircraft fields. It must not be mirrored or used as the basis for a new public release.
+The schema-v2 LSTM demo bundle and Phase-6 training archive remain historical research
+artifacts only; neither can affect the current Analyst Console verdict or priority.
+
+## Reproducibility
+
+Source Git explains and reproduces the release; the dataset registry stores the
+generated immutable archive. A clean checkout deterministically generates the fourteen
+synthetic cases, combines them with the tracked aggregate resource, validates schema 4,
+builds the archive twice and compares its bytes. Pre-publication containers use an
+explicit `local-reviewed` BuildKit context. Production remains fail-closed until an
+immutable schema-v4 lock exists.
 
 - [Source repository](https://github.com/txema-puch/drone-ai-saturdays)
-- [Application](https://sadar-analyst-console.fly.dev)
-- [Active design](https://github.com/txema-puch/drone-ai-saturdays/blob/main/docs/product/design.md)
+- [Product overview](https://github.com/txema-puch/drone-ai-saturdays/blob/main/docs/product/overview.md)
+- [Architecture](https://github.com/txema-puch/drone-ai-saturdays/blob/main/docs/product/architecture.md)
 - [Rules-first decision](https://github.com/txema-puch/drone-ai-saturdays/blob/main/docs/product/decision-rules-first.md)
-- [Sealed evaluation](https://github.com/txema-puch/drone-ai-saturdays/blob/main/docs/research/approach-screening/lifecycle/07-eval.md)
-- [Contextual evaluation](https://github.com/txema-puch/drone-ai-saturdays/blob/main/docs/research/approach-context/lifecycle/07-eval.md)
-
-## Citation
-
-For OpenSky data, cite: Matthias Schäfer, Martin Strohmeier, Vincent Lenders, Ivan Martinovic and
-Matthias Wilhelm, “Bringing up OpenSky: A large-scale ADS-B sensor network for research,” ACM/IEEE
-IPSN, 2014.

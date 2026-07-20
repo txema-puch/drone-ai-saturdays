@@ -78,6 +78,9 @@ body,
   background: var(--bg);
 }
 .app-nav .app-brand {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
   color: var(--ink);
   font-family: var(--mono);
   font-size: 12px;
@@ -106,7 +109,7 @@ body,
   color: var(--ink);
   border-bottom-color: var(--accent);
 }
-.app-qualification {
+.app-boundary {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -119,13 +122,21 @@ body,
   font-size: 16px;
   line-height: 1.35;
 }
-.app-qualification b { color: var(--amber); }
+.app-boundary b { color: var(--ink); }
+.app-boundary span { color: var(--mut); font-size: 16px; }
 .app-content {
   min-height: calc(100vh - 98px);
 }
 
 @media (max-width: 767px) {
-  .app-chrome { position: static; }
+  .app-boundary {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 3px;
+    min-height: 62px;
+    padding: 9px 16px;
+    font-size: 16px;
+  }
 }
 
 html {
@@ -290,11 +301,14 @@ select {
 @media (max-width: 767px) {
   .app-nav {
     height: auto;
-    min-height: 64px;
-    padding: 0 16px;
+    min-height: 86px;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0;
+    padding: 8px 16px 0;
   }
   .app-brand span { display: none; }
-  .app-nav nav { gap: 14px; }
-  .app-nav nav a { min-height: 54px; font-size: 12px; }
-  .app-content { min-height: calc(100vh - 64px); }
+  .app-nav nav { width: 100%; justify-content: space-between; gap: 10px; }
+  .app-nav nav a { min-height: 48px; font-size: 11px; white-space: nowrap; }
+  .app-content { min-height: calc(100vh - 148px); }
 }

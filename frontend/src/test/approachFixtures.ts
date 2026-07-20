@@ -11,24 +11,35 @@ export const APPROACH_HEALTH: Health = {
   mode: "approach-screening",
   operations: 2,
   attempts: 2,
+  demo_operations: 14,
+  demo_attempts: 14,
+  demo_data_origin: "synthetic",
+  research_data_origin: "aggregate_real",
+  evaluation_data_handling: "ephemeral_not_retained",
   evaluation_enabled: true,
   context_enabled: true,
   qualification: "not_qualified_no_independent_labels_or_fresh_holdout",
   allowed_role: "research_and_evidence_labeling_demonstrator",
   release_id: "approach-release-33",
-  schema_version: 3,
+  schema_version: 4,
   status_counts: { review_required: 1, partial_observation: 1 },
+  demo_status_counts: { review_required: 1, partial_observation: 1 },
   reference: { status: "ready", artifact_sha256: "reference0123456789" },
 };
 
 export const REVIEW_ATTEMPT: ApproachSummary = {
   attempt_id: "att-op-1-01",
   operation_ref: "OP-LEMD-001",
+  data_origin: "synthetic",
+  scenario_id: "low-speed-rwy-32l",
+  scenario_title: "Lower-than-reference speed",
+  teaching_goal: "Explains a persistent lower-bound ground-speed review signal.",
   status: "review_required",
   direction: "32",
   runway: "32L",
   failed_criteria: ["observed_descent_rate"],
   outcome: "landing_observed",
+  landing_outcome: { available: true, reason: null, evidence_end_along_track_m: -200 },
   observed_samples: 48,
   coverage: { observed_fraction: 0.96 },
   start_time: 1_773_651_600,
@@ -40,6 +51,10 @@ export const REVIEW_ATTEMPT: ApproachSummary = {
 export const PARTIAL_ATTEMPT: ApproachSummary = {
   attempt_id: "att-op-2-01",
   operation_ref: "OP-LEMD-002",
+  data_origin: "synthetic",
+  scenario_id: "evidence-ends-early-rwy-32l",
+  scenario_title: "Evidence ends before the runway",
+  teaching_goal: "Separates final-gate evidence from landing outcome availability.",
   status: "partial_observation",
   direction: "18",
   runway: "18_pair",
@@ -48,6 +63,7 @@ export const PARTIAL_ATTEMPT: ApproachSummary = {
   runway_confidence: 0.54,
   failed_criteria: [],
   outcome: "final_gate_observed",
+  landing_outcome: { available: false, reason: "evidence_ends_before_threshold", evidence_end_along_track_m: 3_500 },
   observed_samples: 31,
   coverage: { observed_fraction: 0.67 },
   start_time: 1_773_650_000,
@@ -137,10 +153,16 @@ export const APPROACH_DETAIL: ApproachDetail = {
 
 export const APPROACH_OPERATION: ApproachOperation = {
   operation_ref: "OP-LEMD-001",
+  data_origin: "synthetic",
+  scenario_id: "low-speed-rwy-32l",
+  scenario_title: "Lower-than-reference speed",
+  teaching_goal: "Explains a persistent lower-bound ground-speed review signal.",
   attempts: [REVIEW_ATTEMPT, { ...PARTIAL_ATTEMPT, operation_ref: "OP-LEMD-001" }],
 };
 
 export const APPROACH_UPLOAD: ApproachUploadResponse = {
+  data_origin: "user_upload_ephemeral",
+  reference_origin: "derived_from_aggregate_real_research",
   release_id: "approach-release-33",
   upload_sha256: "upload0123456789",
   raw_rows: 120,
@@ -151,6 +173,7 @@ export const APPROACH_UPLOAD: ApproachUploadResponse = {
   rejection_reasons: [{ code: "terminal_gate_not_reached", message: "One record did not reach the final gate.", count: 1 }],
   attempts: [{
     ...REVIEW_ATTEMPT,
+    data_origin: "user_upload_ephemeral",
     criteria: APPROACH_DETAIL.criteria,
     context: {
       weather: {

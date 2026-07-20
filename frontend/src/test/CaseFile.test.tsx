@@ -33,6 +33,10 @@ describe("attempt dossier", () => {
     expect(screen.getByText("1003 hPa")).toBeInTheDocument();
     expect(screen.getByText("A320")).toBeInTheDocument();
     expect(screen.getByText(/Actual mass.*ATC clearance.*remain unavailable/i)).toBeInTheDocument();
+    expect(screen.getByText("Synthetic demonstration case", { selector: ".origin-badge" })).toBeInTheDocument();
+    expect(screen.getByText(/Lower-than-reference speed/)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Generated evidence path" })).toBeInTheDocument();
+    expect(screen.getByText(/No recorded flight is represented/i)).toBeInTheDocument();
   });
 
   it("keeps the historical model collapsed and explicitly outside the verdict", async () => {

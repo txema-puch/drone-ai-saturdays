@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-import hashlib
-import json
 import os
+import copy
 from pathlib import Path
 
 from fastapi.testclient import TestClient
@@ -19,10 +18,11 @@ RELEASE_DIR = Path(
         REPO / ".artifacts/approach-release",
     )
 )
+if not RELEASE_DIR.exists():
+    from tests.product.test_approach_release import build_valid_release
+
+    build_valid_release(RELEASE_DIR.parent, RELEASE_DIR.name)
 RELEASE = load_release_directory(RELEASE_DIR)
-PRE_RESTRUCTURE_CONTRACT = (
-    Path(__file__).parent / "fixtures" / "pre_restructure_read_contract.json"
-)
 
 
 def _settings(frontend: Path, **kwargs) -> Settings:
@@ -36,27 +36,66 @@ def _settings(frontend: Path, **kwargs) -> Settings:
     return Settings(**values)
 
 
-def test_factory_preserves_pre_restructure_read_contract(tmp_path: Path):
+def test_factory_serves_synthetic_queue_detail_and_origin_health(tmp_path: Path):
     frontend = tmp_path / "frontend"
     frontend.mkdir()
     (frontend / "index.html").write_text('<div id="root"></div>')
     (frontend / "asset.txt").write_text("asset")
     client = TestClient(create_app(_settings(frontend), RELEASE))
-    contract = json.loads(PRE_RESTRUCTURE_CONTRACT.read_text())
+    health = client.get("/api/health").json()
+    assert health["schema_version"] == 4
+    assert health["demo_data_origin"] == "synthetic"
+    assert health["research_data_origin"] == "aggregate_real"
+    assert health["demo_attempts"] == 14
+    assert health["demo_operations"] == 14
+    assert sum(health["demo_status_counts"].values()) == 14
+    assert sum(health["demo_outcome_counts"].values()) == 14
+    assert health["evaluation_data_handling"] == "ephemeral_not_retained"
+    assert health["source_commit"] == "unknown"
+    assert health["qualification"] == "not_qualified_no_independent_labels_or_fresh_holdout"
+    queue = client.get("/api/approaches").json()
+    assert queue and queue[0]["attempt_id"].startswith("syn-a-")
+    assert all(item["data_origin"] == "synthetic" for item in queue)
+    assert all(item["scenario_title"] and item["teaching_goal"] for item in queue)
+    detail = client.get(f"/api/approaches/{queue[0]['attempt_id']}").json()
+    assert detail["demo_clock"] is True
+    assert detail["landing_outcome"] == queue[0]["landing_outcome"]
 
-    assert contract["source"]["commit"] == "2256b3b07a751a5c458d742a159f1d89c1b31503"
-    for expected in contract["responses"]:
-        response = client.get(expected["path"])
-        canonical = json.dumps(
-            response.json(), sort_keys=True, separators=(",", ":")
-        ).encode()
-        assert response.status_code == expected["status_code"], expected["path"]
-        assert response.headers["content-type"] == expected["content_type"], expected[
-            "path"
-        ]
-        assert hashlib.sha256(canonical).hexdigest() == expected["sha256"], expected[
-            "path"
-        ]
+
+def test_real_aggregate_counts_cannot_change_demo_queue_counts(tmp_path: Path):
+    frontend = tmp_path / "frontend"
+    frontend.mkdir()
+    (frontend / "index.html").write_text("ok")
+    changed = copy.deepcopy(RELEASE)
+    changed["aggregate_results"]["cohorts"][0]["attempts"] = 99_999
+    client = TestClient(create_app(_settings(frontend), changed))
+
+    health = client.get("/api/health").json()
+    assert health["demo_attempts"] == 14
+    assert sum(health["demo_status_counts"].values()) == 14
+    assert len(client.get("/api/approaches?limit=5000").json()) == 14
+
+
+def test_evidence_is_the_canonical_aggregate_endpoint(tmp_path: Path):
+    frontend = tmp_path / "frontend"
+    frontend.mkdir()
+    (frontend / "index.html").write_text("ok")
+    client = TestClient(create_app(_settings(frontend), RELEASE))
+
+    evidence = client.get("/api/evidence")
+    assert evidence.status_code == 200
+    assert evidence.json() == RELEASE["aggregate_results"]
+    assert client.get("/api/metrics").json() == evidence.json()
+    deprecated = client.get("/api/research", follow_redirects=False)
+    assert deprecated.status_code == 307
+    assert deprecated.headers["location"] == "/api/evidence"
+    assert deprecated.headers["deprecation"] == "true"
+    assert deprecated.headers["link"] == '</api/evidence>; rel="successor-version"'
+    paths = client.get("/openapi.json").json()["paths"]
+    assert paths["/api/research"]["get"]["deprecated"] is True
+    assert set(paths["/api/research"]["get"]["responses"]) == {"307"}
+    evidence_schema = paths["/api/evidence"]["get"]["responses"]["200"]["content"]["application/json"]["schema"]
+    assert evidence_schema["$ref"].endswith("/ResearchEvidenceResponse")
 
 
 def test_factory_instances_have_isolated_runtime_state(tmp_path: Path):

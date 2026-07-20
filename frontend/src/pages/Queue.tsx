@@ -30,11 +30,12 @@ function AttemptRow({ attempt }: { attempt: ApproachSummary }) {
       <Link
         className="attempt-record__link"
         to={`/approaches/${encodeURIComponent(attempt.attempt_id)}`}
-        aria-label={`Open approach attempt ${attempt.attempt_id}: ${humanize(attempt.status)}, runway ${runway}`}
+        aria-label={`Open synthetic scenario ${attempt.scenario_title}: ${humanize(attempt.status)}, runway ${runway}`}
       >
         <span className="attempt-record__cell attempt-record__status" data-label="Status">
+          <span className="origin-label">Synthetic scenario</span>
           <ApproachStatus status={attempt.status} compact />
-          <small className="mono">{attempt.attempt_id}</small>
+          <small>{attempt.scenario_title}</small>
         </span>
         <span className="attempt-record__cell" data-label="Runway">
           <b className="mono">{runway}</b>
@@ -50,7 +51,7 @@ function AttemptRow({ attempt }: { attempt: ApproachSummary }) {
         </span>
         <span className="attempt-record__cell" data-label="Time">
           <b>{formatTime(attempt.start_time)}</b>
-          <small className="mono">{attempt.operation_ref}</small>
+          <small>Generated UTC clock · <span className="mono">{attempt.scenario_id}</span></small>
         </span>
       </Link>
     </li>
@@ -119,28 +120,29 @@ export default function Queue() {
   }
 
   const hasFilters = FILTERS.some((name) => searchParams.has(name));
-  const statusCounts = health?.status_counts ?? {};
+  const statusCounts = health?.demo_status_counts ?? {};
 
   return (
     <main className="workspace queue-workspace">
       <header className="workspace-header">
         <div>
-          <p className="eyebrow">LEMD · post-flight screening</p>
+          <p className="eyebrow">LEMD · synthetic workflow demonstration</p>
           <h1>Approach attempts</h1>
           <p className="workspace-subtitle sans">
-            Screens ADS-B-observable approach criteria. It does not detect emergencies or certify operational safety.
+            Explore generated examples of the screening workflow. These are not recorded flights.
           </p>
         </div>
-        <div className="cohort-summary sans" aria-label="Loaded cohort">
-          <span>Loaded cohort</span>
-          <b>{health?.attempts ?? attempts?.length ?? "—"} attempts</b>
+        <div className="cohort-summary sans" aria-label="Synthetic demo set">
+          <span>Synthetic demo set</span>
+          <b>{health?.demo_attempts ?? attempts?.length ?? "—"} scenarios</b>
           <small>{health?.release_id ? `release ${health.release_id}` : "Release metadata unavailable"}</small>
         </div>
       </header>
 
       <div className="queue-layout">
         <section className="queue-main" aria-labelledby="attempt-list-title">
-          <form className="attempt-filters sans" aria-label="Filter approach attempts" onSubmit={(event) => event.preventDefault()}>
+          <div className="attempt-controls">
+            <form className="attempt-filters sans" aria-label="Filter approach attempts" onSubmit={(event) => event.preventDefault()}>
             <label>Status
               <select value={filters.status ?? "all"} onChange={(event) => setFilter("status", event.target.value)}>
                 <option value="all">All statuses</option>
@@ -182,11 +184,12 @@ export default function Queue() {
               </select>
             </label>
             {hasFilters && <button className="text-button" type="button" onClick={clearFilters}>Clear filters</button>}
-          </form>
+            </form>
 
-          <div className="attempt-list-header sans">
-            <h2 id="attempt-list-title">{attempts ? `${visibleAttempts.length.toLocaleString()} attempts` : "Loading attempts"}</h2>
-            <span>Prioritized by status, failed criteria, then time</span>
+            <div className="attempt-list-header sans">
+              <h2 id="attempt-list-title">{attempts ? `${visibleAttempts.length.toLocaleString()} demo scenarios` : "Loading demo scenarios"}</h2>
+              <span>Prioritized by status, failed criteria, then time</span>
+            </div>
           </div>
 
           {error && (
@@ -206,7 +209,7 @@ export default function Queue() {
           {!error && attempts !== null && visibleAttempts.length === 0 && (
             <div className="state-panel">
               <h2>No attempts match this view</h2>
-              <p>The cohort loaded successfully. Remove a filter to return to assessable evidence.</p>
+              <p>The synthetic demo set loaded successfully. Remove a filter to return to assessable evidence.</p>
               <button type="button" onClick={clearFilters}>Clear all filters</button>
             </div>
           )}
@@ -214,7 +217,7 @@ export default function Queue() {
           {!error && visibleAttempts.length > 0 && (
             <>
               <div className="attempt-columns sans" aria-hidden="true">
-                <span>Status / attempt</span><span>Runway / outcome</span><span>Failed criteria</span><span>Coverage</span><span>Time / operation</span>
+                <span>Status / scenario</span><span>Runway / outcome</span><span>Failed criteria</span><span>Coverage</span><span>Demo time / scenario</span>
               </div>
               <ol className="attempt-list">
                 {visibleAttempts.map((attempt) => <AttemptRow attempt={attempt} key={attempt.attempt_id} />)}
@@ -223,7 +226,7 @@ export default function Queue() {
           )}
         </section>
 
-        <aside className="context-rail queue-rail sans" aria-label="Cohort status summary" tabIndex={0}>
+        <aside className="context-rail queue-rail sans" aria-label="Synthetic demo status summary" tabIndex={0}>
           <h2>Status scope</h2>
           {STATUS_OPTIONS.map((status) => (
             <button key={status} onClick={() => setFilter("status", status)} aria-pressed={filters.status === status}>

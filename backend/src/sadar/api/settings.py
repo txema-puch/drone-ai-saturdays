@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from pydantic import AliasChoices, Field, PositiveInt
+from pydantic import AliasChoices, Field, PositiveInt, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from sadar.api.evaluation import MAX_INPUT_BYTES
@@ -22,6 +22,7 @@ class Settings(BaseSettings):
         )
     )
     frontend_dir: Path | None = Field(default=None, alias="SADAR_FRONTEND_DIR")
+    source_commit: str = Field(default="unknown", alias="SADAR_SOURCE_COMMIT")
     evaluation_enabled: bool = Field(default=False, alias="SADAR_ENABLE_EVALUATION")
     evaluation_rate_window_s: PositiveInt = Field(
         default=60,
@@ -42,6 +43,15 @@ class Settings(BaseSettings):
     )
     upload_idle_seconds: float = Field(default=5.0, gt=0)
     upload_total_seconds: float = Field(default=60.0, gt=0)
+
+    @field_validator("source_commit")
+    @classmethod
+    def validate_source_commit(cls, value: str) -> str:
+        if value == "unknown" or (
+            len(value) == 40 and all(character in "0123456789abcdef" for character in value)
+        ):
+            return value
+        raise ValueError("SADAR_SOURCE_COMMIT must be 40 lowercase hex characters or unknown")
 
     @property
     def maximum_multipart_bytes(self) -> int:

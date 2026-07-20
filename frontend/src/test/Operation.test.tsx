@@ -17,10 +17,11 @@ afterEach(() => vi.clearAllMocks());
 describe("operation context", () => {
   it("groups attempts without merging their assessments", async () => {
     render(<MemoryRouter initialEntries={["/approach-operations/OP-LEMD-001"]} future={{ v7_startTransition: true, v7_relativeSplatPath: true }}><Routes><Route path="/approach-operations/:operationRef" element={<Operation />} /></Routes></MemoryRouter>);
-    expect(await screen.findByRole("heading", { name: "Observed operation" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Generated operation" })).toBeInTheDocument();
     expect(screen.getByText("att-op-1-01")).toBeInTheDocument();
     expect(screen.getByText("att-op-2-01")).toBeInTheDocument();
-    expect(screen.getByText(/multiple independently assessed approach attempts/i)).toBeInTheDocument();
+    expect(screen.getByText(/No recorded flight is represented/i)).toBeInTheDocument();
+    expect(screen.getByText("Synthetic demonstration case", { selector: ".origin-badge" })).toBeInTheDocument();
   });
 
   it("provides a retry and queue escape when grouping fails", async () => {

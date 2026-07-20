@@ -31,7 +31,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Protocol
+from typing import Literal, Protocol
 
 from sadar.releases import archive as release
 
@@ -196,7 +196,19 @@ def _validate_revision(value: object) -> str:
     return value
 
 
-def _validate_public_url(value: object, *, revision: str) -> str:
+RepositoryType = Literal["model", "dataset"]
+
+
+def _validate_public_url(
+    value: object,
+    *,
+    revision: str,
+    repo_type: RepositoryType = "model",
+    expected_repo_id: str | None = None,
+    expected_artifact_name: str | None = None,
+) -> str:
+    if repo_type not in ("model", "dataset"):
+        raise PublicationError("artifact repository type must be model or dataset")
     if not isinstance(value, str) or len(value.encode("utf-8")) > MAX_URL_BYTES:
         raise PublicationError("uploader returned an invalid public artifact URL")
     try:
@@ -215,17 +227,35 @@ def _validate_public_url(value: object, *, revision: str) -> str:
     ):
         raise PublicationError("artifact URL must be a public HTTPS huggingface.co URL without credentials")
     parts = tuple(part for part in parsed.path.split("/") if part)
+    prefix = ("datasets",) if repo_type == "dataset" else ()
+    expected_length = 6 if repo_type == "dataset" else 5
+    owner_index = len(prefix)
+    repository_index = owner_index + 1
+    resolve_index = owner_index + 2
+    revision_index = owner_index + 3
+    artifact_index = owner_index + 4
     if (
-        len(parts) != 5
+        len(parts) != expected_length
         or parsed.path != "/" + "/".join(parts)
-        or parts[2] != "resolve"
-        or parts[3] != revision
-        or not all(_HF_REPOSITORY_COMPONENT_RE.fullmatch(part) for part in (parts[0], parts[1]))
-        or not _ARTIFACT_NAME_RE.fullmatch(parts[4])
-    ):
-        raise PublicationError(
-            "artifact URL must contain owner/repository/resolve/revision/artifact"
+        or parts[: len(prefix)] != prefix
+        or parts[resolve_index] != "resolve"
+        or parts[revision_index] != revision
+        or not all(
+            _HF_REPOSITORY_COMPONENT_RE.fullmatch(part)
+            for part in (parts[owner_index], parts[repository_index])
         )
+        or not _ARTIFACT_NAME_RE.fullmatch(parts[artifact_index])
+        or (
+            expected_repo_id is not None
+            and "/".join((parts[owner_index], parts[repository_index]))
+            != expected_repo_id
+        )
+        or (
+            expected_artifact_name is not None
+            and parts[artifact_index] != expected_artifact_name
+        )
+    ):
+        raise PublicationError("artifact URL does not match the required immutable repository path")
     return value
 
 
@@ -240,12 +270,21 @@ def validate_lock_record(
     value: object,
     *,
     expected_schema_version: int = release.RELEASE_SCHEMA_VERSION,
+    repo_type: RepositoryType = "model",
+    expected_repo_id: str | None = None,
+    expected_artifact_name: str | None = None,
 ) -> dict[str, object]:
     """Validate the exact committed lock schema before writing or consuming it."""
     if not isinstance(value, dict) or set(value) != LOCK_KEYS:
         raise PublicationError("publication lock must contain exactly the supported fields")
     revision = _validate_revision(value["revision"])
-    url = _validate_public_url(value["url"], revision=revision)
+    url = _validate_public_url(
+        value["url"],
+        revision=revision,
+        repo_type=repo_type,
+        expected_repo_id=expected_repo_id,
+        expected_artifact_name=expected_artifact_name,
+    )
     archive_sha256 = value["archive_sha256"]
     release_id = value["release_id"]
     schema_version = value["schema_version"]
@@ -282,9 +321,18 @@ def _write_lock_atomically(
     *,
     contract=release,
     schema_version: int = release.RELEASE_SCHEMA_VERSION,
+    repo_type: RepositoryType = "model",
+    expected_repo_id: str | None = None,
+    expected_artifact_name: str | None = None,
 ) -> None:
     data = contract.canonical_json_bytes(
-        validate_lock_record(record, expected_schema_version=schema_version)
+        validate_lock_record(
+            record,
+            expected_schema_version=schema_version,
+            repo_type=repo_type,
+            expected_repo_id=expected_repo_id,
+            expected_artifact_name=expected_artifact_name,
+        )
     ) + b"\n"
     if len(data) > MAX_LOCK_BYTES:
         raise PublicationError("publication lock exceeds its byte limit")
@@ -316,6 +364,8 @@ def publish_release(
     schema_version: int = release.RELEASE_SCHEMA_VERSION,
     lock_name: str = LOCK_NAME,
     artifact_name: str = DEFAULT_ARTIFACT_NAME,
+    repo_type: RepositoryType = "model",
+    expected_repo_id: str | None = None,
 ) -> dict[str, object]:
     """Run the local publication transaction and return the newly committed lock."""
     repository = _resolved_directory(repository_root, field="repository root")
@@ -343,9 +393,15 @@ def publish_release(
         if not isinstance(uploaded, UploadedArtifact):
             raise PublicationError("uploader returned an invalid artifact descriptor")
         revision = _validate_revision(uploaded.revision)
-        url = _validate_public_url(uploaded.url, revision=revision)
+        url = _validate_public_url(
+            uploaded.url,
+            revision=revision,
+            repo_type=repo_type,
+            expected_repo_id=expected_repo_id,
+            expected_artifact_name=artifact_name,
+        )
 
-        redownload = working / "redownloaded-demo-bundle.tar.gz"
+        redownload = working / "redownloaded-release.tar.gz"
         downloader(url, redownload)
         downloaded_manifest = contract.inspect_release_archive(
             redownload, expected_sha256=archive_sha256
@@ -363,12 +419,18 @@ def publish_release(
                 "url": url,
             },
             expected_schema_version=schema_version,
+            repo_type=repo_type,
+            expected_repo_id=expected_repo_id,
+            expected_artifact_name=artifact_name,
         )
         _write_lock_atomically(
             destination,
             record,
             contract=contract,
             schema_version=schema_version,
+            repo_type=repo_type,
+            expected_repo_id=expected_repo_id,
+            expected_artifact_name=artifact_name,
         )
         return record
 
@@ -413,7 +475,13 @@ def download_public_artifact(
         raise PublicationError("public artifact redownload failed") from exc
 
 
-def hugging_face_uploader(*, repo_id: str, artifact_name: str, token: str) -> ArtifactUploader:
+def hugging_face_uploader(
+    *,
+    repo_id: str,
+    artifact_name: str,
+    token: str,
+    repo_type: RepositoryType,
+) -> ArtifactUploader:
     """Create the optional Hub adapter without importing it in serving code."""
     if not token:
         raise PublicationError("HF_TOKEN is required for publication")
@@ -434,17 +502,34 @@ def hugging_face_uploader(*, repo_id: str, artifact_name: str, token: str) -> Ar
             path_or_fileobj=str(archive_path),
             path_in_repo=artifact_name,
             repo_id=repo_id,
-            repo_type="model",
+            repo_type=repo_type,
         )
         revision = getattr(result, "oid", None)
         if not isinstance(revision, str):
             raise PublicationError("Hugging Face upload did not return an immutable revision")
         return UploadedArtifact(
-            url=hf_hub_url(repo_id=repo_id, filename=artifact_name, repo_type="model", revision=revision),
+            url=hf_hub_url(
+                repo_id=repo_id,
+                filename=artifact_name,
+                repo_type=repo_type,
+                revision=revision,
+            ),
             revision=revision,
         )
 
     return upload
+
+
+def resolve_hugging_face_token() -> str:
+    """Resolve a publisher token without persisting or printing it."""
+    environment_token = os.environ.get("HF_TOKEN", "")
+    if environment_token:
+        return environment_token
+    try:
+        from huggingface_hub import get_token
+    except ImportError as exc:
+        raise PublicationError("install huggingface_hub in the publisher environment") from exc
+    return get_token() or ""
 
 
 def safe_error_message(error: BaseException, *, secret: str) -> str:
@@ -459,17 +544,20 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--repository-root", type=Path, required=True)
     parser.add_argument("--hf-repo-id", required=True)
     parser.add_argument("--artifact-name", default=DEFAULT_ARTIFACT_NAME)
+    parser.add_argument("--repo-type", choices=("model", "dataset"), default="model")
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
-    token = os.environ.get("HF_TOKEN", "")
+    token = ""
     try:
+        token = resolve_hugging_face_token()
         uploader = hugging_face_uploader(
             repo_id=args.hf_repo_id,
             artifact_name=args.artifact_name,
             token=token,
+            repo_type=args.repo_type,
         )
         record = publish_release(
             release_dir=args.release_dir,
@@ -477,6 +565,8 @@ def main(argv: list[str] | None = None) -> int:
             repository_root=args.repository_root,
             uploader=uploader,
             downloader=download_public_artifact,
+            repo_type=args.repo_type,
+            expected_repo_id=args.hf_repo_id,
         )
     except Exception as exc:
         print(f"publication failed: {safe_error_message(exc, secret=token)}", file=sys.stderr)

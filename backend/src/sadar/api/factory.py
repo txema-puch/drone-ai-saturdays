@@ -8,10 +8,11 @@ from typing import Annotated, Callable, Literal
 
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.concurrency import run_in_threadpool
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse
 from starlette.datastructures import UploadFile
 from starlette.middleware.gzip import GZipMiddleware
 
+from sadar.api.contracts import ResearchEvidenceResponse
 from sadar.api.evaluation import (
     MAX_INPUT_BYTES,
     ApproachUploadEvaluationService,
@@ -107,9 +108,14 @@ def create_app(
             "mode": "approach-screening",
             "release_id": state.release_id,
             "schema_version": state.schema_version,
+            "demo_attempts": len(state.attempts),
+            "demo_operations": len(state.operations_by_id),
+            "demo_status_counts": dict(state.demo_status_counts),
+            "demo_outcome_counts": dict(state.demo_outcome_counts),
+            # Deprecated demo-only aliases retained for one client transition.
             "attempts": len(state.attempts),
             "operations": len(state.operations_by_id),
-            "status_counts": state.metrics.get("status_counts", {}),
+            "status_counts": dict(state.demo_status_counts),
             "cases_available": len(state.cases_by_id),
             "reference": {
                 "status": "loaded",
@@ -118,9 +124,13 @@ def create_app(
             },
             "evaluation_enabled": settings.evaluation_enabled,
             "context_enabled": state.contextual,
-            "qualification": state.metrics.get("qualification"),
-            "allowed_role": state.metrics.get("allowed_role"),
-            "blocked_uses": state.metrics.get("blocked_uses", []),
+            "qualification": state.aggregate_results.get("qualification"),
+            "allowed_role": state.aggregate_results.get("allowed_role"),
+            "blocked_uses": state.aggregate_results.get("blocked_uses", []),
+            "demo_data_origin": state.demo_data_origin,
+            "research_data_origin": "aggregate_real",
+            "evaluation_data_handling": "ephemeral_not_retained",
+            "source_commit": settings.source_commit,
         }
 
     @app.get("/api/approaches")
@@ -164,21 +174,40 @@ def create_app(
             _api_error(404, "operation_not_found", "The operation is not in this release.")
         return {
             "operation_ref": operation_ref,
+            "data_origin": operation["data_origin"],
+            "scenario_id": operation["scenario_id"],
+            "scenario_title": operation["scenario_title"],
+            "teaching_goal": operation["teaching_goal"],
             "attempts": [
                 summary(state.attempts_by_id[attempt_id])
                 for attempt_id in operation.get("attempt_ids", [])
             ],
         }
 
-    @app.get("/api/metrics")
+    @app.get("/api/metrics", response_model=ResearchEvidenceResponse)
     def metrics() -> dict:
-        return dict(state.metrics)
+        return dict(state.aggregate_results)
 
-    @app.get("/api/research")
-    def research() -> dict:
-        if state.research is None:
-            _api_error(404, "research_not_published", "This release has no research benchmark.")
-        return dict(state.research)
+    @app.get("/api/evidence", response_model=ResearchEvidenceResponse)
+    def evidence() -> dict:
+        return dict(state.aggregate_results)
+
+    @app.get(
+        "/api/research",
+        status_code=307,
+        response_class=RedirectResponse,
+        deprecated=True,
+        responses={307: {"description": "Use /api/evidence instead."}},
+    )
+    def research() -> RedirectResponse:
+        return RedirectResponse(
+            url="/api/evidence",
+            status_code=307,
+            headers={
+                "Deprecation": "true",
+                "Link": '</api/evidence>; rel="successor-version"',
+            },
+        )
 
     @app.post("/api/evaluations")
     async def evaluate_upload(request: Request) -> dict:

@@ -1,4 +1,4 @@
-"""Fetch and atomically install the locked public schema-v3 approach release."""
+"""Fetch and atomically install the locked public schema-v4 approach release."""
 
 from __future__ import annotations
 
@@ -11,7 +11,8 @@ from sadar.releases import archive as approach_transport
 from sadar.releases import hub_fetch as fetching
 
 
-ARCHIVE_NAME = "sadar-approach-release.tar.gz"
+ARCHIVE_NAME = "sadar-approach-public-release.tar.gz"
+REPOSITORY_ID = "Txemapuch/sadar-analyst-console-release"
 
 
 def fetch_locked_release(
@@ -27,6 +28,8 @@ def fetch_locked_release(
         contract=approach_transport,
         expected_schema_version=approach_transport.RELEASE_SCHEMA_VERSION,
         archive_name=ARCHIVE_NAME,
+        repo_type="dataset",
+        expected_repo_id=REPOSITORY_ID,
     )
 
 
