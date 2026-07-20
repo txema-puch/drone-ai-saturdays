@@ -11,9 +11,17 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from sadar.approach.assessment import assess_approach, extract_approach_attempts
+from sadar.approach.assessment import (
+    ASSESSMENT_SCHEMA_VERSION,
+    RECONSTRUCTION_POLICY,
+    RECONSTRUCTION_POLICY_VERSION,
+    assess_approach,
+    extract_approach_attempts,
+)
 from sadar.approach.configuration import ApproachConfig
+from sadar.approach.contextual import CONTEXT_ENGINE_VERSION
 from sadar.approach.geometry import runway_relative
+from sadar.approach.reference import validate_reference
 from sadar.demo.generator import generate_frame, geometry_from_payload
 from sadar.demo.scenarios import SCENARIOS, Scenario
 from sadar.releases.approach import canonical_json_bytes
@@ -25,6 +33,25 @@ OBSERVATION_FIELDS = (
     "time", "lat", "lon", "baroaltitude", "geoaltitude", "velocity",
     "heading", "vertrate", "onground",
 )
+CONFIG_PAYLOAD_FIELDS = {
+    "schema_version", "assessment_schema_version", "engine_version",
+    "reconstruction_policy_version", "reconstruction_policy", "config",
+}
+GEOMETRY_PAYLOAD_FIELDS = {
+    "schema_version", "airport", "coordinate_reference", "effective_date",
+    "retrieved_at", "source", "historical_applicability", "thresholds",
+    "runway_pairs",
+}
+GEOMETRY_THRESHOLD_FIELDS = {
+    "pair", "lat", "lon", "true_bearing_deg", "elevation_m", "displaced_m",
+    "landing_available",
+}
+GEOMETRY_THRESHOLD_OPTIONAL_FIELDS = {"tdz_elevation_m"}
+PUBLIC_REFERENCE_FIELDS = {
+    "schema_version", "fit_fold", "source_reference_sha256", "cohort",
+    "distance_bins_m", "quantiles", "minimum_samples", "minimum_attempts",
+    "accepted_attempts", "entries", "artifact_sha256",
+}
 
 
 def _digest(payload: Any) -> str:
@@ -53,7 +80,7 @@ def _json_value(value: Any) -> Any:
         return int(value)
     if isinstance(value, (np.floating, float)):
         number = float(value)
-        return number if math.isfinite(number) else None
+        return round(number, 9) if math.isfinite(number) else None
     return value
 
 
@@ -67,16 +94,16 @@ def _quality_flags(assessment: dict[str, Any]) -> tuple[str, ...]:
     return tuple(sorted(set(quality.get("fatal_reasons", [])) | set(advisories)))
 
 
-def _landing_outcome(
-    assessment: dict[str, Any], scenario: Scenario, end_along_m: float
-) -> dict[str, Any]:
+def _landing_outcome(assessment: dict[str, Any], end_along_m: float) -> dict[str, Any]:
     outcome = assessment.get("attempt", {}).get("outcome", "unavailable")
     available = outcome in {"landing_observed", "touch_and_go"}
-    reason = None
-    if scenario.scenario_id == "evidence-ends-early-rwy-32l":
-        available = False
+    if available:
+        reason = None
+    elif outcome == "go_around":
+        reason = "go_around_observed"
+    elif end_along_m > 0:
         reason = "evidence_ends_before_threshold"
-    elif not available:
+    else:
         reason = "landing_not_observed"
     return {
         "available": available,
@@ -107,6 +134,56 @@ def _assert_expected(scenario: Scenario, assessment: dict[str, Any]) -> None:
         )
 
 
+def _validate_methodology_payloads(methodology_payloads: dict[str, Any]) -> None:
+    required = {
+        "config/approach-config.json", "config/lemd-geometry.json",
+        "reference/approach-reference.json",
+    }
+    if not isinstance(methodology_payloads, dict) or set(methodology_payloads) != required:
+        raise ValueError("methodology payload set mismatch")
+
+    config_payload = methodology_payloads["config/approach-config.json"]
+    if not isinstance(config_payload, dict) or set(config_payload) != CONFIG_PAYLOAD_FIELDS:
+        raise ValueError("approach config payload schema mismatch")
+    expected_metadata = {
+        "schema_version": "approach_config_v1",
+        "assessment_schema_version": ASSESSMENT_SCHEMA_VERSION,
+        "engine_version": CONTEXT_ENGINE_VERSION,
+        "reconstruction_policy_version": RECONSTRUCTION_POLICY_VERSION,
+        "reconstruction_policy": RECONSTRUCTION_POLICY,
+    }
+    if any(config_payload.get(key) != value for key, value in expected_metadata.items()):
+        raise ValueError("approach config metadata mismatch")
+    config_keys = {item.name for item in fields(ApproachConfig)}
+    if not isinstance(config_payload["config"], dict) or set(config_payload["config"]) != config_keys:
+        raise ValueError("approach config fields mismatch")
+
+    geometry_payload = methodology_payloads["config/lemd-geometry.json"]
+    if not isinstance(geometry_payload, dict) or set(geometry_payload) != GEOMETRY_PAYLOAD_FIELDS:
+        raise ValueError("LEMD geometry payload schema mismatch")
+    if geometry_payload.get("schema_version") != "lemd_geometry_v1":
+        raise ValueError("unsupported LEMD geometry schema")
+    thresholds = geometry_payload.get("thresholds")
+    if not isinstance(thresholds, dict) or set(thresholds) != {
+        "14L", "14R", "18L", "18R", "32L", "32R", "36L", "36R",
+    }:
+        raise ValueError("LEMD geometry must define all eight thresholds")
+    if any(
+        not isinstance(raw, dict)
+        or set(raw) not in {
+            frozenset(GEOMETRY_THRESHOLD_FIELDS),
+            frozenset(GEOMETRY_THRESHOLD_FIELDS | GEOMETRY_THRESHOLD_OPTIONAL_FIELDS),
+        }
+        for raw in thresholds.values()
+    ):
+        raise ValueError("LEMD geometry threshold schema mismatch")
+
+    reference = methodology_payloads["reference/approach-reference.json"]
+    if not isinstance(reference, dict) or set(reference) != PUBLIC_REFERENCE_FIELDS:
+        raise ValueError("public approach reference schema mismatch")
+    validate_reference(reference)
+
+
 def generate_demo_payloads(
     *,
     seed: int,
@@ -119,18 +196,10 @@ def generate_demo_payloads(
         or not 0 <= seed <= 4_294_967_295
     ):
         raise ValueError("seed must be a uint32 integer")
-    required = {
-        "config/approach-config.json", "config/lemd-geometry.json",
-        "reference/approach-reference.json",
-    }
-    if set(methodology_payloads) != required:
-        raise ValueError("methodology payload set mismatch")
+    _validate_methodology_payloads(methodology_payloads)
     config_payload = methodology_payloads["config/approach-config.json"]
     geometry_payload = methodology_payloads["config/lemd-geometry.json"]
     reference = methodology_payloads["reference/approach-reference.json"]
-    config_keys = {item.name for item in fields(ApproachConfig)}
-    if set(config_payload.get("config", {})) != config_keys:
-        raise ValueError("approach config fields mismatch")
     config = ApproachConfig(**config_payload["config"])
     geometry = geometry_from_payload(geometry_payload)
 
@@ -142,7 +211,6 @@ def generate_demo_payloads(
         frame = generate_frame(
             scenario,
             geometry=geometry,
-            config=config,
             clock_offset_s=scenario_index * 3_600,
         )
         extracted = extract_approach_attempts(frame, geometry=geometry, config=config)
@@ -165,7 +233,7 @@ def generate_demo_payloads(
         runway = geometry.thresholds[assessment["runway_inference"]["geometry_runway"]]
         relative = runway_relative(attempt_frame["lat"], attempt_frame["lon"], runway)
         end_along = float(relative.along_track_m[-1])
-        landing_outcome = _landing_outcome(assessment, scenario, end_along)
+        landing_outcome = _landing_outcome(assessment, end_along)
         common = {
             "data_origin": "synthetic",
             "scenario_id": scenario.scenario_id,
@@ -177,7 +245,10 @@ def generate_demo_payloads(
             observation = {"observation_index": observation_index}
             for field in OBSERVATION_FIELDS:
                 if field in row:
-                    observation[field] = _json_value(row[field])
+                    value = _json_value(row[field])
+                    if isinstance(value, float):
+                        value = round(value, 8 if field in {"lat", "lon"} else 6)
+                    observation[field] = value
             observations.append(observation)
         attempts.append({
             **common,

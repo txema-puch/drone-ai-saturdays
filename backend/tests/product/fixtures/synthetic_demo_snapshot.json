@@ -16,10 +16,10 @@
     "touch_and_go": 1
   },
   "payload_sha256": {
-    "attempts.json": "75ab60d014dc064d98e5b5655fb63245577af0fe39256e12a5cae37e6519866a",
-    "cases.json": "debb4ef4faf8a4503c11e62d6ed26541e50ca5e975d01abf1de8b043ec45e675",
+    "attempts.json": "9371aa60d5ce4a9935a7b3e7f1e8660f273c61da3bfd59fbeb10a7dadedfd20b",
+    "cases.json": "ef899bfd1d245066062d92ea6d637d9ff48b76b9b29841de1016b1cdd5360e74",
     "catalog.json": "071e8619793b021524e9ecb7a9994e98ea173518525563ff2244aaa822d10652",
-    "operations.json": "6745717cd92749ebcaa40b97085ed64bf9027916b4d454c46ce2b2717c65cedd"
+    "operations.json": "cd64fb811b044c4394531405bcfb3078dd47d9ab8d4949217a8600f457e63757"
   },
   "reference_sha256": "c34c293977eb3021e6c72ab1877eafb64513fe9099abba944cda36bfa5df674e",
   "scenario_ids": [
@@ -195,7 +195,7 @@
       "status": "not_assessable"
     },
     {
-      "end_along_track_m": 100.0,
+      "end_along_track_m": -500.0,
       "failed_criteria": [],
       "observation_count": 121,
       "outcome": "landing_observed",
@@ -206,7 +206,7 @@
       "status": "criteria_observed"
     },
     {
-      "end_along_track_m": -200.0,
+      "end_along_track_m": -3000.0,
       "failed_criteria": [],
       "observation_count": 151,
       "outcome": "touch_and_go",
@@ -214,14 +214,14 @@
       "runway_direction": "32",
       "runway_specificity": "exact",
       "scenario_id": "touch-and-go-rwy-32l",
-      "status": "partial_observation"
+      "status": "criteria_observed"
     }
   ],
   "seed": 20260718,
   "status_counts": {
-    "criteria_observed": 1,
+    "criteria_observed": 2,
     "not_assessable": 2,
-    "partial_observation": 4,
+    "partial_observation": 3,
     "review_required": 7
   }
 }

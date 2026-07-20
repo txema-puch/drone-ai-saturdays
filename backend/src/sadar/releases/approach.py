@@ -63,6 +63,19 @@ _OBSERVATION_KEYS = {
 _STATUS_KEYS = {
     "criteria_observed", "not_assessable", "partial_observation", "review_required",
 }
+_OUTCOMES = {
+    "final_gate_observed", "go_around", "incomplete", "landing_observed",
+    "touch_and_go",
+}
+_LANDING_OUTCOME_REASONS = {
+    "evidence_ends_before_threshold", "go_around_observed", "landing_not_observed",
+}
+_STATUS_PRIORITY = {
+    "review_required": 0,
+    "partial_observation": 1,
+    "criteria_observed": 2,
+    "not_assessable": 3,
+}
 _CRITERIA = (
     "lateral_path_proxy", "barometric_path_proxy", "observed_descent_rate",
     "observed_ground_speed_envelope", "late_track_correction",
@@ -132,13 +145,18 @@ def _read_regular(path: Path, *, limit: int) -> bytes:
         descriptor = os.open(path, flags)
     except OSError as exc:
         raise ApproachReleaseFormatError(f"cannot open {path.name}") from exc
-    with os.fdopen(descriptor, "rb") as handle:
-        info = os.fstat(handle.fileno())
+    try:
+        info = os.fstat(descriptor)
         if not stat.S_ISREG(info.st_mode):
             raise ApproachReleaseFormatError(f"{path.name} must be a regular file")
         if info.st_size > limit:
             raise ApproachReleaseFormatError(f"{path.name} exceeds byte limit")
-        return handle.read(limit + 1)
+        with os.fdopen(descriptor, "rb") as handle:
+            descriptor = -1
+            return handle.read(limit + 1)
+    finally:
+        if descriptor >= 0:
+            os.close(descriptor)
 
 
 def read_canonical_json(path: Path | str, *, limit: int) -> Any:
@@ -890,6 +908,47 @@ def _synthetic_common(record: Any, field: str, scenarios: dict[str, dict[str, An
             raise ApproachReleaseFormatError(f"{field}.{key} does not match catalog")
 
 
+def _validate_landing_outcome(value: Any, outcome: str, field: str) -> dict[str, Any]:
+    signal = _exact_object(
+        value,
+        {"available", "reason", "evidence_end_along_track_m"},
+        field,
+    )
+    if not isinstance(signal["available"], bool):
+        raise ApproachReleaseFormatError(f"{field}.available must be boolean")
+    reason = signal["reason"]
+    if reason is not None and (
+        not isinstance(reason, str) or reason not in _LANDING_OUTCOME_REASONS
+    ):
+        raise ApproachReleaseFormatError(f"{field}.reason is invalid")
+    end_along = signal["evidence_end_along_track_m"]
+    if (
+        isinstance(end_along, bool)
+        or not isinstance(end_along, (int, float))
+        or not math.isfinite(float(end_along))
+    ):
+        raise ApproachReleaseFormatError(
+            f"{field}.evidence_end_along_track_m must be finite"
+        )
+
+    if outcome in {"landing_observed", "touch_and_go"}:
+        expected = (True, None)
+    elif outcome == "go_around":
+        expected = (False, "go_around_observed")
+    else:
+        expected = (
+            False,
+            "evidence_ends_before_threshold"
+            if float(end_along) > 0
+            else "landing_not_observed",
+        )
+    if (signal["available"], reason) != expected:
+        raise ApproachReleaseFormatError(
+            f"{field} does not match attempt outcome and evidence endpoint"
+        )
+    return signal
+
+
 def _validate_synthetic_attempts(value: Any, scenarios: dict[str, dict[str, Any]]) -> list[dict[str, Any]]:
     value = _exact_object(value, {"schema_version", "attempts"}, "demo.attempts")
     if value["schema_version"] != "approach_attempts_v1" or not isinstance(value["attempts"], list):
@@ -900,8 +959,19 @@ def _validate_synthetic_attempts(value: Any, scenarios: dict[str, dict[str, Any]
         _synthetic_common(record, f"demo.attempts[{index}]", scenarios)
         if not isinstance(record.get("attempt_id"), str) or not record["attempt_id"].startswith("syn-a-"):
             raise ApproachReleaseFormatError(f"demo.attempts[{index}].attempt_id prefix is invalid")
-        if record.get("status") not in _STATUS_KEYS:
+        if (
+            not isinstance(record.get("status"), str)
+            or record["status"] not in _STATUS_KEYS
+        ):
             raise ApproachReleaseFormatError(f"demo.attempts[{index}].status is invalid")
+        outcome = record.get("outcome")
+        if not isinstance(outcome, str) or outcome not in _OUTCOMES:
+            raise ApproachReleaseFormatError(f"demo.attempts[{index}].outcome is invalid")
+        _validate_landing_outcome(
+            record.get("landing_outcome"),
+            outcome,
+            f"demo.attempts[{index}].landing_outcome",
+        )
         assessment = record.get("assessment")
         if not isinstance(assessment, dict):
             raise ApproachReleaseFormatError(f"demo.attempts[{index}].assessment must be an object")
@@ -920,6 +990,55 @@ def _validate_synthetic_attempts(value: Any, scenarios: dict[str, dict[str, Any]
         if assessment.get("status") != record["status"]:
             raise ApproachReleaseFormatError(
                 f"demo.attempts[{index}].assessment.status mismatch"
+            )
+        assessment_attempt = assessment.get("attempt")
+        if not isinstance(assessment_attempt, dict):
+            raise ApproachReleaseFormatError(
+                f"demo.attempts[{index}].assessment.attempt must be an object"
+            )
+        if assessment_attempt.get("outcome") != outcome:
+            raise ApproachReleaseFormatError(
+                f"demo.attempts[{index}].assessment.attempt.outcome mismatch"
+            )
+        failed_criteria = record.get("failed_criteria")
+        if (
+            not isinstance(failed_criteria, list)
+            or any(
+                not isinstance(item, str) or item not in _CRITERIA
+                for item in failed_criteria
+            )
+            or len(failed_criteria) != len(set(failed_criteria))
+        ):
+            raise ApproachReleaseFormatError(
+                f"demo.attempts[{index}].failed_criteria is invalid"
+            )
+        if assessment.get("failed_criteria") != failed_criteria:
+            raise ApproachReleaseFormatError(
+                f"demo.attempts[{index}].assessment.failed_criteria mismatch"
+            )
+        runway_inference = assessment["runway_inference"]
+        for record_key, assessment_value in (
+            ("runway", runway_inference.get("runway")),
+            ("runway_direction", runway_inference.get("direction")),
+        ):
+            if record.get(record_key) != assessment_value:
+                raise ApproachReleaseFormatError(
+                    f"demo.attempts[{index}].assessment.{record_key} mismatch"
+                )
+        for record_key in ("start_time", "end_time"):
+            record_value = record.get(record_key)
+            assessment_value = assessment_attempt.get(record_key)
+            if not _plain_int(record_value) or not _plain_int(assessment_value):
+                raise ApproachReleaseFormatError(
+                    f"demo.attempts[{index}].{record_key} must be an integer"
+                )
+            if record_value != assessment_value:
+                raise ApproachReleaseFormatError(
+                    f"demo.attempts[{index}].assessment.{record_key} mismatch"
+                )
+        if record["start_time"] > record["end_time"]:
+            raise ApproachReleaseFormatError(
+                f"demo.attempts[{index}] time range is invalid"
             )
         for criterion_index, criterion in enumerate(assessment.get("criteria") or []):
             if not isinstance(criterion, dict) or not isinstance(criterion.get("evidence"), list):
@@ -943,6 +1062,38 @@ def _validate_synthetic_cases(value: Any, scenarios: dict[str, dict[str, Any]]) 
             raise ApproachReleaseFormatError(f"demo.cases[{index}].observations exceeds limit")
         if record.get("observation_count") != len(record["observations"]):
             raise ApproachReleaseFormatError(f"demo.cases[{index}].observation_count mismatch")
+        if not isinstance(record.get("observations_downsampled"), bool):
+            raise ApproachReleaseFormatError(
+                f"demo.cases[{index}].observations_downsampled must be boolean"
+            )
+        landing_outcome = record.get("landing_outcome")
+        _exact_object(
+            landing_outcome,
+            {"available", "reason", "evidence_end_along_track_m"},
+            f"demo.cases[{index}].landing_outcome",
+        )
+        if not isinstance(landing_outcome["available"], bool):
+            raise ApproachReleaseFormatError(
+                f"demo.cases[{index}].landing_outcome.available must be boolean"
+            )
+        if (
+            landing_outcome["reason"] is not None
+            and (
+                not isinstance(landing_outcome["reason"], str)
+                or landing_outcome["reason"] not in _LANDING_OUTCOME_REASONS
+            )
+        ):
+            raise ApproachReleaseFormatError(
+                f"demo.cases[{index}].landing_outcome.reason is invalid"
+            )
+        _optional_number(
+            landing_outcome["evidence_end_along_track_m"],
+            f"demo.cases[{index}].landing_outcome.evidence_end_along_track_m",
+        )
+        if landing_outcome["evidence_end_along_track_m"] is None:
+            raise ApproachReleaseFormatError(
+                f"demo.cases[{index}].landing_outcome.evidence_end_along_track_m must be finite"
+            )
         for observation_index, observation in enumerate(record["observations"]):
             field = f"demo.cases[{index}].observations[{observation_index}]"
             if not isinstance(observation, dict) or not {
@@ -972,14 +1123,47 @@ def _validate_synthetic_operations(value: Any, scenarios: dict[str, dict[str, An
                 isinstance(item, str) for item in record[key]
             ):
                 raise ApproachReleaseFormatError(f"demo.operations[{index}].{key} is invalid")
-        if not _plain_int(record.get("attempt_count")) or record["attempt_count"] < 0:
+        if not _plain_int(record.get("attempt_count")) or record["attempt_count"] <= 0:
             raise ApproachReleaseFormatError(
                 f"demo.operations[{index}].attempt_count is invalid"
+            )
+        status_counts = record.get("status_counts")
+        if not isinstance(status_counts, dict) or not status_counts:
+            raise ApproachReleaseFormatError(
+                f"demo.operations[{index}].status_counts is invalid"
+            )
+        for status, count in status_counts.items():
+            if status not in _STATUS_KEYS or not _plain_int(count) or count <= 0:
+                raise ApproachReleaseFormatError(
+                    f"demo.operations[{index}].status_counts is invalid"
+                )
+        if record.get("worst_status") not in _STATUS_KEYS:
+            raise ApproachReleaseFormatError(
+                f"demo.operations[{index}].worst_status is invalid"
             )
     return value["operations"]
 
 
-def _validate_cross_references(attempts: list[dict[str, Any]], cases: list[dict[str, Any]], operations: list[dict[str, Any]]) -> None:
+def _validate_cross_references(
+    attempts: list[dict[str, Any]],
+    cases: list[dict[str, Any]],
+    operations: list[dict[str, Any]],
+    scenarios: dict[str, dict[str, Any]],
+) -> None:
+    expected_scenarios = set(scenarios)
+    for records, name in (
+        (attempts, "attempt"),
+        (cases, "case"),
+        (operations, "operation"),
+    ):
+        observed_scenarios = [item.get("scenario_id") for item in records]
+        if (
+            set(observed_scenarios) != expected_scenarios
+            or len(observed_scenarios) != len(expected_scenarios)
+        ):
+            raise ApproachReleaseFormatError(
+                f"synthetic {name} records must contain exactly one record per catalog scenario"
+            )
     identifiers = []
     for records, key, name in ((attempts, "attempt_id", "attempt"), (cases, "case_id", "case"), (operations, "operation_id", "operation")):
         values = [item.get(key) for item in records]
@@ -1003,6 +1187,10 @@ def _validate_cross_references(attempts: list[dict[str, Any]], cases: list[dict[
             or case.get("scenario_id") != attempt.get("scenario_id")
         ):
             raise ApproachReleaseFormatError("synthetic attempt/case links are not reciprocal")
+        if case.get("landing_outcome") != attempt.get("landing_outcome"):
+            raise ApproachReleaseFormatError(
+                "synthetic attempt/case landing_outcome mismatch"
+            )
     for case in cases:
         if case.get("attempt_id") not in attempt_ids or case.get("operation_id") not in operation_ids:
             raise ApproachReleaseFormatError("synthetic case cross reference is invalid")
@@ -1018,6 +1206,31 @@ def _validate_cross_references(attempts: list[dict[str, Any]], cases: list[dict[
     for operation in operations:
         if operation.get("attempt_count") != len(operation.get("attempt_ids", [])):
             raise ApproachReleaseFormatError("synthetic operation attempt_count is inconsistent")
+        if len(operation.get("case_ids", [])) != operation["attempt_count"]:
+            raise ApproachReleaseFormatError("synthetic operation case count is inconsistent")
+        owned_attempts = [attempts_by_id[item] for item in operation["attempt_ids"]]
+        expected_status_counts: dict[str, int] = {}
+        for attempt in owned_attempts:
+            status = attempt["status"]
+            expected_status_counts[status] = expected_status_counts.get(status, 0) + 1
+        expected_status_counts = dict(sorted(expected_status_counts.items()))
+        if operation.get("status_counts") != expected_status_counts:
+            raise ApproachReleaseFormatError(
+                "synthetic operation status_counts is inconsistent"
+            )
+        expected_worst_status = min(
+            expected_status_counts,
+            key=lambda status: _STATUS_PRIORITY[status],
+        )
+        if operation.get("worst_status") != expected_worst_status:
+            raise ApproachReleaseFormatError(
+                "synthetic operation worst_status is inconsistent"
+            )
+        expected_case_ids = {attempt["case_id"] for attempt in owned_attempts}
+        if set(operation["case_ids"]) != expected_case_ids:
+            raise ApproachReleaseFormatError(
+                "synthetic operation case_ids do not match its attempts"
+            )
         for attempt_id in operation.get("attempt_ids", []):
             attempt = attempts_by_id[attempt_id]
             if (
@@ -1040,7 +1253,7 @@ def _validate_payloads(payloads: dict[str, Any], manifest: dict[str, Any] | None
     attempts = _validate_synthetic_attempts(payloads["demo/attempts.json"], scenarios)
     cases = _validate_synthetic_cases(payloads["demo/cases.json"], scenarios)
     operations = _validate_synthetic_operations(payloads["demo/operations.json"], scenarios)
-    _validate_cross_references(attempts, cases, operations)
+    _validate_cross_references(attempts, cases, operations, scenarios)
     aggregate = payloads["research/aggregate-results.json"]
     _validate_aggregate_results(aggregate)
     config = payloads["config/approach-config.json"]

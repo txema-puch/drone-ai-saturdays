@@ -40,6 +40,21 @@ def _payloads(release: Path) -> dict[str, object]:
     return {path: json.loads((release / path).read_text()) for path in approach_release.REQUIRED_FILES}
 
 
+def _attempt_for_outcome(
+    payloads: dict[str, object], outcome: str
+) -> dict[str, object]:
+    return next(
+        item
+        for item in payloads["demo/attempts.json"]["attempts"]
+        if item["outcome"] == outcome
+    )
+
+
+def _retarget_scenario(record: dict[str, object], target: dict[str, object]) -> None:
+    for key in ("scenario_id", "scenario_title", "teaching_goal"):
+        record[key] = target[key]
+
+
 def _replace_payload_without_validation(
     release: Path, relative: str, payload: object
 ) -> None:
@@ -139,6 +154,258 @@ def test_synthetic_validators_reject_runtime_unsafe_shapes(
     payloads = _payloads(release)
     mutation(payloads)
     with pytest.raises(approach_release.ApproachReleaseError, match=match):
+        approach_release._validate_payloads(payloads)
+
+
+def test_synthetic_outcome_contract_covers_exactly_five_outcomes(
+    tmp_path: Path,
+) -> None:
+    payloads = _payloads(build_valid_release(tmp_path))
+    attempts = payloads["demo/attempts.json"]["attempts"]
+    assert {item["outcome"] for item in attempts} == {
+        "final_gate_observed",
+        "go_around",
+        "incomplete",
+        "landing_observed",
+        "touch_and_go",
+    }
+    approach_release._validate_payloads(payloads)
+
+
+@pytest.mark.parametrize(
+    ("mutation", "match"),
+    [
+        (lambda record: record.pop("outcome"), "outcome"),
+        (lambda record: record.update(outcome="unavailable"), "outcome"),
+        (lambda record: record.update(outcome=[]), "outcome"),
+        (
+            lambda record: record["assessment"]["attempt"].update(
+                outcome="incomplete"
+            ),
+            "assessment.attempt.outcome mismatch",
+        ),
+        (
+            lambda record: record["assessment"].update(attempt=None),
+            "assessment.attempt must be an object",
+        ),
+    ],
+)
+def test_synthetic_attempt_outcome_must_match_assessment(
+    tmp_path: Path, mutation, match: str
+) -> None:
+    payloads = _payloads(build_valid_release(tmp_path))
+    record = _attempt_for_outcome(payloads, "landing_observed")
+    mutation(record)
+    with pytest.raises(approach_release.ApproachReleaseFormatError, match=match):
+        approach_release._validate_payloads(payloads)
+
+
+@pytest.mark.parametrize(
+    ("mutation", "match"),
+    [
+        (
+            lambda record: record.update(status="review_required"),
+            "assessment.status mismatch",
+        ),
+        (
+            lambda record: record.update(outcome="touch_and_go"),
+            "assessment.attempt.outcome mismatch",
+        ),
+        (
+            lambda record: record.update(
+                failed_criteria=["lateral_path_proxy"]
+            ),
+            "assessment.failed_criteria mismatch",
+        ),
+        (
+            lambda record: record.update(runway="32R"),
+            "assessment.runway mismatch",
+        ),
+        (
+            lambda record: record.update(runway_direction="18"),
+            "assessment.runway_direction mismatch",
+        ),
+        (
+            lambda record: record.update(start_time=record["start_time"] + 1),
+            "assessment.start_time mismatch",
+        ),
+        (
+            lambda record: record.update(end_time=record["end_time"] - 1),
+            "assessment.end_time mismatch",
+        ),
+    ],
+)
+def test_top_level_attempt_summary_must_match_assessment(
+    tmp_path: Path, mutation, match: str
+) -> None:
+    payloads = _payloads(build_valid_release(tmp_path))
+    record = _attempt_for_outcome(payloads, "landing_observed")
+    mutation(record)
+    with pytest.raises(approach_release.ApproachReleaseFormatError, match=match):
+        approach_release._validate_payloads(payloads)
+
+
+@pytest.mark.parametrize(
+    "failed_criteria",
+    [
+        ["unknown_criterion"],
+        ["lateral_path_proxy", "lateral_path_proxy"],
+        "lateral_path_proxy",
+    ],
+)
+def test_failed_criteria_must_be_a_unique_known_criterion_list(
+    tmp_path: Path, failed_criteria: object
+) -> None:
+    payloads = _payloads(build_valid_release(tmp_path))
+    record = _attempt_for_outcome(payloads, "landing_observed")
+    record["failed_criteria"] = failed_criteria
+    record["assessment"]["failed_criteria"] = copy.deepcopy(failed_criteria)
+    with pytest.raises(
+        approach_release.ApproachReleaseFormatError,
+        match="failed_criteria is invalid",
+    ):
+        approach_release._validate_payloads(payloads)
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        lambda signal: signal.pop("reason"),
+        lambda signal: signal.update(extra="not-allowed"),
+        lambda signal: signal.update(available=1),
+        lambda signal: signal.update(reason="unknown_reason"),
+        lambda signal: signal.update(reason=[]),
+        lambda signal: signal.update(evidence_end_along_track_m=None),
+        lambda signal: signal.update(evidence_end_along_track_m=True),
+        lambda signal: signal.update(evidence_end_along_track_m=float("inf")),
+    ],
+)
+def test_attempt_landing_outcome_rejects_every_malformed_field(
+    tmp_path: Path, mutation
+) -> None:
+    payloads = _payloads(build_valid_release(tmp_path))
+    signal = payloads["demo/attempts.json"]["attempts"][0]["landing_outcome"]
+    mutation(signal)
+    with pytest.raises(approach_release.ApproachReleaseFormatError, match="landing_outcome"):
+        approach_release._validate_payloads(payloads)
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        lambda signal: signal.pop("available"),
+        lambda signal: signal.update(available=0),
+        lambda signal: signal.update(reason="unknown_reason"),
+        lambda signal: signal.update(reason={}),
+        lambda signal: signal.update(evidence_end_along_track_m=False),
+        lambda signal: signal.update(evidence_end_along_track_m=float("nan")),
+    ],
+)
+def test_case_landing_outcome_rejects_every_malformed_field(
+    tmp_path: Path, mutation
+) -> None:
+    payloads = _payloads(build_valid_release(tmp_path))
+    signal = payloads["demo/cases.json"]["cases"][0]["landing_outcome"]
+    mutation(signal)
+    with pytest.raises(approach_release.ApproachReleaseFormatError, match="landing_outcome"):
+        approach_release._validate_payloads(payloads)
+
+
+@pytest.mark.parametrize(
+    ("outcome", "available", "reason"),
+    [
+        ("landing_observed", False, "landing_not_observed"),
+        ("touch_and_go", False, "landing_not_observed"),
+        ("go_around", False, "landing_not_observed"),
+        ("final_gate_observed", False, "landing_not_observed"),
+        ("incomplete", False, "landing_not_observed"),
+    ],
+)
+def test_landing_outcome_matrix_rejects_contradictions(
+    tmp_path: Path, outcome: str, available: bool, reason: str
+) -> None:
+    payloads = _payloads(build_valid_release(tmp_path))
+    attempt = _attempt_for_outcome(payloads, outcome)
+    attempt["landing_outcome"].update(available=available, reason=reason)
+    with pytest.raises(
+        approach_release.ApproachReleaseFormatError,
+        match="does not match attempt outcome and evidence endpoint",
+    ):
+        approach_release._validate_payloads(payloads)
+
+
+def test_attempt_and_case_landing_outcome_must_match(tmp_path: Path) -> None:
+    payloads = _payloads(build_valid_release(tmp_path))
+    case = payloads["demo/cases.json"]["cases"][0]
+    case["landing_outcome"]["evidence_end_along_track_m"] += 1
+    with pytest.raises(
+        approach_release.ApproachReleaseFormatError,
+        match="attempt/case landing_outcome mismatch",
+    ):
+        approach_release._validate_payloads(payloads)
+
+
+@pytest.mark.parametrize("lane", ["attempts", "cases", "operations"])
+@pytest.mark.parametrize("mutation", ["missing", "duplicate"])
+def test_each_demo_lane_has_exactly_one_record_per_catalog_scenario(
+    tmp_path: Path, lane: str, mutation: str
+) -> None:
+    payloads = _payloads(build_valid_release(tmp_path))
+    records = payloads[f"demo/{lane}.json"][lane]
+    if mutation == "missing":
+        records.pop()
+    else:
+        _retarget_scenario(records[0], records[1])
+    with pytest.raises(
+        approach_release.ApproachReleaseFormatError,
+        match="exactly one record per catalog scenario",
+    ):
+        approach_release._validate_payloads(payloads)
+
+
+@pytest.mark.parametrize(
+    ("mutation", "match"),
+    [
+        (
+            lambda operation: operation.update(
+                attempt_count=operation["attempt_count"] + 1
+            ),
+            "attempt_count is inconsistent",
+        ),
+        (
+            lambda operation: operation.update(status_counts={"review_required": 1}),
+            "status_counts is inconsistent",
+        ),
+        (
+            lambda operation: operation.update(worst_status="review_required"),
+            "worst_status is inconsistent",
+        ),
+    ],
+)
+def test_operation_aggregates_must_match_owned_attempts(
+    tmp_path: Path, mutation, match: str
+) -> None:
+    payloads = _payloads(build_valid_release(tmp_path))
+    operation = next(
+        item
+        for item in payloads["demo/operations.json"]["operations"]
+        if item["worst_status"] != "review_required"
+    )
+    mutation(operation)
+    with pytest.raises(approach_release.ApproachReleaseFormatError, match=match):
+        approach_release._validate_payloads(payloads)
+
+
+@pytest.mark.parametrize("value", [None, 0, 1, "false", []])
+def test_observations_downsampled_must_be_boolean(
+    tmp_path: Path, value: object
+) -> None:
+    payloads = _payloads(build_valid_release(tmp_path))
+    payloads["demo/cases.json"]["cases"][0]["observations_downsampled"] = value
+    with pytest.raises(
+        approach_release.ApproachReleaseFormatError,
+        match="observations_downsampled must be boolean",
+    ):
         approach_release._validate_payloads(payloads)
 
 
@@ -366,9 +633,127 @@ def test_catalog_hash_binding_fails_closed(tmp_path: Path) -> None:
         )
 
 
+@pytest.mark.parametrize("reference_kind", ["public", "private"])
+def test_custom_reference_is_bundled_and_regenerated_consistently(
+    tmp_path: Path, reference_kind: str
+) -> None:
+    if reference_kind == "public":
+        reference = builder._public_reference()
+    else:
+        reference = json.loads(Path(str(builder.REFERENCE_RESOURCE)).read_text())
+    reference_path = tmp_path / f"{reference_kind}-reference.json"
+    reference_path.write_bytes(approach_release.canonical_json_bytes(reference))
+    synthetic = tmp_path / f"{reference_kind}-synthetic"
+    build_synthetic_demo(
+        output=synthetic,
+        seed=20_260_718,
+        reference_path=reference_path,
+    )
+    release = tmp_path / f"{reference_kind}-release"
+    builder.build_public_release(
+        aggregate_results_path=builder.PUBLIC_AGGREGATE_RESOURCE,
+        synthetic_payload_dir=synthetic,
+        output=release,
+        reference_path=reference_path,
+    )
+    approach_release.validate_public_release_directory(release)
+    bundled = json.loads((release / "reference/approach-reference.json").read_text())
+    assert bundled == builder._public_reference(reference_path)
+
+
+def test_release_cli_threads_custom_reference(tmp_path: Path) -> None:
+    reference_path = tmp_path / "reference.json"
+    reference_path.write_bytes(
+        approach_release.canonical_json_bytes(builder._public_reference())
+    )
+    synthetic = tmp_path / "synthetic"
+    build_synthetic_demo(
+        output=synthetic, seed=20_260_718, reference_path=reference_path
+    )
+    release = tmp_path / "release"
+    result = subprocess.run(
+        [
+            str(REPO / "backend/.venv/bin/sadar-build-release"),
+            "--aggregate-results", str(builder.PUBLIC_AGGREGATE_RESOURCE),
+            "--synthetic-payload-dir", str(synthetic),
+            "--output", str(release),
+            "--reference", str(reference_path),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    approach_release.validate_public_release_directory(release)
+
+
+def test_tampered_private_reference_digest_is_rejected_before_output(
+    tmp_path: Path,
+) -> None:
+    reference = json.loads(Path(str(builder.REFERENCE_RESOURCE)).read_text())
+    reference["artifact_sha256"] = "0" * 64
+    reference_path = tmp_path / "tampered.json"
+    reference_path.write_bytes(approach_release.canonical_json_bytes(reference))
+    output = tmp_path / "synthetic"
+    with pytest.raises(approach_release.ApproachReleaseFormatError, match="digest"):
+        build_synthetic_demo(
+            output=output, seed=20_260_718, reference_path=reference_path
+        )
+    assert not output.exists()
+
+
+def test_custom_reference_rejects_unsafe_or_noncanonical_inputs(
+    tmp_path: Path,
+) -> None:
+    canonical = tmp_path / "canonical.json"
+    public = builder._public_reference()
+    canonical.write_bytes(approach_release.canonical_json_bytes(public))
+    directory = tmp_path / "directory"
+    directory.mkdir()
+    symlink = tmp_path / "symlink.json"
+    symlink.symlink_to(canonical)
+    oversized = tmp_path / "oversized.json"
+    oversized.write_bytes(
+        b" " * (approach_release.FILE_LIMITS["reference/approach-reference.json"] + 1)
+    )
+    noncanonical = tmp_path / "noncanonical.json"
+    noncanonical.write_text(json.dumps(public, indent=2))
+
+    for path in (directory, symlink, oversized, noncanonical):
+        output = tmp_path / f"output-{path.stem}"
+        with pytest.raises(approach_release.ApproachReleaseFormatError):
+            build_synthetic_demo(
+                output=output, seed=20_260_718, reference_path=path
+            )
+        assert not output.exists()
+
+
+@pytest.mark.parametrize("bad_catalog", [[], {"seed": True}, {"seed": -1}])
+def test_release_rejects_malformed_catalog_without_output(
+    tmp_path: Path, bad_catalog: object
+) -> None:
+    synthetic = _synthetic_payloads(tmp_path / "synthetic")
+    (synthetic / "demo/catalog.json").write_bytes(
+        approach_release.canonical_json_bytes(bad_catalog)
+    )
+    output = tmp_path / "release"
+    with pytest.raises(approach_release.ApproachReleaseError):
+        builder.build_public_release(
+            aggregate_results_path=builder.PUBLIC_AGGREGATE_RESOURCE,
+            synthetic_payload_dir=synthetic,
+            output=output,
+        )
+    assert not output.exists()
+
+
 def test_public_builder_has_no_raw_input_signature_or_import() -> None:
     signature = inspect.signature(builder.build_public_release)
-    assert set(signature.parameters) == {"aggregate_results_path", "synthetic_payload_dir", "output"}
+    assert set(signature.parameters) == {
+        "aggregate_results_path",
+        "synthetic_payload_dir",
+        "output",
+        "reference_path",
+    }
     source = Path(builder.__file__).read_text()
     for forbidden in ("read_parquet", "DataFrame", "source_operation_id", '"icao24"', '"callsign"'):
         assert forbidden not in source

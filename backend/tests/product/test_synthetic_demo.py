@@ -1,15 +1,17 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import subprocess
+from copy import deepcopy
 from dataclasses import fields
 from pathlib import Path
 
 import numpy as np
 import pytest
 
-from sadar.approach.geometry import load_lemd_geometry
+from sadar.approach.geometry import load_lemd_geometry, runway_relative
 from sadar.demo.catalog import (
     DEFAULT_SEED,
     GENERATOR_VERSION,
@@ -21,6 +23,7 @@ from sadar.demo.scenarios import SCENARIOS, SCENARIO_IDS, Scenario
 from sadar.pipelines import build_release as release_builder
 from sadar.pipelines.build_synthetic_demo import build_synthetic_demo
 from sadar.releases.approach import (
+    ApproachReleaseFormatError,
     ApproachReleaseIntegrityError,
     canonical_json_bytes,
     validate_public_release_directory,
@@ -48,7 +51,7 @@ EXPECTED_OUTCOMES = {
 def payloads() -> dict[str, object]:
     return generate_demo_payloads(
         seed=DEFAULT_SEED,
-        methodology_payloads=release_builder._methodology_payloads(),
+        methodology_payloads=release_builder.methodology_payloads(),
     )
 
 
@@ -60,7 +63,7 @@ def test_catalog_is_complete_declarative_and_covers_required_states(payloads) ->
         "ground_speed_profile_mps", "vertical_rate_profile_mps",
         "heading_offset_profile_deg", "coverage_gaps", "expected_status",
         "expected_failed_criteria", "expected_outcome", "expected_runway_specificity",
-        "expected_quality_flags",
+        "expected_quality_flags", "ground_contact_windows",
     }
     assert {item.name for item in fields(Scenario)} == required_fields
     assert len(SCENARIOS) == 14
@@ -76,6 +79,50 @@ def test_catalog_is_complete_declarative_and_covers_required_states(payloads) ->
     attempts = payloads["attempts.json"]["attempts"]
     assert {item["outcome"] for item in attempts} == EXPECTED_OUTCOMES
     assert {item["scenario_id"] for item in attempts} == EXPECTED_IDS
+
+
+@pytest.mark.parametrize("seed", [0, 2**32 - 1])
+def test_generator_accepts_uint32_seed_boundaries(seed: int) -> None:
+    result = generate_demo_payloads(
+        seed=seed,
+        methodology_payloads=release_builder.methodology_payloads(),
+    )
+    assert result["catalog.json"]["seed"] == seed
+
+
+def test_generator_requires_exact_methodology_payload_set() -> None:
+    methodology = release_builder.methodology_payloads()
+    missing = deepcopy(methodology)
+    missing.pop("config/lemd-geometry.json")
+    with pytest.raises(ValueError, match="payload set"):
+        generate_demo_payloads(seed=DEFAULT_SEED, methodology_payloads=missing)
+
+    extra = deepcopy(methodology)
+    extra["unexpected.json"] = {}
+    with pytest.raises(ValueError, match="payload set"):
+        generate_demo_payloads(seed=DEFAULT_SEED, methodology_payloads=extra)
+
+
+@pytest.mark.parametrize(
+    ("mutation", "message"),
+    [
+        (lambda payload: payload.update({"engine_version": "wrong"}), "metadata"),
+        (lambda payload: payload["config"].pop("path_angle_deg"), "fields"),
+        (lambda payload: payload.update({"unexpected": True}), "schema"),
+    ],
+)
+def test_generator_rejects_modified_config_contract(mutation, message: str) -> None:
+    methodology = deepcopy(release_builder.methodology_payloads())
+    mutation(methodology["config/approach-config.json"])
+    with pytest.raises(ValueError, match=message):
+        generate_demo_payloads(seed=DEFAULT_SEED, methodology_payloads=methodology)
+
+
+def test_generator_rejects_modified_reference_digest() -> None:
+    methodology = deepcopy(release_builder.methodology_payloads())
+    methodology["reference/approach-reference.json"]["accepted_attempts"] += 1
+    with pytest.raises(ValueError, match="digest"):
+        generate_demo_payloads(seed=DEFAULT_SEED, methodology_payloads=methodology)
 
 
 def test_geometry_round_trips_every_supported_landing_runway() -> None:
@@ -126,6 +173,44 @@ def test_stable_case_is_an_observed_landing(payloads) -> None:
     assert attempt["outcome"] == "landing_observed"
     assert any(item["onground"] for item in case["observations"])
     assert attempt["landing_outcome"]["available"] is True
+
+
+def test_telemetry_matches_altitude_and_contact_geometry(payloads) -> None:
+    scenarios = {
+        item["scenario_id"]: item for item in payloads["cases.json"]["cases"]
+    }
+    for scenario_id, case in scenarios.items():
+        if scenario_id == "altitude-rate-conflict-rwy-32l":
+            continue
+        observations = case["observations"]
+        times = np.asarray([item["time"] for item in observations], dtype="float64")
+        altitude = np.asarray(
+            [item["baroaltitude"] for item in observations], dtype="float64"
+        )
+        vertical_rate = np.asarray(
+            [item["vertrate"] for item in observations], dtype="float64"
+        )
+        implied = np.diff(altitude) / np.diff(times)
+        reported = (vertical_rate[:-1] + vertical_rate[1:]) / 2.0
+        assert np.quantile(np.abs(implied - reported), 0.95) < 0.25
+
+    geometry = load_lemd_geometry()
+    for scenario_id in ("stable-rwy-32l", "touch-and-go-rwy-32l"):
+        case = scenarios[scenario_id]
+        contacts = [item for item in case["observations"] if item["onground"]]
+        assert contacts
+        relative = runway_relative(
+            np.asarray([item["lat"] for item in contacts]),
+            np.asarray([item["lon"] for item in contacts]),
+            geometry.thresholds["32L"],
+        )
+        assert np.max(np.abs(relative.along_track_m)) <= 500.0
+
+    touch = scenarios["touch-and-go-rwy-32l"]
+    assert sum(item["onground"] for item in touch["observations"]) == 1
+    assert touch["landing_outcome"]["evidence_end_along_track_m"] == pytest.approx(
+        -3_000.0, abs=100.0
+    )
 
 
 def test_early_ending_case_separates_gate_from_landing_availability(payloads) -> None:
@@ -214,6 +299,62 @@ def test_cli_has_no_data_input_and_rejects_nonempty_output(tmp_path: Path) -> No
     (occupied / "keep.txt").write_text("keep")
     with pytest.raises(ValueError, match="must not already contain"):
         build_synthetic_demo(output=occupied, seed=DEFAULT_SEED)
+
+
+def test_builder_rejects_unsafe_destinations_and_preserves_symlink_target(
+    tmp_path: Path,
+) -> None:
+    target = tmp_path / "target"
+    target.mkdir()
+    marker = target / "keep.txt"
+    marker.write_text("keep")
+    linked = tmp_path / "linked"
+    linked.symlink_to(target, target_is_directory=True)
+    with pytest.raises(ValueError, match="symlink"):
+        build_synthetic_demo(output=linked, seed=DEFAULT_SEED)
+    assert marker.read_text() == "keep"
+    assert set(target.iterdir()) == {marker}
+
+    file_output = tmp_path / "file-output"
+    file_output.write_text("keep")
+    with pytest.raises(ValueError, match="directory"):
+        build_synthetic_demo(output=file_output, seed=DEFAULT_SEED)
+    assert file_output.read_text() == "keep"
+
+
+def test_builder_atomically_replaces_existing_empty_directory(tmp_path: Path) -> None:
+    output = tmp_path / "empty"
+    output.mkdir()
+    build_synthetic_demo(output=output, seed=DEFAULT_SEED)
+    assert {item.name for item in (output / "demo").iterdir()} == {
+        "catalog.json", "attempts.json", "cases.json", "operations.json",
+    }
+
+
+def test_builder_failure_exposes_no_partial_corpus(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    output = tmp_path / "failed"
+
+    def fail_replace(_source: Path, _destination: Path) -> None:
+        raise OSError("injected install failure")
+
+    monkeypatch.setattr(
+        "sadar.pipelines.build_synthetic_demo.os.replace", fail_replace
+    )
+    with pytest.raises(OSError, match="injected install failure"):
+        build_synthetic_demo(output=output, seed=DEFAULT_SEED)
+    assert not output.exists()
+    assert not list(tmp_path.glob(".failed.*"))
+
+
+@pytest.mark.parametrize("bad_seed", [True, -1, 2**32, 1.5])
+def test_invalid_catalog_seed_fails_before_output(
+    tmp_path: Path, bad_seed: object
+) -> None:
+    with pytest.raises(ValueError, match="uint32"):
+        build_synthetic_demo(output=tmp_path / "output", seed=bad_seed)  # type: ignore[arg-type]
+    assert not (tmp_path / "output").exists()
 
 
 def test_public_builder_regenerates_and_rejects_relabelled_telemetry(tmp_path: Path) -> None:

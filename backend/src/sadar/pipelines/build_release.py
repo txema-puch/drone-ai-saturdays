@@ -21,7 +21,7 @@ from sadar.approach.assessment import (
 )
 from sadar.approach.contextual import CONTEXT_ENGINE_VERSION
 from sadar.approach.geometry import GEOMETRY_RESOURCE
-from sadar.approach.reference import REFERENCE_RESOURCE
+from sadar.approach.reference import REFERENCE_RESOURCE, validate_reference
 from sadar.releases.approach import (
     ApproachReleaseError,
     ApproachReleaseFormatError,
@@ -236,7 +236,19 @@ def project_reviewed_aggregate_results(
 
 def _public_reference(reference_path: Path | None = None) -> dict[str, Any]:
     source = Path(reference_path) if reference_path is not None else REFERENCE_RESOURCE
-    private = _read_json(source)
+    private = (
+        read_canonical_json(
+            source, limit=FILE_LIMITS["reference/approach-reference.json"]
+        )
+        if reference_path is not None
+        else _read_json(source)
+    )
+    if not isinstance(private, dict):
+        raise ApproachReleaseFormatError("approach reference must be an object")
+    try:
+        validate_reference(private)
+    except (KeyError, TypeError, ValueError) as exc:
+        raise ApproachReleaseFormatError(f"invalid approach reference: {exc}") from exc
     public_keys = {
         "schema_version", "fit_fold", "source_reference_sha256", "cohort",
         "distance_bins_m", "quantiles", "minimum_samples", "minimum_attempts",
@@ -257,10 +269,14 @@ def _public_reference(reference_path: Path | None = None) -> dict[str, Any]:
         "entries": private["entries"],
     }
     projection["artifact_sha256"] = hashlib.sha256(canonical_json_bytes(projection)).hexdigest()
+    try:
+        validate_reference(projection)
+    except (KeyError, TypeError, ValueError) as exc:
+        raise ApproachReleaseFormatError(f"invalid public approach reference: {exc}") from exc
     return projection
 
 
-def _methodology_payloads(reference_path: Path | None = None) -> dict[str, Any]:
+def methodology_payloads(reference_path: Path | None = None) -> dict[str, Any]:
     config = {
         "schema_version": "approach_config_v1",
         "assessment_schema_version": ASSESSMENT_SCHEMA_VERSION,
@@ -316,13 +332,14 @@ def build_public_release(
     aggregate_results_path: Path,
     synthetic_payload_dir: Path,
     output: Path,
+    reference_path: Path | None = None,
 ) -> dict[str, Any]:
     """Assemble a public release exclusively from aggregate and synthetic JSON."""
     aggregate_results_path = Path(aggregate_results_path)
     synthetic_payload_dir = Path(synthetic_payload_dir)
     output = Path(output)
     aggregate = _read_json(aggregate_results_path)
-    methodology = _methodology_payloads()
+    methodology = methodology_payloads(reference_path=reference_path)
     demo_paths = {
         "demo/catalog.json": "catalog.json",
         "demo/attempts.json": "attempts.json",
@@ -379,6 +396,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--aggregate-results", type=Path, required=True)
     parser.add_argument("--synthetic-payload-dir", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--reference", type=Path)
     return parser
 
 
@@ -388,6 +406,7 @@ def main(argv: list[str] | None = None) -> int:
         aggregate_results_path=args.aggregate_results,
         synthetic_payload_dir=args.synthetic_payload_dir,
         output=args.output,
+        reference_path=args.reference,
     )
     print(json.dumps(manifest, indent=2, sort_keys=True))
     return 0

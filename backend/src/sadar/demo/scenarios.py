@@ -12,6 +12,7 @@ from dataclasses import dataclass
 Profile = tuple[tuple[float, float], ...]
 ProfileSpec = Profile | str
 CoverageGaps = tuple[tuple[int, int], ...]
+GroundContactWindows = tuple[tuple[float, float], ...]
 
 
 @dataclass(frozen=True)
@@ -35,6 +36,7 @@ class Scenario:
     expected_outcome: str
     expected_runway_specificity: str
     expected_quality_flags: tuple[str, ...]
+    ground_contact_windows: GroundContactWindows = ()
 
 
 def _flat(value: float) -> Profile:
@@ -43,7 +45,27 @@ def _flat(value: float) -> Profile:
 
 THREE_DEGREE: ProfileSpec = "three_degree"
 STABLE_SPEED: Profile = ((0.0, 85.0), (0.35, 79.0), (0.70, 72.0), (1.0, 68.0))
-STABLE_RATE: Profile = _flat(-3.0)
+STABLE_RATE: Profile = _flat(-2.6)
+LANDING_RATE: Profile = ((0.0, -2.73), (0.95, -2.73), (0.97, 0.0), (1.0, 0.0))
+EARLY_END_RATE: Profile = _flat(-1.86)
+SHORT_RECORD_RATE: Profile = _flat(-3.74)
+HIGH_DESCENT_ALTITUDE: Profile = (
+    (0.0, 628.9),
+    (5.0 / 12.0, 369.0),
+    (0.5, 169.0),
+    (13.0 / 24.0, 291.1),
+    (1.0, 5.2),
+)
+HIGH_DESCENT_RATE: Profile = (
+    (0.0, -2.6),
+    (0.4166, -2.6),
+    (5.0 / 12.0, -10.0),
+    (0.5, -10.0),
+    (0.5001, 12.2),
+    (13.0 / 24.0, 12.2),
+    (0.5418, -2.6),
+    (1.0, -2.6),
+)
 STRAIGHT: Profile = _flat(0.0)
 CENTERLINE: Profile = _flat(0.0)
 
@@ -52,9 +74,9 @@ SCENARIOS: tuple[Scenario, ...] = (
     Scenario(
         "stable-rwy-32l", "Stable RWY 32L approach",
         "Shows all observable criteria within their synthetic reference envelopes.",
-        "32L", 12_000.0, 100.0, 240, 2, CENTERLINE, THREE_DEGREE,
-        STABLE_SPEED, STABLE_RATE, STRAIGHT, (), "criteria_observed", (),
-        "landing_observed", "exact", (),
+        "32L", 12_000.0, -500.0, 240, 2, CENTERLINE, THREE_DEGREE,
+        STABLE_SPEED, LANDING_RATE, STRAIGHT, (), "criteria_observed", (),
+        "landing_observed", "exact", (), ((0.98, 1.0),),
     ),
     Scenario(
         "low-speed-rwy-32l", "Lower-than-reference speed",
@@ -73,8 +95,8 @@ SCENARIOS: tuple[Scenario, ...] = (
     Scenario(
         "descent-rate-rwy-32r", "High observed descent rate",
         "Explains a persistent observed descent-rate review signal.",
-        "32R", 12_000.0, 100.0, 240, 2, CENTERLINE, THREE_DEGREE,
-        STABLE_SPEED, _flat(-10.0), STRAIGHT, (), "review_required",
+        "32R", 12_000.0, 100.0, 240, 2, CENTERLINE, HIGH_DESCENT_ALTITUDE,
+        STABLE_SPEED, HIGH_DESCENT_RATE, STRAIGHT, (), "review_required",
         ("observed_descent_rate",), "final_gate_observed", "exact", (),
     ),
     Scenario(
@@ -95,8 +117,8 @@ SCENARIOS: tuple[Scenario, ...] = (
     Scenario(
         "multi-criterion-rwy-18r", "Multiple review signals",
         "Shows that independent persistent criteria remain separately inspectable.",
-        "18R", 12_000.0, 100.0, 240, 2, CENTERLINE, THREE_DEGREE,
-        _flat(130.0), _flat(-10.0), STRAIGHT, (), "review_required",
+        "18R", 12_000.0, 100.0, 240, 2, CENTERLINE, HIGH_DESCENT_ALTITUDE,
+        _flat(130.0), HIGH_DESCENT_RATE, STRAIGHT, (), "review_required",
         ("observed_descent_rate", "observed_ground_speed_envelope"),
         "final_gate_observed", "exact", (),
     ),
@@ -104,14 +126,14 @@ SCENARIOS: tuple[Scenario, ...] = (
         "evidence-ends-early-rwy-32l", "Evidence ends before the runway",
         "Separates entry into the analysis gate from availability of a landing outcome.",
         "32L", 12_000.0, 3_500.0, 240, 2, CENTERLINE, THREE_DEGREE,
-        STABLE_SPEED, STABLE_RATE, STRAIGHT, (), "partial_observation", (),
+        STABLE_SPEED, EARLY_END_RATE, STRAIGHT, (), "partial_observation", (),
         "final_gate_observed", "exact", (),
     ),
     Scenario(
         "short-record-rwy-18l", "Short observation record",
         "Shows abstention when duration and row coverage are insufficient.",
         "18L", 12_000.0, 7_000.0, 70, 10, CENTERLINE, THREE_DEGREE,
-        STABLE_SPEED, STABLE_RATE, STRAIGHT, (), "not_assessable", (),
+        STABLE_SPEED, SHORT_RECORD_RATE, STRAIGHT, (), "not_assessable", (),
         "incomplete", "exact",
         ("insufficient_observations", "insufficient_duration", "terminal_gate_not_reached"),
     ),
@@ -134,16 +156,18 @@ SCENARIOS: tuple[Scenario, ...] = (
         "Shows a descent-then-climb proxy without claiming a certified outcome.",
         "18R", 12_000.0, 800.0, 300, 2, CENTERLINE,
         ((0.0, 700.0), (0.70, 120.0), (1.0, 520.0)), STABLE_SPEED,
-        STABLE_RATE, STRAIGHT, (), "partial_observation", (),
+        ((0.0, -2.76), (0.69, -2.76), (0.71, 4.44), (1.0, 4.44)),
+        STRAIGHT, (), "partial_observation", (),
         "go_around", "exact", (),
     ),
     Scenario(
         "touch-and-go-rwy-32l", "Observed touch-and-go pattern",
         "Shows ground contact followed by climb as an observed proxy pattern.",
-        "32L", 12_000.0, -200.0, 300, 2, CENTERLINE,
-        ((0.0, 700.0), (0.85, 0.0), (1.0, 350.0)), STABLE_SPEED,
-        STABLE_RATE, STRAIGHT, (), "partial_observation", (),
-        "touch_and_go", "exact", (),
+        "32L", 12_000.0, -3_000.0, 300, 2, CENTERLINE,
+        ((0.0, 700.0), (0.82, 0.0), (1.0, 350.0)), STABLE_SPEED,
+        ((0.0, -2.85), (0.81, -2.85), (0.82, 0.0), (0.83, 6.48), (1.0, 6.48)),
+        STRAIGHT, (), "criteria_observed", (),
+        "touch_and_go", "exact", (), ((0.82, 0.82),),
     ),
     Scenario(
         "altitude-rate-conflict-rwy-32l", "Altitude-rate conflict",

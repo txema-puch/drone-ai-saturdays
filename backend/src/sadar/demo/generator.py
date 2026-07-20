@@ -9,7 +9,6 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from sadar.approach.configuration import ApproachConfig
 from sadar.approach.geometry import (
     EARTH_RADIUS_M,
     GeometryCatalog,
@@ -73,11 +72,9 @@ def generate_frame(
     scenario: Scenario,
     *,
     geometry: GeometryCatalog,
-    config: ApproachConfig,
     clock_offset_s: int,
 ) -> pd.DataFrame:
     """Generate one mathematical track without consulting files or external state."""
-    del config  # The frozen config is an explicit input even where no branch needs it.
     runway = geometry.thresholds[scenario.runway]
     offsets = np.arange(0, scenario.duration_s + 1, scenario.sample_interval_s, dtype="int64")
     progress = offsets.astype("float64") / scenario.duration_s
@@ -91,11 +88,8 @@ def generate_frame(
         height = _profile(scenario.barometric_altitude_profile_m, progress)
     barometric = runway.elevation_m + height
     onground = np.zeros(len(offsets), dtype=bool)
-    if scenario.expected_outcome == "touch_and_go":
-        contact = int(np.argmin(np.abs(progress - 0.85)))
-        onground[contact] = True
-    elif scenario.expected_outcome == "landing_observed":
-        onground[-3:] = True
+    for start, end in scenario.ground_contact_windows:
+        onground |= (progress >= start) & (progress <= end)
 
     frame = pd.DataFrame({
         "flight_id": f"synthetic-{scenario.scenario_id}",
