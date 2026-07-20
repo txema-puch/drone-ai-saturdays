@@ -13,7 +13,9 @@ The public application has three deliberately separate evidence lanes:
 
 1. **Synthetic demonstration cases.** Fourteen generated scenarios exercise the
    analyst workflow and rule explanations. They are not recorded flights, and their
-   scenario mix is not an estimate of operational prevalence.
+   scenario mix is not an estimate of operational prevalence. Position, ground speed,
+   track, altitude and vertical rate are generated from shared runway-relative motion
+   profiles, so the channels agree with one another without copying source trajectories.
 2. **Aggregate real-data research.** Counts, rates and limitations derived from
    reviewed OpenSky research cohorts are published without individual trajectories or
    source records. Users obtain any source data directly from OpenSky under its terms.
@@ -25,6 +27,8 @@ The application supports:
 
 - a release-backed queue of synthetic approach scenarios;
 - attempt and operation evidence inspection;
+- synchronized lateral, altitude, speed, descent-rate and track-correction profiles,
+  with review intervals marked directly on the affected signal;
 - a dedicated Research evidence page for real aggregate findings, source access,
   citation and qualification limits;
 - bounded, ephemeral CSV or Parquet evaluation using the same published assessment
@@ -47,7 +51,7 @@ safety-performance claims are explicitly blocked.
 Real aggregate findings cite: Matthias Schäfer, Martin Strohmeier, Vincent Lenders,
 Ivan Martinovic, and Matthias Wilhelm. “Bringing Up OpenSky: A Large-scale ADS-B
 Sensor Network for Research.” IPSN 2014. Users obtain source observations through
-[OpenSky data access](https://opensky-network.org/data/data-access) under the
+[OpenSky data access](https://opensky-network.org/data/trino) under the
 [OpenSky terms](https://opensky-network.org/about/terms-of-use). Publication notice was
 sent on 2026-07-20; acknowledgement is not claimed.
 

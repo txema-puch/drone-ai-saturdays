@@ -22,12 +22,12 @@ from sadar.approach.configuration import ApproachConfig
 from sadar.approach.contextual import CONTEXT_ENGINE_VERSION
 from sadar.approach.geometry import runway_relative
 from sadar.approach.reference import validate_reference
+from sadar.contracts import SYNTHETIC_GENERATOR_VERSION as GENERATOR_VERSION
 from sadar.demo.generator import generate_frame, geometry_from_payload
 from sadar.demo.scenarios import SCENARIOS, Scenario
 from sadar.releases.approach import canonical_json_bytes
 
 
-GENERATOR_VERSION = "sadar_synthetic_approach_v1"
 DEFAULT_SEED = 20_260_718
 OBSERVATION_FIELDS = (
     "time", "lat", "lon", "baroaltitude", "geoaltitude", "velocity",
@@ -229,6 +229,11 @@ def generate_demo_payloads(
             config=config,
             reference=reference,
         ))
+        assessment_window = assessment["attempt"]
+        attempt_frame = attempt_frame.loc[
+            (attempt_frame["time"] >= assessment_window["start_time"])
+            & (attempt_frame["time"] <= assessment_window["end_time"])
+        ].reset_index(drop=True)
         _assert_expected(scenario, assessment)
         runway = geometry.thresholds[assessment["runway_inference"]["geometry_runway"]]
         relative = runway_relative(attempt_frame["lat"], attempt_frame["lon"], runway)

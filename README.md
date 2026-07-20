@@ -22,6 +22,8 @@ The product is rules-first and does not load the historical LSTM model. Its publ
 boundary contains three independent lanes: deterministic synthetic demo scenarios,
 suppression-safe aggregate findings from real OpenSky research cohorts, and bounded
 user uploads evaluated ephemerally without joining either published lane.
+The demo generator derives position, track and vertical rate from shared speed,
+runway-relative path and altitude profiles; it does not copy or perturb source flights.
 
 1. Bounded OpenSky-style CSV or Parquet rows are canonicalized and separated into
    operations and approach attempts.
@@ -38,8 +40,7 @@ memory while suspended; do not upload confidential or proprietary data.
 
 ## Run locally
 
-Until the schema-v4 dataset artifact is published, build the production-equivalent
-container from an explicitly generated and reviewed local release:
+To inspect a local release before publication, generate and validate it explicitly:
 
 ```bash
 rm -rf /tmp/sadar-synthetic-demo /tmp/sadar-approach-release
@@ -125,7 +126,7 @@ collaboration notes, and writeup drafts are intentionally excluded from source G
 The real-data aggregate lane was derived from OpenSky Network ADS-B observations around
 LEMD. It contains counts, rates, coverage, provenance and limitations only—no source
 row, trajectory, aircraft identifier or exact timestamp. Obtain source data through
-[OpenSky data access](https://opensky-network.org/data/data-access) and follow the
+[OpenSky data access](https://opensky-network.org/data/trino) and follow the
 [OpenSky terms](https://opensky-network.org/about/terms-of-use).
 
 Publication notice was sent to OpenSky on **2026-07-20**; acknowledgement is not

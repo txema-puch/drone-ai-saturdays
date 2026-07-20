@@ -9,6 +9,7 @@
 # Python virtual environments          #
 ########################################
 .venv/
+/backend/.venv
 venv/
 env/
 

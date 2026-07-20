@@ -76,6 +76,10 @@ export interface ApproachPathPoint {
   time?: number;
   along_track_m?: number;
   cross_track_m?: number;
+  height_above_threshold_m?: number;
+  ground_speed_mps?: number;
+  vertical_rate_mps?: number;
+  track_offset_deg?: number;
   observed?: boolean;
 }
 

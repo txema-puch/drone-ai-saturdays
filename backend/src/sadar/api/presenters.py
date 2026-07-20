@@ -58,6 +58,7 @@ def case_path(record: dict, case: dict) -> list[dict]:
         "geometry_runway"
     )
     relative = None
+    runway = None
     if runway_name:
         runway = load_lemd_geometry().thresholds.get(runway_name)
         valid = all(
@@ -76,10 +77,25 @@ def case_path(record: dict, case: dict) -> list[dict]:
             "time": item.get("time"),
             "t": item.get("time"),
             "observed": True,
+            "ground_speed_mps": item.get("velocity"),
+            "vertical_rate_mps": item.get("vertrate"),
         }
         if relative is not None:
             point["along_track_m"] = round(float(relative.along_track_m[index]), 1)
             point["cross_track_m"] = round(float(relative.cross_track_m[index]), 1)
+        if runway is not None:
+            altitude = item.get("baroaltitude")
+            heading = item.get("heading")
+            if altitude is not None:
+                point["height_above_threshold_m"] = round(
+                    float(altitude) - runway.elevation_m,
+                    1,
+                )
+            if heading is not None:
+                point["track_offset_deg"] = round(
+                    (float(heading) - runway.true_bearing_deg + 180.0) % 360.0 - 180.0,
+                    1,
+                )
         path.append(point)
     return path
 

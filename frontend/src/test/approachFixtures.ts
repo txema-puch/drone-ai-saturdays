@@ -78,9 +78,9 @@ export const APPROACH_DETAIL: ApproachDetail = {
   schema_version: "approach_assessment_v1",
   engine_version: "prototype_v1",
   path: [
-    { lat: 40.3, lon: -3.7, alt: 900, time: 1_773_651_600, along_track_m: 9_000, cross_track_m: 220 },
-    { lat: 40.4, lon: -3.6, alt: 500, time: 1_773_651_750, along_track_m: 4_500, cross_track_m: 90 },
-    { lat: 40.49, lon: -3.57, alt: 610, time: 1_773_651_900, along_track_m: 500, cross_track_m: 20 },
+    { lat: 40.3, lon: -3.7, alt: 900, time: 1_773_651_600, along_track_m: 9_000, cross_track_m: 220, height_above_threshold_m: 520, ground_speed_mps: 82, vertical_rate_mps: -3.8, track_offset_deg: -2.1 },
+    { lat: 40.4, lon: -3.6, alt: 500, time: 1_773_651_750, along_track_m: 4_500, cross_track_m: 90, height_above_threshold_m: 260, ground_speed_mps: 73.681, vertical_rate_mps: -9.2, track_offset_deg: 4.5 },
+    { lat: 40.49, lon: -3.57, alt: 610, time: 1_773_651_900, along_track_m: 500, cross_track_m: 20, height_above_threshold_m: 35, ground_speed_mps: 68, vertical_rate_mps: -2.4, track_offset_deg: 0.8 },
   ],
   criteria: [
     {

@@ -12,7 +12,9 @@ from pydantic import ValidationError
 from sadar.api.evaluation import EvaluationError
 from sadar.api.factory import create_app
 from sadar.api.middleware import EvaluationAdmissionLimiter
+from sadar.api.presenters import case_path
 from sadar.api.settings import Settings
+from sadar.approach.geometry import load_lemd_geometry
 from sadar.releases.approach import load_release_directory
 
 
@@ -120,6 +122,56 @@ def test_attempt_queue_filters_and_detail_are_release_backed(tmp_path: Path):
     assert payload["demo_clock"] is True
     assert payload["scenario_id"] == selected["scenario_id"]
     assert all(point["observed"] is True for point in payload["path"])
+    assert {
+        "ground_speed_mps",
+        "vertical_rate_mps",
+        "height_above_threshold_m",
+        "track_offset_deg",
+        "along_track_m",
+        "cross_track_m",
+    } <= set(payload["path"][0])
+
+
+def test_case_path_preserves_raw_signals_derives_proxies_and_wraps_heading():
+    runway = load_lemd_geometry().thresholds["32L"]
+    record = {
+        "assessment": {"runway_inference": {"geometry_runway": "32L"}},
+    }
+    case = {
+        "observations": [
+            {
+                "lat": runway.lat,
+                "lon": runway.lon,
+                "time": 10,
+                "baroaltitude": runway.elevation_m + 123.4,
+                "velocity": 70.5,
+                "vertrate": -3.2,
+                "heading": runway.true_bearing_deg + 181.0,
+            },
+            {
+                "lat": runway.lat,
+                "lon": runway.lon,
+                "time": 11,
+                "baroaltitude": None,
+                "velocity": None,
+                "vertrate": None,
+                "heading": None,
+            },
+        ],
+    }
+
+    path = case_path(record, case)
+
+    assert path[0]["ground_speed_mps"] == 70.5
+    assert path[0]["vertical_rate_mps"] == -3.2
+    assert path[0]["height_above_threshold_m"] == 123.4
+    assert path[0]["track_offset_deg"] == -179.0
+    assert path[0]["along_track_m"] == pytest.approx(0.0, abs=0.1)
+    assert path[0]["cross_track_m"] == pytest.approx(0.0, abs=0.1)
+    assert path[1]["ground_speed_mps"] is None
+    assert path[1]["vertical_rate_mps"] is None
+    assert "height_above_threshold_m" not in path[1]
+    assert "track_offset_deg" not in path[1]
 
 
 def test_operation_groups_exact_release_attempts(tmp_path: Path):
