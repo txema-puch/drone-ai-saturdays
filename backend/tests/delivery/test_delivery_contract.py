@@ -1,7 +1,11 @@
 from __future__ import annotations
 
 import importlib.util
+import json
+import os
 from pathlib import Path
+import subprocess
+import sys
 
 import pytest
 
@@ -181,7 +185,7 @@ def test_fly_deploy_contract_rejects_safety_drift(fragment, message, capsys):
 @pytest.mark.parametrize(
     ("source", "fragment", "message"),
     [
-        ("workflow", "demo_bundle.lock.json", "historical research lock"),
+        ("workflow", "uv sync --project backend/research", "schema-v4 delivery fragment"),
         ("workflow", "sadar-build-synthetic-demo", "schema-v4 delivery fragment"),
         ("workflow", "--build-context approach-release-context=/tmp/sadar-ci-approach-release", "schema-v4 delivery fragment"),
         ("dockerfile", "AS release-local-reviewed", "schema-v4 delivery fragment"),
@@ -202,6 +206,78 @@ def test_schema_v4_delivery_contract_rejects_boundary_drift(source, fragment, me
 
     assert raised.value.code == 1
     assert message in capsys.readouterr().err
+
+
+@pytest.mark.parametrize(
+    "private_dependency",
+    [
+        "demo_bundle.lock.json",
+        "phase6_training_artifacts.lock.json",
+        "SADAR_RESEARCH_BUNDLE_DIR",
+        "SADAR_RESEARCH_MODELS_DIR",
+        "SADAR_TEST_USE_EXTERNAL_RESEARCH_ARTIFACTS",
+    ],
+)
+def test_public_ci_rejects_private_historical_artifact_dependencies(
+    private_dependency, capsys,
+):
+    drifted_workflow = REAL_WORKFLOW + f"\n# {private_dependency}\n"
+
+    with pytest.raises(SystemExit) as raised:
+        delivery.validate_release_delivery(
+            dockerfile=REAL_DOCKERFILE,
+            workflow=drifted_workflow,
+            smoke_http=REAL_SMOKE,
+        )
+
+    assert raised.value.code == 1
+    assert "private historical research artifacts" in capsys.readouterr().err
+
+
+def _research_paths_after_loading_conftest(*, allow_external: bool) -> dict[str, str]:
+    env = os.environ.copy()
+    env.update(
+        {
+            "SADAR_RESEARCH_BUNDLE_DIR": "/tmp/sadar-external-bundle",
+            "SADAR_RESEARCH_MODELS_DIR": "/tmp/sadar-external-models",
+        }
+    )
+    if allow_external:
+        env["SADAR_TEST_USE_EXTERNAL_RESEARCH_ARTIFACTS"] = "true"
+    else:
+        env.pop("SADAR_TEST_USE_EXTERNAL_RESEARCH_ARTIFACTS", None)
+    command = (
+        "import json, os, runpy; "
+        "runpy.run_path('backend/tests/conftest.py'); "
+        "print(json.dumps({"
+        "'bundle': os.environ['SADAR_RESEARCH_BUNDLE_DIR'], "
+        "'models': os.environ['SADAR_RESEARCH_MODELS_DIR']}))"
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", command],
+        cwd=ROOT,
+        env=env,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    return json.loads(result.stdout)
+
+
+def test_public_tests_ignore_ambient_private_research_paths():
+    paths = _research_paths_after_loading_conftest(allow_external=False)
+
+    assert paths["bundle"] != "/tmp/sadar-external-bundle"
+    assert paths["models"] != "/tmp/sadar-external-models"
+
+
+def test_authorized_replay_can_select_external_research_paths():
+    paths = _research_paths_after_loading_conftest(allow_external=True)
+
+    assert paths == {
+        "bundle": "/tmp/sadar-external-bundle",
+        "models": "/tmp/sadar-external-models",
+    }
 
 
 def test_local_reviewed_stage_rejects_retired_product_lock_dependency(capsys):

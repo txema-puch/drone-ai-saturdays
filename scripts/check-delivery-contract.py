@@ -127,16 +127,28 @@ def validate_fly_deploy_script(deploy_script: str) -> None:
             fail(f"Fly deploy script must preserve {label}")
 
 
-def validate_release_delivery(*, dockerfile: str, workflow: str, smoke_http: str) -> None:
+def validate_release_delivery(
+    *,
+    dockerfile: str,
+    workflow: str,
+    smoke_http: str,
+) -> None:
     if "backend/src/sadar/releases/approach_bundle.lock.json" in workflow:
         fail("local-reviewed CI must not read the retired product lock")
-    for historical_lock in (
+    for private_historical_dependency in (
         "demo_bundle.lock.json",
         "phase6_training_artifacts.lock.json",
+        "SADAR_RESEARCH_BUNDLE_DIR",
+        "SADAR_RESEARCH_MODELS_DIR",
+        "SADAR_TEST_USE_EXTERNAL_RESEARCH_ARTIFACTS",
     ):
-        if historical_lock not in workflow:
-            fail(f"CI must preserve historical research lock fetch: {historical_lock}")
+        if private_historical_dependency in workflow:
+            fail(
+                "public CI must not depend on private historical research artifacts: "
+                f"{private_historical_dependency}"
+            )
     workflow_fragments = (
+        "uv sync --project backend/research",
         "sadar-build-synthetic-demo",
         "--seed 20260718",
         "sadar-build-release",
