@@ -148,6 +148,8 @@ class ApproachUploadEvaluationService:
             status_counts[status] = status_counts.get(status, 0) + 1
         response = {
             "schema_version": SCHEMA_VERSION,
+            "data_origin": "user_upload_ephemeral",
+            "reference_origin": "derived_from_aggregate_real_research",
             "release_id": self.release_id,
             "reference_sha256": self.reference["artifact_sha256"],
             "dataset_digest": dataset_digest,

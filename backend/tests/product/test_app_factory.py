@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import copy
 from pathlib import Path
 
 from fastapi.testclient import TestClient
@@ -45,10 +46,50 @@ def test_factory_serves_synthetic_queue_detail_and_origin_health(tmp_path: Path)
     assert health["schema_version"] == 4
     assert health["demo_data_origin"] == "synthetic"
     assert health["research_data_origin"] == "aggregate_real"
+    assert health["demo_attempts"] == 14
+    assert health["demo_operations"] == 14
+    assert sum(health["demo_status_counts"].values()) == 14
+    assert sum(health["demo_outcome_counts"].values()) == 14
+    assert health["evaluation_data_handling"] == "ephemeral_not_retained"
+    assert health["source_commit"] == "unknown"
+    assert health["qualification"] == "not_qualified_no_independent_labels_or_fresh_holdout"
     queue = client.get("/api/approaches").json()
     assert queue and queue[0]["attempt_id"].startswith("syn-a-")
-    detail = client.get(f"/api/approaches/{queue[0]['attempt_id']}")
-    assert detail.status_code == 200
+    assert all(item["data_origin"] == "synthetic" for item in queue)
+    assert all(item["scenario_title"] and item["teaching_goal"] for item in queue)
+    detail = client.get(f"/api/approaches/{queue[0]['attempt_id']}").json()
+    assert detail["demo_clock"] is True
+    assert detail["landing_outcome"] == queue[0]["landing_outcome"]
+
+
+def test_real_aggregate_counts_cannot_change_demo_queue_counts(tmp_path: Path):
+    frontend = tmp_path / "frontend"
+    frontend.mkdir()
+    (frontend / "index.html").write_text("ok")
+    changed = copy.deepcopy(RELEASE)
+    changed["aggregate_results"]["cohorts"][0]["attempts"] = 99_999
+    changed["metrics"] = changed["aggregate_results"]
+    client = TestClient(create_app(_settings(frontend), changed))
+
+    health = client.get("/api/health").json()
+    assert health["demo_attempts"] == 14
+    assert sum(health["demo_status_counts"].values()) == 14
+    assert len(client.get("/api/approaches?limit=5000").json()) == 14
+
+
+def test_evidence_is_the_canonical_aggregate_endpoint(tmp_path: Path):
+    frontend = tmp_path / "frontend"
+    frontend.mkdir()
+    (frontend / "index.html").write_text("ok")
+    client = TestClient(create_app(_settings(frontend), RELEASE))
+
+    evidence = client.get("/api/evidence")
+    assert evidence.status_code == 200
+    assert evidence.json() == RELEASE["aggregate_results"]
+    assert client.get("/api/metrics").json() == evidence.json()
+    deprecated = client.get("/api/research", follow_redirects=False)
+    assert deprecated.status_code == 307
+    assert deprecated.headers["location"] == "/api/evidence"
 
 
 def test_factory_instances_have_isolated_runtime_state(tmp_path: Path):

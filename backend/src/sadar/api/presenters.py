@@ -24,6 +24,10 @@ def summary(record: dict) -> dict:
     return {
         "attempt_id": record["attempt_id"],
         "operation_ref": record["operation_id"],
+        "data_origin": record["data_origin"],
+        "scenario_id": record["scenario_id"],
+        "scenario_title": record["scenario_title"],
+        "teaching_goal": record["teaching_goal"],
         "status": record["status"],
         "direction": record.get("runway_direction"),
         "runway": record.get("runway"),
@@ -33,6 +37,7 @@ def summary(record: dict) -> dict:
         "runway_score_margin": inference.get("score_margin"),
         "failed_criteria": list(record.get("failed_criteria") or []),
         "outcome": record.get("outcome"),
+        "landing_outcome": record.get("landing_outcome"),
         "observed_samples": attempt.get("observed_samples"),
         "coverage": {
             "observed_samples": attempt.get("observed_samples"),
@@ -96,5 +101,6 @@ def detail(record: dict, state: ReleaseState) -> dict:
         "schema_version": assessment.get("schema_version"),
         "engine_version": assessment.get("engine_version"),
         "observations_downsampled": case.get("observations_downsampled", False),
+        "demo_clock": True,
         "research_benchmark": state.research,
     }
