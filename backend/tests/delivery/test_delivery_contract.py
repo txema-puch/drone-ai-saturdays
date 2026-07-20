@@ -67,6 +67,11 @@ ROOT = SCRIPT.parents[1]
 REAL_DOCKERFILE = (ROOT / "Dockerfile").read_text(encoding="utf-8")
 REAL_WORKFLOW = (ROOT / ".github/workflows/clean-checkout.yml").read_text(encoding="utf-8")
 REAL_SMOKE = (ROOT / "scripts/smoke-http.py").read_text(encoding="utf-8")
+REAL_PRODUCT_LOCK = json.loads(
+    (ROOT / "backend/src/sadar/releases/approach_bundle.lock.json").read_text(
+        encoding="utf-8"
+    )
+)
 
 
 def validate(**overrides):
@@ -92,7 +97,8 @@ def test_fly_deploy_contract_accepts_single_machine_remote_build():
     delivery.validate_fly_deploy_script(FLY_DEPLOY)
 
 
-def test_schema_v4_local_reviewed_delivery_contract_accepts_repository_sources():
+def test_schema_v4_locked_public_delivery_contract_accepts_repository_sources():
+    delivery.validate_public_release_lock(REAL_PRODUCT_LOCK)
     delivery.validate_release_delivery(
         dockerfile=REAL_DOCKERFILE,
         workflow=REAL_WORKFLOW,
@@ -186,8 +192,23 @@ def test_fly_deploy_contract_rejects_safety_drift(fragment, message, capsys):
     ("source", "fragment", "message"),
     [
         ("workflow", "uv sync --project backend/research", "schema-v4 delivery fragment"),
+        (
+            "workflow",
+            "backend/src/sadar/releases/approach_bundle.lock.json",
+            "schema-v4 delivery fragment",
+        ),
+        ("workflow", "sadar-fetch-release", "schema-v4 delivery fragment"),
         ("workflow", "sadar-build-synthetic-demo", "schema-v4 delivery fragment"),
-        ("workflow", "--build-context approach-release-context=/tmp/sadar-ci-approach-release", "schema-v4 delivery fragment"),
+        (
+            "workflow",
+            "SADAR_APPROACH_RELEASE_DIR: /tmp/sadar-ci-locked-release",
+            "schema-v4 delivery fragment",
+        ),
+        (
+            "workflow",
+            "--build-arg SADAR_RELEASE_SOURCE=locked-public",
+            "schema-v4 delivery fragment",
+        ),
         ("dockerfile", "AS release-local-reviewed", "schema-v4 delivery fragment"),
         ("dockerfile", "sadar-validate-public-release --release-dir /opt/sadar/release", "schema-v4 delivery fragment"),
         ("dockerfile", "SADAR_SOURCE_COMMIT=${SOURCE_COMMIT}", "schema-v4 delivery fragment"),
@@ -232,6 +253,67 @@ def test_public_ci_rejects_private_historical_artifact_dependencies(
 
     assert raised.value.code == 1
     assert "private historical research artifacts" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "message"),
+    [
+        ("schema_version", 3, "schema 4"),
+        ("release_id", "not-a-release-id", "20-character release ID"),
+        ("revision", "mutable", "immutable revision"),
+        ("archive_sha256", "bad", "SHA-256 archive digest"),
+        ("published_at", "2026-07-20", "UTC publication timestamp"),
+        (
+            "url",
+            "https://example.com/release.tar.gz",
+            "immutable public dataset artifact",
+        ),
+    ],
+)
+def test_public_release_lock_rejects_identity_drift(field, value, message, capsys):
+    drifted = {**REAL_PRODUCT_LOCK, field: value}
+
+    with pytest.raises(SystemExit) as raised:
+        delivery.validate_public_release_lock(drifted)
+
+    assert raised.value.code == 1
+    assert message in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("mutation", ["missing", "extra"])
+def test_public_release_lock_rejects_schema_drift(mutation, capsys):
+    drifted = dict(REAL_PRODUCT_LOCK)
+    if mutation == "missing":
+        drifted.pop("published_at")
+    else:
+        drifted["mutable_alias"] = "main"
+
+    with pytest.raises(SystemExit) as raised:
+        delivery.validate_public_release_lock(drifted)
+
+    assert raised.value.code == 1
+    assert "exact schema-v4 fields" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize(
+    "fragment",
+    [
+        "--build-context approach-release-context=/tmp/sadar-ci-approach-release",
+        "--build-arg SADAR_RELEASE_SOURCE=local-reviewed",
+    ],
+)
+def test_public_ci_rejects_local_reviewed_delivery_paths(fragment, capsys):
+    drifted_workflow = REAL_WORKFLOW + f"\n# {fragment}\n"
+
+    with pytest.raises(SystemExit) as raised:
+        delivery.validate_release_delivery(
+            dockerfile=REAL_DOCKERFILE,
+            workflow=drifted_workflow,
+            smoke_http=REAL_SMOKE,
+        )
+
+    assert raised.value.code == 1
+    assert "locked-public delivery path" in capsys.readouterr().err
 
 
 def _research_paths_after_loading_conftest(*, allow_external: bool) -> dict[str, str]:
