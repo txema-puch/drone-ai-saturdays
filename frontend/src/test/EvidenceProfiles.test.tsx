@@ -1,4 +1,4 @@
-import { render } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import type { ApproachCriterion, ApproachPathPoint } from "../api";
@@ -36,5 +36,33 @@ describe("generated evidence profiles", () => {
     );
 
     expect(container.querySelectorAll(".evidence-profiles__line")).toHaveLength(5);
+  });
+
+  it("keeps every profile on the global evidence clock when a channel starts late", () => {
+    const path = [
+      { ...complete(0, 10), cross_track_m: undefined },
+      complete(1, 8),
+      complete(2, 5),
+    ];
+    const { container } = render(
+      <EvidenceProfiles path={path} criteria={[]} activeIndex={1} />,
+    );
+
+    const lateralRow = screen.getByText("Lateral path proxy").closest("g");
+    const lateralLine = lateralRow?.querySelector(".evidence-profiles__line");
+    expect(Number(lateralLine?.getAttribute("x1"))).toBeCloseTo(428);
+    expect(container.querySelectorAll(".evidence-profiles__marker")).toHaveLength(5);
+  });
+
+  it("converts aviation units and exposes unavailable active-channel values", () => {
+    const path = [complete(0, 10), { ...complete(1, 8), vertical_rate_mps: undefined }];
+    const { rerender } = render(<EvidenceProfiles path={path} criteria={[]} activeIndex={0} />);
+
+    expect(screen.getByText("145.8 kt")).toBeInTheDocument();
+    expect(screen.getByText("-590.6 ft/min")).toBeInTheDocument();
+
+    rerender(<EvidenceProfiles path={path} criteria={[]} activeIndex={1} />);
+    const verticalRow = screen.getByText("Observed vertical rate").closest("g");
+    expect(verticalRow).toHaveTextContent("Unavailable");
   });
 });

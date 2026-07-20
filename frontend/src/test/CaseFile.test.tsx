@@ -48,10 +48,15 @@ describe("attempt dossier", () => {
   });
 
   it("synchronizes the scrubber with the live evidence readout", async () => {
-    renderCase();
+    const { container } = renderCase();
     const scrubber = await screen.findByLabelText("Scrub synchronized map and evidence timeline");
+    expect(screen.getByText("159.4 kt")).toBeInTheDocument();
+    const firstMarker = container.querySelector(".evidence-profiles__marker");
+    const initialX = firstMarker?.getAttribute("cx");
     fireEvent.change(scrubber, { target: { value: "1773651750" } });
     expect(screen.getByText(/4.5 km from threshold/i)).toBeInTheDocument();
+    expect(screen.getByText("143.2 kt")).toBeInTheDocument();
+    expect(container.querySelector(".evidence-profiles__marker")?.getAttribute("cx")).not.toBe(initialX);
   });
 
   it("explains a selected ground-speed crossing in operational units", async () => {
