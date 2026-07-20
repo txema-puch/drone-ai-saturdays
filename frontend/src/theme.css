@@ -78,6 +78,9 @@ body,
   background: var(--bg);
 }
 .app-nav .app-brand {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
   color: var(--ink);
   font-family: var(--mono);
   font-size: 12px;
