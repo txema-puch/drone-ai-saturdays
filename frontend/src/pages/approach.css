@@ -561,6 +561,14 @@
   .attempt-record { scroll-margin-top: 220px; }
 }
 
+@media (min-width: 1200px) and (max-width: 1359px) {
+  .attempt-columns,
+  .attempt-record__link {
+    grid-template-columns: minmax(150px, 1.05fr) minmax(90px, .6fr) minmax(190px, 1.35fr) minmax(120px, .8fr) minmax(150px, 1fr);
+    gap: 12px;
+  }
+}
+
 @media (max-width: 1199px) {
   .queue-layout,
   .dossier-layout,
