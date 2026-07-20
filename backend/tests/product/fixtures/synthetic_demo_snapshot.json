@@ -1,0 +1,227 @@
+{
+  "approach_config_sha256": "953a873fea51001069eb7c79fec59dc068d0d7e9a08e79c263a75f531cced7b8",
+  "criterion_counts": {
+    "late_track_correction": 1,
+    "lateral_path_proxy": 2,
+    "observed_descent_rate": 2,
+    "observed_ground_speed_envelope": 3
+  },
+  "generator_version": "sadar_synthetic_approach_v1",
+  "geometry_source_sha256": "37241c1c801cf15be6003ea03d1e3bad1e6f75f1b48eabaee866f4bda061cf05",
+  "outcome_counts": {
+    "final_gate_observed": 10,
+    "go_around": 1,
+    "incomplete": 1,
+    "landing_observed": 1,
+    "touch_and_go": 1
+  },
+  "payload_sha256": {
+    "attempts.json": "9371aa60d5ce4a9935a7b3e7f1e8660f273c61da3bfd59fbeb10a7dadedfd20b",
+    "cases.json": "ef899bfd1d245066062d92ea6d637d9ff48b76b9b29841de1016b1cdd5360e74",
+    "catalog.json": "071e8619793b021524e9ecb7a9994e98ea173518525563ff2244aaa822d10652",
+    "operations.json": "cd64fb811b044c4394531405bcfb3078dd47d9ab8d4949217a8600f457e63757"
+  },
+  "reference_sha256": "c34c293977eb3021e6c72ab1877eafb64513fe9099abba944cda36bfa5df674e",
+  "scenario_ids": [
+    "altitude-rate-conflict-rwy-32l",
+    "descent-rate-rwy-32r",
+    "evidence-ends-early-rwy-32l",
+    "go-around-rwy-18r",
+    "high-speed-rwy-18r",
+    "large-internal-gap-rwy-32r",
+    "late-track-correction-rwy-32l",
+    "lateral-offset-rwy-18l",
+    "low-speed-rwy-32l",
+    "multi-criterion-rwy-18r",
+    "parallel-runway-ambiguity-32",
+    "short-record-rwy-18l",
+    "stable-rwy-32l",
+    "touch-and-go-rwy-32l"
+  ],
+  "scenarios": [
+    {
+      "end_along_track_m": 100.0,
+      "failed_criteria": [],
+      "observation_count": 121,
+      "outcome": "final_gate_observed",
+      "quality_flags": [
+        "altitude_rate_conflict"
+      ],
+      "runway_direction": "32",
+      "runway_specificity": "exact",
+      "scenario_id": "altitude-rate-conflict-rwy-32l",
+      "status": "partial_observation"
+    },
+    {
+      "end_along_track_m": 100.0,
+      "failed_criteria": [
+        "observed_descent_rate"
+      ],
+      "observation_count": 121,
+      "outcome": "final_gate_observed",
+      "quality_flags": [],
+      "runway_direction": "32",
+      "runway_specificity": "exact",
+      "scenario_id": "descent-rate-rwy-32r",
+      "status": "review_required"
+    },
+    {
+      "end_along_track_m": 3500.0,
+      "failed_criteria": [],
+      "observation_count": 121,
+      "outcome": "final_gate_observed",
+      "quality_flags": [],
+      "runway_direction": "32",
+      "runway_specificity": "exact",
+      "scenario_id": "evidence-ends-early-rwy-32l",
+      "status": "partial_observation"
+    },
+    {
+      "end_along_track_m": 800.0,
+      "failed_criteria": [],
+      "observation_count": 151,
+      "outcome": "go_around",
+      "quality_flags": [],
+      "runway_direction": "18",
+      "runway_specificity": "exact",
+      "scenario_id": "go-around-rwy-18r",
+      "status": "partial_observation"
+    },
+    {
+      "end_along_track_m": 100.0,
+      "failed_criteria": [
+        "observed_ground_speed_envelope"
+      ],
+      "observation_count": 121,
+      "outcome": "final_gate_observed",
+      "quality_flags": [],
+      "runway_direction": "18",
+      "runway_specificity": "exact",
+      "scenario_id": "high-speed-rwy-18r",
+      "status": "review_required"
+    },
+    {
+      "end_along_track_m": 100.0,
+      "failed_criteria": [],
+      "observation_count": 85,
+      "outcome": "final_gate_observed",
+      "quality_flags": [
+        "approach_coverage_gap"
+      ],
+      "runway_direction": "32",
+      "runway_specificity": "exact",
+      "scenario_id": "large-internal-gap-rwy-32r",
+      "status": "not_assessable"
+    },
+    {
+      "end_along_track_m": 100.0,
+      "failed_criteria": [
+        "late_track_correction"
+      ],
+      "observation_count": 121,
+      "outcome": "final_gate_observed",
+      "quality_flags": [],
+      "runway_direction": "32",
+      "runway_specificity": "exact",
+      "scenario_id": "late-track-correction-rwy-32l",
+      "status": "review_required"
+    },
+    {
+      "end_along_track_m": 100.0,
+      "failed_criteria": [
+        "lateral_path_proxy"
+      ],
+      "observation_count": 121,
+      "outcome": "final_gate_observed",
+      "quality_flags": [],
+      "runway_direction": "18",
+      "runway_specificity": "exact",
+      "scenario_id": "lateral-offset-rwy-18l",
+      "status": "review_required"
+    },
+    {
+      "end_along_track_m": 100.0,
+      "failed_criteria": [
+        "observed_ground_speed_envelope"
+      ],
+      "observation_count": 121,
+      "outcome": "final_gate_observed",
+      "quality_flags": [],
+      "runway_direction": "32",
+      "runway_specificity": "exact",
+      "scenario_id": "low-speed-rwy-32l",
+      "status": "review_required"
+    },
+    {
+      "end_along_track_m": 100.0,
+      "failed_criteria": [
+        "observed_descent_rate",
+        "observed_ground_speed_envelope"
+      ],
+      "observation_count": 121,
+      "outcome": "final_gate_observed",
+      "quality_flags": [],
+      "runway_direction": "18",
+      "runway_specificity": "exact",
+      "scenario_id": "multi-criterion-rwy-18r",
+      "status": "review_required"
+    },
+    {
+      "end_along_track_m": 100.0,
+      "failed_criteria": [
+        "lateral_path_proxy"
+      ],
+      "observation_count": 121,
+      "outcome": "final_gate_observed",
+      "quality_flags": [],
+      "runway_direction": "32",
+      "runway_specificity": "direction",
+      "scenario_id": "parallel-runway-ambiguity-32",
+      "status": "review_required"
+    },
+    {
+      "end_along_track_m": 7000.0,
+      "failed_criteria": [],
+      "observation_count": 8,
+      "outcome": "incomplete",
+      "quality_flags": [
+        "insufficient_duration",
+        "insufficient_observations",
+        "terminal_gate_not_reached"
+      ],
+      "runway_direction": "18",
+      "runway_specificity": "exact",
+      "scenario_id": "short-record-rwy-18l",
+      "status": "not_assessable"
+    },
+    {
+      "end_along_track_m": -500.0,
+      "failed_criteria": [],
+      "observation_count": 121,
+      "outcome": "landing_observed",
+      "quality_flags": [],
+      "runway_direction": "32",
+      "runway_specificity": "exact",
+      "scenario_id": "stable-rwy-32l",
+      "status": "criteria_observed"
+    },
+    {
+      "end_along_track_m": -3000.0,
+      "failed_criteria": [],
+      "observation_count": 151,
+      "outcome": "touch_and_go",
+      "quality_flags": [],
+      "runway_direction": "32",
+      "runway_specificity": "exact",
+      "scenario_id": "touch-and-go-rwy-32l",
+      "status": "criteria_observed"
+    }
+  ],
+  "seed": 20260718,
+  "status_counts": {
+    "criteria_observed": 2,
+    "not_assessable": 2,
+    "partial_observation": 3,
+    "review_required": 7
+  }
+}

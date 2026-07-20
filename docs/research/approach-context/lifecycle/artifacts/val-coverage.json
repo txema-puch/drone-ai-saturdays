@@ -1,0 +1,130 @@
+{
+  "aircraft_metadata_sha256": "d40c8a7b3825dfca896fe234de56040a70e7a215ee34a895468116e51e1afcae",
+  "attempts": 2740,
+  "availability_gates": {
+    "actual_mass": "failed_no_observed_source",
+    "aircraft_configuration": "failed_no_observed_source",
+    "aircraft_type": "passed",
+    "atc_clearance": "failed_no_observed_source",
+    "weather_qnh": "passed",
+    "wind_direction": "passed"
+  },
+  "cohort": "val",
+  "coverage": {
+    "aircraft_metadata_rate": 0.9865,
+    "aircraft_typecode_rate": 0.985,
+    "barometric_path_current_rate": 0.5752,
+    "barometric_path_qnh_context_upper_bound_rate": 1.0,
+    "qnh_rate": 1.0,
+    "weather_match_rate": 1.0,
+    "wind_components_rate": 0.8504,
+    "wind_direction_rate": 0.8504,
+    "wind_speed_rate": 1.0
+  },
+  "interpretation_limits": [
+    "QNH correction is a first-order pressure-altitude proxy, not geometric or radio altitude.",
+    "OpenSky metadata is a current registry snapshot and can mismatch historical aircraft identity.",
+    "Wind and type coverage do not establish that either feature improves review precision.",
+    "Configuration, actual mass, and ATC clearance are not present in these public observations."
+  ],
+  "maximum_weather_age_s": 1800,
+  "operations": 5508,
+  "reference_sha256": "b485f747154ea8d84ba6b5c980501e3a22bca9caff40c41711de107b03496c56",
+  "schema_version": "approach_context_audit_v1",
+  "source_sha256": "97344b4ab03af7ef0a404d26591ba3e0303198b21cf3528a4faaa007637cb478",
+  "status_counts": {
+    "criteria_observed": 1349,
+    "not_assessable": 481,
+    "partial_observation": 659,
+    "review_required": 251
+  },
+  "top_typecodes": [
+    [
+      "A320",
+      578
+    ],
+    [
+      "B738",
+      538
+    ],
+    [
+      "A321",
+      242
+    ],
+    [
+      "A319",
+      230
+    ],
+    [
+      "CRJX",
+      222
+    ],
+    [
+      "E195",
+      151
+    ],
+    [
+      "A332",
+      97
+    ],
+    [
+      "A20N",
+      77
+    ],
+    [
+      "B789",
+      66
+    ],
+    [
+      "A346",
+      60
+    ],
+    [
+      "B788",
+      57
+    ],
+    [
+      "A333",
+      56
+    ],
+    [
+      "AT76",
+      45
+    ],
+    [
+      "A359",
+      35
+    ],
+    [
+      "B772",
+      21
+    ],
+    [
+      "BCS3",
+      19
+    ],
+    [
+      "B763",
+      18
+    ],
+    [
+      "A343",
+      12
+    ],
+    [
+      "B734",
+      12
+    ],
+    [
+      "B752",
+      11
+    ]
+  ],
+  "weather_missing_reason_counts": {
+    "dew_point_missing": 11,
+    "wind_direction_missing_or_variable": 410
+  },
+  "weather_source_sha256": {
+    "lemd_isd_2019.csv": "264227bfb7e32116a2af4197c136a38fea5778302d460281f888e51d91d8d7b3"
+  }
+}

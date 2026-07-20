@@ -1,0 +1,69 @@
+{
+  "holdout": {
+    "abstention_rate": 0.3687,
+    "assessable_attempts": 387,
+    "attempts": 613,
+    "channel_advisory_counts": {
+      "altitude_rate_conflict": 7
+    },
+    "criterion_status_counts": {
+      "barometric_path_proxy": {
+        "not_observed": 512,
+        "within_limit": 101
+      },
+      "late_track_correction": {
+        "not_observed": 49,
+        "within_limit": 564
+      },
+      "lateral_path_proxy": {
+        "not_observed": 34,
+        "within_limit": 579
+      },
+      "observed_descent_rate": {
+        "review_required": 5,
+        "within_limit": 608
+      },
+      "observed_ground_speed_envelope": {
+        "review_required": 119,
+        "within_limit": 494
+      }
+    },
+    "input_sha256": "16f1bd2cbdbd519ce7bde6fbbc8df5012b188b54c5598bffc310cef34b0c6899",
+    "operations": 1426,
+    "operations_with_attempts": 613,
+    "outcome_counts": {
+      "final_gate_observed": 578,
+      "go_around": 1,
+      "incomplete": 34
+    },
+    "reason_counts": {
+      "insufficient_duration": 12,
+      "position_rate_conflict": 192,
+      "terminal_gate_not_reached": 34
+    },
+    "reference_sha256": "b485f747154ea8d84ba6b5c980501e3a22bca9caff40c41711de107b03496c56",
+    "review_rate_among_assessable": 0.2119,
+    "rows": 1774859,
+    "runway_direction_counts": {
+      "18": 57,
+      "32": 556
+    },
+    "schema_version": "approach_dataset_audit_v1",
+    "status_counts": {
+      "criteria_observed": 17,
+      "not_assessable": 226,
+      "partial_observation": 288,
+      "review_required": 82
+    }
+  },
+  "interpretation_limits": [
+    "No independent human review labels are present, so this burn does not estimate precision, recall, AUROC, or safety performance.",
+    "Status and workload drift are descriptive checks; holdout results cannot tune the frozen criteria or empirical reference."
+  ],
+  "policy": "single_precommitted_transform_no_threshold_tuning",
+  "reference_sha256": "b485f747154ea8d84ba6b5c980501e3a22bca9caff40c41711de107b03496c56",
+  "release_id": "8b3234e2bab7043c0fae",
+  "release_source_sha256": "8256c65f95135597f3db07413941380fc2a0c6bbfc429b07b12b10478f7e2c10",
+  "schema_version": "approach_holdout_burn_v1",
+  "source_commit": "7e52fc05eae72159c5d4616f4b2538ff8e5341e7"
+}

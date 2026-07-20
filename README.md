@@ -1,130 +1,146 @@
-# Drone AI — Saturdays.AI
+# SADAR Analyst Console
 
-Collaborative project for Saturdays.AI Madrid Deep Learning course.
+SADAR Analyst Console is a research demonstrator for post-flight screening of
+ADS-B-observable approach attempts at Madrid-Barajas Airport (LEMD). It reconstructs
+attempts, checks observation quality, infers runway-relative geometry when supported,
+and presents deterministic criterion evidence in an analyst workflow.
 
-## Team
-- Monica Gomez
-- Pablo Rodriguez Campos
-- Roberto Molero
-- Txema Puch
-  
+- **Application URL:** <https://sadar-analyst-console.fly.dev> (schema-v4 redeploy gated on publication)
+- **Planned evidence registry:** <https://huggingface.co/datasets/Txemapuch/sadar-analyst-console-release>
+- **Documentation:** [`docs/`](docs/)
+- **Release card and limitations:** [`docs/product/release-card.md`](docs/product/release-card.md)
 
-## Project
+This is not emergency detection, stabilized-approach certification, ATC decision
+support, or a safety verdict. The sealed 2026 evaluation retained 63.1% of
+reconstructed attempts, below the precommitted 65% target, and there are no
+independent labels from which to estimate review precision or recall. The application
+is therefore a research and evidence-labeling demonstrator, not an operational system.
 
-Unauthorized drone detection system anchored to Madrid-Barajas Airport (LEMD), built for the Saturdays.AI Madrid Deep Learning course.
+## Current product
 
-**Two-layer approach:**
-1. **Identity gate** — checks ICAO24 transponder codes against the OpenSky aircraft registry and U-Space flight plans. Known aircraft pass instantly. Unknown transponders go to Layer 2.
-2. **LSTM Autoencoder anomaly scorer** — trained on months of normal ADS-B trajectories around LEMD. Flags trajectories whose reconstruction error exceeds the 95th percentile of the validation set. Anomaly score is per-trajectory MSE.
+The product is rules-first and does not load the historical LSTM model. Its public
+boundary contains three independent lanes: deterministic synthetic demo scenarios,
+suppression-safe aggregate findings from real OpenSky research cohorts, and bounded
+user uploads evaluated ephemerally without joining either published lane.
 
-The system takes live ADS-B data from OpenSky Network and outputs a risk score + identity gate status for each track. A Streamlit demo (`demo.py`) visualizes trajectories on a Folium map with green/yellow/red color coding.
+1. Bounded OpenSky-style CSV or Parquet rows are canonicalized and separated into
+   operations and approach attempts.
+2. Observation quality and runway inference explicitly abstain on insufficient or
+   conflicting evidence.
+3. Transparent criteria cover lateral path, barometric-path proxy, observed descent
+   rate, ground-speed envelope, and late track correction.
+4. Contextual releases can display supplied QNH, wind components, and supported
+   aircraft-type reference cells. They do not infer mass, configuration, clearance,
+   intent, airspeed, or operational safety.
 
-**What we're NOT doing:** visual/camera-based detection (cut for timeline) and Android Remote ID (stretch goal only after Week 4).
+Uploaded files and results are not intentionally retained. Fly may preserve machine
+memory while suspended; do not upload confidential or proprietary data.
 
-Full design: [`docs/architecture/design-trajectory-anomaly-detection.md`](docs/architecture/design-trajectory-anomaly-detection.md)
+## Run locally
 
-## Setup
-
-This project uses [`uv`](https://docs.astral.sh/uv/) to manage Python dependencies.
+Until the schema-v4 dataset artifact is published, build the production-equivalent
+container from an explicitly generated and reviewed local release:
 
 ```bash
-# 1. Install uv (if you haven't)
-curl -LsSf https://astral.sh/uv/install.sh | sh
-
-# 2. Clone the repo
-git clone https://github.com/txema-puch/drone-ai-saturdays.git
-cd drone-ai-saturdays
-
-# 3. Install dependencies and activate environment
-uv sync
-
-# 4. Copy secrets template
-cp .env.example .env
-# Edit .env and fill in your values
+rm -rf /tmp/sadar-synthetic-demo /tmp/sadar-approach-release
+uv run --project backend sadar-build-synthetic-demo \
+  --seed 20260718 --output /tmp/sadar-synthetic-demo
+uv run --project backend sadar-build-release \
+  --aggregate-results backend/src/sadar/approach/resources/lemd_public_aggregate_results_v1.json \
+  --synthetic-payload-dir /tmp/sadar-synthetic-demo \
+  --output /tmp/sadar-approach-release
+uv run --project backend sadar-validate-public-release \
+  --release-dir /tmp/sadar-approach-release
+docker build --platform linux/amd64 --target runtime \
+  --build-context approach-release-context=/tmp/sadar-approach-release \
+  --build-arg SADAR_RELEASE_SOURCE=local-reviewed \
+  --build-arg SOURCE_COMMIT="$(git rev-parse HEAD)" \
+  -t sadar-analyst-console .
+docker run --rm -p 7860:7860 -e SADAR_ENABLE_EVALUATION=true sadar-analyst-console
 ```
 
-## Tasks
+Open <http://localhost:7860>.
 
-Week-by-week task boards live in [`docs/tasks/`](docs/tasks/). Each file lists what needs to happen that week — objectives, deliverables, and checkboxes. No person assignments, no prescribed implementation. Start here each session, pick up what makes sense for you, and figure out the code together.
+For backend development, from the repository root:
 
-| Week | Focus | File |
-|---|---|---|
-| 1 | Data recon + Streamlit skeleton | [`docs/tasks/week1.md`](docs/tasks/week1.md) |
-| 2 | Pipeline, features, identity gate, IF baseline | [`docs/tasks/week2.md`](docs/tasks/week2.md) |
-| 3 | LSTM Autoencoder training | [`docs/tasks/week3.md`](docs/tasks/week3.md) |
-| 4 | Evaluation, demo polish, offline check | [`docs/tasks/week4.md`](docs/tasks/week4.md) |
-| 5 | Writeup, rehearsal, repo cleanup, v1.0 tag | [`docs/tasks/week5.md`](docs/tasks/week5.md) |
-
-## Notebooks
-
-Reference notebooks are in `notebooks/` — one per week, covering the same scope as the task boards. They are one possible implementation, not the prescribed one. Use them as inspiration if you're stuck, or ignore them and build your own approach.
-
-Run in Google Colab (T4 GPU for Week 3). Data lives in a shared Google Drive folder — mount it when prompted.
-
-| Notebook | Week | Scope |
-|---|---|---|
-| `notebooks/01_data_recon.ipynb` | 1 | OpenSky ADS-B query for LEMD bounding box, EDA |
-| `notebooks/02_pipeline.ipynb` | 2 | Trajectory segmentation, feature engineering, Isolation Forest |
-| `notebooks/03_lstm.ipynb` | 3 | LSTM Autoencoder training, anomaly threshold |
-| `notebooks/04_evaluation.ipynb` | 4 | Full metrics, PR curve, ablation |
-
-## Data
-
-Large files are not committed. Everything lives in Google Drive: `drone-ai-saturdays/data/`.
-
-Mount in Colab:
-```python
-from google.colab import drive
-drive.mount('/content/drive')
-DATA_DIR = '/content/drive/MyDrive/drone-ai-saturdays/data'
-```
-
-Locally, put files under `data/` (gitignored). Trained model weights go in `models/` (also gitignored — share via Drive or Hugging Face Hub link in the release README).
-
-## Structure
-
-```
-notebooks/      # Colab-ready notebooks (01–04)
-src/            # Source modules (imported by notebooks)
-docs/
-  architecture/ # System design doc
-  tasks/        # Week-by-week task boards (plain language, no code)
-  decisions/    # Key decisions log
-  research/     # Dataset notes, links, papers
-  weekly/       # Session notes
-demo.py         # Streamlit animated map (Week 1 skeleton, wired in Week 2+)
-data/           # Not committed — too large for git
-models/         # Not committed — share via Drive
-```
-
-## Working with Claude Code + gstack
-
-This project is set up for AI-assisted development with [Claude Code](https://docs.anthropic.com/en/docs/claude-code) (Anthropic's CLI coding assistant).
-
-**Install Claude Code:**
 ```bash
-npm install -g @anthropic-ai/claude-code
+uv sync --project backend --group dev
+mkdir -p .artifacts
+SADAR_APPROACH_RELEASE_DIR=/tmp/sadar-approach-release \
+SADAR_ENABLE_EVALUATION=true \
+  uv run --project backend sadar-api --port 8077
 ```
-Then open it in the project folder: `claude` — it will pick up `CLAUDE.md` automatically.
 
-**[gstack](https://github.com/garrytan/gstack)** is a set of AI slash-command skills already included in this repo at `.claude/skills/gstack/`. After cloning, build it once:
+In a second terminal:
+
 ```bash
-# Requires bun: https://bun.sh/
-curl -fsSL https://bun.sh/install | bash
-cd .claude/skills/gstack && ./setup
+cd frontend
+npm ci
+npm run dev
 ```
 
-Useful gstack commands inside Claude Code:
-- `/browse <url>` — open a URL in a headless browser for testing
-- `/qa <url>` — automated QA testing with bug reports
-- `/review` — code review of your current branch before a PR
-- `/investigate` — systematic debugging when something is broken
-- `/retro` — weekly summary of what the team shipped
+The committed product lock still identifies the withdrawn schema-3 artifact and is
+deliberately unused by pre-publication CI and local-reviewed builds. After publication,
+locked-public mode will anonymously fetch the immutable schema-v4 dataset artifact.
 
-See `CLAUDE.md` at the root for the full skill list.
+## Evidence and research history
 
-## Contributing
+The repository preserves why the product changed direction:
 
-- Work on feature branches, not directly on `main`
-- Open a Pull Request to merge changes — teammates review before merging
-- Never commit `.env` or large files — see `.gitignore`
+- [`docs/product/`](docs/product/) — current behavior, architecture, design decision,
+  and release limitations.
+- [`docs/research/trajectory-anomaly/`](docs/research/trajectory-anomaly/) — the
+  original LSTM autoencoder and classical-baseline lifecycle.
+- [`docs/research/approach-screening/`](docs/research/approach-screening/) — the
+  rules-first reframe and failed qualification result.
+- [`docs/research/approach-context/`](docs/research/approach-context/) — the subsequent
+  weather and aircraft-context investigation.
+- [`research/trajectory-anomaly/notebooks/`](research/trajectory-anomaly/notebooks/) —
+  executable lifecycle evidence and clearly labeled exploratory archive notebooks.
+
+The historical model is benchmark evidence only. It cannot change an Analyst Console
+status, verdict, or queue position.
+
+## Repository layout
+
+```text
+backend/
+  src/sadar/              deployable product distribution
+  research/src/           historical research distribution
+  tests/{product,research,delivery}/
+delivery/container/       generated, hash-locked Linux dependency contract
+frontend/                 React analyst console
+docs/                     curated public documentation and evidence
+research/                 research-track notebooks and replay entrypoints
+scripts/                  repository and delivery checks
+```
+
+Git owns source, methodology, decisions, checksums, and artifact locks. Hugging Face
+owns trained weights and generated release archives; the schema-v4 application archive
+is a dataset/application evidence bundle, not a model. Raw datasets, local models,
+collaboration notes, and writeup drafts are intentionally excluded from source Git.
+
+## Data and attribution
+
+The real-data aggregate lane was derived from OpenSky Network ADS-B observations around
+LEMD. It contains counts, rates, coverage, provenance and limitations only—no source
+row, trajectory, aircraft identifier or exact timestamp. Obtain source data through
+[OpenSky data access](https://opensky-network.org/data/data-access) and follow the
+[OpenSky terms](https://opensky-network.org/about/terms-of-use).
+
+Publication notice to OpenSky is still **pending**; no notice date is claimed. Cite:
+Matthias Schäfer, Martin Strohmeier, Vincent Lenders, Ivan Martinovic, and Matthias
+Wilhelm. “Bringing Up OpenSky: A Large-scale ADS-B Sensor Network for Research.” IPSN
+2014.
+
+The schema-3 application artifact was withdrawn from the public-delivery path because
+it contained row-level upstream observations. The replacement keeps real findings only
+in aggregate and uses synthetic records for the interactive demo. It is not qualified:
+there are no independent labels or fresh holdout, and operational monitoring, emergency
+detection, stabilized-approach certification, ATC decision support and
+safety-performance claims are blocked.
+
+This began as a collaborative Saturdays.AI Madrid course project by Monica Gomez,
+Pablo Rodriguez Campos, Roberto Molero, and Txema Puch. Team members independently
+explored implementations and product directions; this repository is Txema Puch's
+analyst-workflow version.

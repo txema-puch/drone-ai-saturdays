@@ -53,10 +53,11 @@ coverage.xml
 ########################################
 # Datos y modelos                      #
 ########################################
-data/
-backend/models/
-backend/docs/
+/data/
+/.artifacts/
+backend/models/*
 backend/notebooks/
+/backend/docs/
 
 ########################################
 # Node/Frontend                        #
@@ -79,8 +80,38 @@ Thumbs.db
 # Otros                                #
 ########################################
 *.lock
+# The serving image is deliberately resolved and hash-locked for Linux/amd64.
+!delivery/container/requirements-linux-x86_64.lock
+!delivery/container/build-requirements.lock
 .claude
 .docs
 .data
 .claude/
-docs/
+
+########################################
+# Local collaboration workspace         #
+########################################
+# Raw plans, handoffs, task boards, weekly notes, agent instructions and
+# writeup drafts are intentionally local. Durable decisions and evidence live
+# in the tracked docs/ tree; the pre-restructure tag preserves older copies.
+.workspace/
+/CLAUDE.md
+/backend/docs/writeup/
+/docs/writeup/
+
+########################################
+# Agent-session artifacts              #
+########################################
+# Codex/agent scratch — local session state + a broken /Codex/-path copy of
+# CLAUDE.md. CLAUDE.md is the canonical agent-instructions file for the team.
+.context/
+AGENTS.md
+.gstack/
+
+########################################
+# Vendored upstream (SADAR)            #
+########################################
+# external/ holds the vendored SADAR repo (devrup404, MIT) read during the
+# merge. We copy only what we reuse into frontend/ with attribution; the full
+# clone must never be committed.
+external/
