@@ -33,6 +33,31 @@ const EVIDENCE: ResearchEvidence = {
     },
     interpretation_limits: ["Descriptive only."],
   }],
+  findings: {
+    screening_holdout: {
+      cohort_id: "2026_holdout",
+      policy: "single_precommitted_transform_no_threshold_tuning",
+      reason_counts: { insufficient_duration: 12, terminal_gate_not_reached: 34 },
+      criterion_status_counts: {
+        observed_descent_rate: { review_required: "<10", within_limit: "suppressed" },
+      },
+      interpretation_limits: ["Holdout thresholds remain frozen."],
+    },
+    context_validation: {
+      cohort_id: "2019_context_validation",
+      decision: "not_qualified_no_independent_labels_or_fresh_holdout",
+      base_review_rate_among_assessable: 0.1111,
+      context_review_rate_among_assessable: 0.1536,
+      base_status_counts: { review_required: 251 },
+      context_status_counts: { review_required: 347 },
+      base_criterion_status_counts: { observed_ground_speed_envelope: { review_required: 272 } },
+      context_criterion_status_counts: { observed_ground_speed_envelope: { review_required: 374 } },
+      review_overlap: { base_only: 38, both: 213, context_only: 134 },
+      status_transition_counts: { "partial_observation->review_required": 41 },
+      context_coverage: { qnh: 1, wind_components: 0.8504 },
+      interpretation_limits: ["Context transitions do not establish correctness."],
+    },
+  },
   data_access: {
     provider: "OpenSky Network",
     access_url: "https://opensky-network.org/data/data-access",
@@ -66,6 +91,16 @@ describe("aggregate research evidence", () => {
     expect(await screen.findByText(/No individual trajectory or source record is published/i)).toBeInTheDocument();
     expect(screen.getByText(/precision and recall are not available/i)).toBeInTheDocument();
     expect(screen.getByText(/does not support a safety claim, emergency-detection claim or operational qualification/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/Not qualified no independent labels or fresh holdout/i).length).toBeGreaterThan(0);
+    expect(screen.getByText(/Research and evidence labeling demonstrator/i)).toBeInTheDocument();
+    expect(screen.getByText(/Operational monitoring/i)).toBeInTheDocument();
+    expect(screen.getByText("Descriptive only.")).toBeInTheDocument();
+    expect(screen.getByText("Holdout thresholds remain frozen.")).toBeInTheDocument();
+    expect(screen.getByText("Context transitions do not establish correctness.")).toBeInTheDocument();
+    expect(screen.getByText(/Single precommitted transform no threshold tuning/i)).toBeInTheDocument();
+    expect(screen.getByText("11.1%")).toBeInTheDocument();
+    expect(screen.getByText("15.4%")).toBeInTheDocument();
+    expect(screen.getByText("85.0%")).toBeInTheDocument();
     expect(screen.getByText(CITATION)).toBeInTheDocument();
     expect(screen.getByText((_, element) => element?.tagName === "P" && element.textContent === "Publication notice is pending. No notice date is recorded.")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "OpenSky data access" })).toMatchObject({ target: "_blank", rel: "noreferrer" });

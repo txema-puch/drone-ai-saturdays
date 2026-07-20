@@ -141,7 +141,8 @@ export default function Queue() {
 
       <div className="queue-layout">
         <section className="queue-main" aria-labelledby="attempt-list-title">
-          <form className="attempt-filters sans" aria-label="Filter approach attempts" onSubmit={(event) => event.preventDefault()}>
+          <div className="attempt-controls">
+            <form className="attempt-filters sans" aria-label="Filter approach attempts" onSubmit={(event) => event.preventDefault()}>
             <label>Status
               <select value={filters.status ?? "all"} onChange={(event) => setFilter("status", event.target.value)}>
                 <option value="all">All statuses</option>
@@ -183,11 +184,12 @@ export default function Queue() {
               </select>
             </label>
             {hasFilters && <button className="text-button" type="button" onClick={clearFilters}>Clear filters</button>}
-          </form>
+            </form>
 
-          <div className="attempt-list-header sans">
-            <h2 id="attempt-list-title">{attempts ? `${visibleAttempts.length.toLocaleString()} demo scenarios` : "Loading demo scenarios"}</h2>
-            <span>Prioritized by status, failed criteria, then time</span>
+            <div className="attempt-list-header sans">
+              <h2 id="attempt-list-title">{attempts ? `${visibleAttempts.length.toLocaleString()} demo scenarios` : "Loading demo scenarios"}</h2>
+              <span>Prioritized by status, failed criteria, then time</span>
+            </div>
           </div>
 
           {error && (
@@ -207,7 +209,7 @@ export default function Queue() {
           {!error && attempts !== null && visibleAttempts.length === 0 && (
             <div className="state-panel">
               <h2>No attempts match this view</h2>
-              <p>The cohort loaded successfully. Remove a filter to return to assessable evidence.</p>
+              <p>The synthetic demo set loaded successfully. Remove a filter to return to assessable evidence.</p>
               <button type="button" onClick={clearFilters}>Clear all filters</button>
             </div>
           )}
@@ -224,7 +226,7 @@ export default function Queue() {
           )}
         </section>
 
-        <aside className="context-rail queue-rail sans" aria-label="Cohort status summary" tabIndex={0}>
+        <aside className="context-rail queue-rail sans" aria-label="Synthetic demo status summary" tabIndex={0}>
           <h2>Status scope</h2>
           {STATUS_OPTIONS.map((status) => (
             <button key={status} onClick={() => setFilter("status", status)} aria-pressed={filters.status === status}>

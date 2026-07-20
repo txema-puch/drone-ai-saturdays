@@ -109,6 +109,25 @@ describe("approach API client", () => {
     });
   });
 
+  it("rejects evaluation responses without the promised origin boundary", async () => {
+    mockFetch(() => ({
+      ok: true,
+      json: () => Promise.resolve({
+        release_id: "release-33",
+        data_origin: "synthetic",
+        reference_origin: "derived_from_aggregate_real_research",
+        results: [],
+      }),
+    }));
+    const error = await evaluateApproachFile(new File(["rows"], "sample.csv"))
+      .catch((caught) => caught as ApiError);
+    expect(error).toMatchObject({
+      status: 502,
+      code: "invalid_response",
+      message: "Evaluation response origin is invalid.",
+    });
+  });
+
   it("keeps structured bounded errors and retry metadata", async () => {
     mockFetch(() => ({
       ok: false,

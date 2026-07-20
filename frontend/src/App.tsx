@@ -21,7 +21,7 @@ export default function App() {
             <NavLink to="/evidence">Research evidence</NavLink>
           </nav>
         </header>
-        <div className="app-boundary sans" role="note" aria-label="Data origin and research qualification" tabIndex={0}>
+        <div className="app-boundary sans" role="note" aria-label="Data origin and research qualification">
           <b>Synthetic demo cases · Real research results shown only in aggregate.</b>
           <span>Not operationally qualified. Use for evidence inspection and labeling only.</span>
         </div>

@@ -25,7 +25,6 @@ class ReleaseState:
     ranked_attempts: tuple[dict[str, Any], ...]
     cases_by_id: Mapping[str, dict[str, Any]]
     operations_by_id: Mapping[str, dict[str, Any]]
-    metrics: Mapping[str, Any]
     demo_status_counts: Mapping[str, int]
     demo_outcome_counts: Mapping[str, int]
     aggregate_results: Mapping[str, Any]
@@ -107,7 +106,6 @@ def build_release_state(release: Mapping[str, Any]) -> ReleaseState:
             {item["case_id"]: item for item in release["cases"]}
         ),
         operations_by_id=MappingProxyType({item["operation_id"]: item for item in operations}),
-        metrics=MappingProxyType(release["metrics"]),
         demo_status_counts=demo_status_counts,
         demo_outcome_counts=demo_outcome_counts,
         aggregate_results=MappingProxyType(release["aggregate_results"]),

@@ -123,7 +123,7 @@ body,
   line-height: 1.35;
 }
 .app-boundary b { color: var(--ink); }
-.app-boundary span { color: var(--mut); font-size: 12px; }
+.app-boundary span { color: var(--mut); font-size: 16px; }
 .app-content {
   min-height: calc(100vh - 98px);
 }
@@ -135,7 +135,7 @@ body,
     gap: 3px;
     min-height: 62px;
     padding: 9px 16px;
-    font-size: 13px;
+    font-size: 16px;
   }
 }
 

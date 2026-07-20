@@ -33,7 +33,14 @@ describe("attempt queue", () => {
     expect(screen.getByText("release approach-release-33")).toBeInTheDocument();
     expect(screen.getByText("Explore generated examples of the screening workflow. These are not recorded flights.")).toBeInTheDocument();
     expect(screen.getByLabelText("Synthetic demo set")).toHaveTextContent("14 scenarios");
+    expect(screen.getByLabelText("Synthetic demo status summary")).toBeInTheDocument();
     expect(screen.queryByText(/Loaded cohort/i)).not.toBeInTheDocument();
+  });
+
+  it("keeps the synthetic boundary in the empty filter state", async () => {
+    vi.mocked(api.getApproaches).mockResolvedValueOnce([]);
+    renderQueue("/?status=review_required");
+    expect(await screen.findByText(/The synthetic demo set loaded successfully/i)).toBeInTheDocument();
   });
 
   it("persists server filters in the URL contract", async () => {

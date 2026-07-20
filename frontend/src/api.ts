@@ -166,6 +166,29 @@ export interface ResearchCohort {
   interpretation_limits: string[];
 }
 
+export interface ScreeningHoldoutFinding {
+  cohort_id: string;
+  policy: string;
+  reason_counts: Record<string, AggregateCell>;
+  criterion_status_counts: Record<string, Record<string, AggregateCell>>;
+  interpretation_limits: string[];
+}
+
+export interface ContextValidationFinding {
+  cohort_id: string;
+  decision: string;
+  base_review_rate_among_assessable: number | null;
+  context_review_rate_among_assessable: number | null;
+  base_status_counts: Record<string, AggregateCell>;
+  context_status_counts: Record<string, AggregateCell>;
+  base_criterion_status_counts: Record<string, Record<string, AggregateCell>>;
+  context_criterion_status_counts: Record<string, Record<string, AggregateCell>>;
+  review_overlap: Record<string, AggregateCell>;
+  status_transition_counts: Record<string, AggregateCell>;
+  context_coverage: Record<string, number | null>;
+  interpretation_limits: string[];
+}
+
 export interface ResearchEvidence {
   schema_version: string;
   basis: "real_opensky_research_data";
@@ -175,6 +198,10 @@ export interface ResearchEvidence {
   blocked_uses: string[];
   limitations: string[];
   cohorts: ResearchCohort[];
+  findings: {
+    screening_holdout: ScreeningHoldoutFinding;
+    context_validation: ContextValidationFinding;
+  };
   data_access: {
     provider: string;
     access_url: string;
@@ -354,8 +381,8 @@ export interface ApproachEvaluationRejection {
 
 export interface ApproachUploadResponse {
   schema_version?: string;
-  data_origin?: "user_upload_ephemeral";
-  reference_origin?: "derived_from_aggregate_real_research";
+  data_origin: "user_upload_ephemeral";
+  reference_origin: "derived_from_aggregate_real_research";
   release_id: string;
   reference_sha256?: string;
   dataset_digest?: string;
@@ -430,8 +457,8 @@ interface NativeApproachEvaluationResult {
 
 export interface NativeApproachUploadResponse {
   schema_version?: string;
-  data_origin?: "user_upload_ephemeral";
-  reference_origin?: "derived_from_aggregate_real_research";
+  data_origin: "user_upload_ephemeral";
+  reference_origin: "derived_from_aggregate_real_research";
   release_id: string;
   reference_sha256?: string;
   dataset_digest?: string;
@@ -457,6 +484,16 @@ export async function evaluateApproachFile(
     body,
     signal,
   });
+  if (
+    payload.data_origin !== "user_upload_ephemeral"
+    || payload.reference_origin !== "derived_from_aggregate_real_research"
+  ) {
+    throw new ApiError(
+      502,
+      "invalid_response",
+      "Evaluation response origin is invalid.",
+    );
+  }
   return {
     schema_version: payload.schema_version,
     data_origin: payload.data_origin,

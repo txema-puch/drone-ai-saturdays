@@ -145,7 +145,7 @@
   color: var(--mut);
   font-size: 12px;
 }
-.section-heading p { margin: 5px 0 0; color: var(--mut); font-size: 13px; line-height: 1.45; }
+.section-heading p { margin: 5px 0 0; color: var(--mut); font-size: 16px; line-height: 1.45; }
 
 .attempt-columns,
 .attempt-record__link {
@@ -202,7 +202,7 @@
 }
 
 .attempt-record__cell b,
-.attempt-record__status > span {
+.attempt-record__status > span:not(.origin-label) {
   display: block;
   overflow-wrap: anywhere;
   font-family: var(--sans);
@@ -540,23 +540,22 @@
 .evidence-table-scroll td { padding: 11px 14px; border-top: 1px solid var(--edge); color: var(--mut); text-align: left; vertical-align: top; }
 .evidence-table-scroll th { color: var(--ink); font-weight: 500; }
 .evidence-links { display: flex; flex-wrap: wrap; gap: 18px; }
+.evidence-links a:hover { text-decoration: underline; text-underline-offset: 3px; }
+.evidence-links a:active { color: var(--ink); }
+.evidence-limits { margin-top: 20px; }
+.evidence-limits h4 { margin: 0 0 8px; color: var(--ink); font-size: 16px; }
+.evidence-limits ul { margin: 0; padding-left: 20px; }
 
 @media (min-width: 1200px) {
-  .attempt-filters {
+  .attempt-controls {
     position: sticky;
     top: var(--app-chrome-height);
     z-index: 20;
-    padding-top: 14px;
     background: var(--bg);
   }
 
-  .attempt-list-header {
-    position: sticky;
-    top: calc(var(--app-chrome-height) + 88px);
-    z-index: 19;
-    padding-inline: 2px;
-    background: var(--bg);
-  }
+  .attempt-filters { padding-top: 14px; }
+  .attempt-list-header { padding-inline: 2px; }
 
   .attempt-record { scroll-margin-top: 220px; }
 }

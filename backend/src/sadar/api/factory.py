@@ -12,6 +12,7 @@ from fastapi.responses import FileResponse, RedirectResponse
 from starlette.datastructures import UploadFile
 from starlette.middleware.gzip import GZipMiddleware
 
+from sadar.api.contracts import ResearchEvidenceResponse
 from sadar.api.evaluation import (
     MAX_INPUT_BYTES,
     ApproachUploadEvaluationService,
@@ -123,9 +124,9 @@ def create_app(
             },
             "evaluation_enabled": settings.evaluation_enabled,
             "context_enabled": state.contextual,
-            "qualification": state.metrics.get("qualification"),
-            "allowed_role": state.metrics.get("allowed_role"),
-            "blocked_uses": state.metrics.get("blocked_uses", []),
+            "qualification": state.aggregate_results.get("qualification"),
+            "allowed_role": state.aggregate_results.get("allowed_role"),
+            "blocked_uses": state.aggregate_results.get("blocked_uses", []),
             "demo_data_origin": state.demo_data_origin,
             "research_data_origin": "aggregate_real",
             "evaluation_data_handling": "ephemeral_not_retained",
@@ -183,17 +184,30 @@ def create_app(
             ],
         }
 
-    @app.get("/api/metrics")
+    @app.get("/api/metrics", response_model=ResearchEvidenceResponse)
     def metrics() -> dict:
         return dict(state.aggregate_results)
 
-    @app.get("/api/evidence")
+    @app.get("/api/evidence", response_model=ResearchEvidenceResponse)
     def evidence() -> dict:
         return dict(state.aggregate_results)
 
-    @app.get("/api/research")
+    @app.get(
+        "/api/research",
+        status_code=307,
+        response_class=RedirectResponse,
+        deprecated=True,
+        responses={307: {"description": "Use /api/evidence instead."}},
+    )
     def research() -> RedirectResponse:
-        return RedirectResponse(url="/api/evidence", status_code=307)
+        return RedirectResponse(
+            url="/api/evidence",
+            status_code=307,
+            headers={
+                "Deprecation": "true",
+                "Link": '</api/evidence>; rel="successor-version"',
+            },
+        )
 
     @app.post("/api/evaluations")
     async def evaluate_upload(request: Request) -> dict:

@@ -43,7 +43,7 @@ describe("rules-first upload", () => {
     expect(screen.getByText("approaches.csv")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Evaluate approach attempts" }));
     expect(await screen.findByRole("heading", { name: "1 approach attempts" })).toBeInTheDocument();
-    expect(screen.getByText(/Origin: User upload · processed ephemerally · not retained/i)).toBeInTheDocument();
+    expect(screen.getByText(/Origin: User upload ephemeral · Reference: Derived from aggregate real research · not retained/i)).toBeInTheDocument();
     expect(screen.getByText("Review required")).toBeInTheDocument();
     expect(screen.getByText(/partial evidence retained/i)).toBeInTheDocument();
     await userEvent.click(screen.getByText("Inspect criterion evidence"));

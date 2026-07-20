@@ -28,6 +28,20 @@ beforeEach(() => {
     qualification: "not_qualified_no_independent_labels_or_fresh_holdout",
     allowed_role: "research_and_evidence_labeling_demonstrator",
     blocked_uses: [], limitations: [], cohorts: [],
+    findings: {
+      screening_holdout: {
+        cohort_id: "2026_holdout", policy: "frozen", reason_counts: {},
+        criterion_status_counts: {}, interpretation_limits: [],
+      },
+      context_validation: {
+        cohort_id: "2019_context_validation", decision: "not_qualified",
+        base_review_rate_among_assessable: null, context_review_rate_among_assessable: null,
+        base_status_counts: {}, context_status_counts: {},
+        base_criterion_status_counts: {}, context_criterion_status_counts: {},
+        review_overlap: {}, status_transition_counts: {}, context_coverage: {},
+        interpretation_limits: [],
+      },
+    },
     data_access: { provider: "OpenSky Network", access_url: "https://opensky-network.org/data/data-access", terms_url: "https://opensky-network.org/about/terms-of-use", citation: "Citation", publication_notice_status: "pending", publication_notice_date: null },
   });
 });

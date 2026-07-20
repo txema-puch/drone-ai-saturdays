@@ -68,7 +68,6 @@ def test_real_aggregate_counts_cannot_change_demo_queue_counts(tmp_path: Path):
     (frontend / "index.html").write_text("ok")
     changed = copy.deepcopy(RELEASE)
     changed["aggregate_results"]["cohorts"][0]["attempts"] = 99_999
-    changed["metrics"] = changed["aggregate_results"]
     client = TestClient(create_app(_settings(frontend), changed))
 
     health = client.get("/api/health").json()
@@ -90,6 +89,13 @@ def test_evidence_is_the_canonical_aggregate_endpoint(tmp_path: Path):
     deprecated = client.get("/api/research", follow_redirects=False)
     assert deprecated.status_code == 307
     assert deprecated.headers["location"] == "/api/evidence"
+    assert deprecated.headers["deprecation"] == "true"
+    assert deprecated.headers["link"] == '</api/evidence>; rel="successor-version"'
+    paths = client.get("/openapi.json").json()["paths"]
+    assert paths["/api/research"]["get"]["deprecated"] is True
+    assert set(paths["/api/research"]["get"]["responses"]) == {"307"}
+    evidence_schema = paths["/api/evidence"]["get"]["responses"]["200"]["content"]["application/json"]["schema"]
+    assert evidence_schema["$ref"].endswith("/ResearchEvidenceResponse")
 
 
 def test_factory_instances_have_isolated_runtime_state(tmp_path: Path):

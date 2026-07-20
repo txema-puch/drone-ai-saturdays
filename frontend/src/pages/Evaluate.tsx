@@ -184,7 +184,7 @@ export default function Evaluate() {
           {phase === "success" && result && (
             <section className="upload-results" aria-labelledby="results-title">
               <div className="section-heading sans">
-                <div><p className="eyebrow">Ephemeral upload result</p><h2 id="results-title">{result.attempts.length} approach attempts</h2><p>Origin: User upload · processed ephemerally · not retained.</p></div>
+                <div><p className="eyebrow">Ephemeral upload result</p><h2 id="results-title">{result.attempts.length} approach attempts</h2><p>Origin: {humanize(result.data_origin)} · Reference: {humanize(result.reference_origin)} · not retained.</p></div>
                 <button className="secondary-button" onClick={() => downloadEvidence(result)}>Export evidence JSON</button>
               </div>
               <dl className="result-facts sans">
