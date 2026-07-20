@@ -78,18 +78,69 @@ def generate_frame(
     runway = geometry.thresholds[scenario.runway]
     offsets = np.arange(0, scenario.duration_s + 1, scenario.sample_interval_s, dtype="int64")
     progress = offsets.astype("float64") / scenario.duration_s
-    along = np.linspace(scenario.start_along_track_m, scenario.end_along_track_m, len(offsets))
+    speed = _profile(scenario.ground_speed_profile_mps, progress)
     cross = _profile(scenario.cross_track_profile_m, progress)
+    along = np.empty(len(offsets), dtype="float64")
+    along[-1] = scenario.end_along_track_m
+    for index in range(len(offsets) - 2, -1, -1):
+        delta_time = float(offsets[index + 1] - offsets[index])
+        distance = (speed[index] + speed[index + 1]) * 0.5 * delta_time
+        delta_cross = cross[index + 1] - cross[index]
+        if abs(delta_cross) >= distance:
+            raise ValueError(
+                f"synthetic scenario {scenario.scenario_id} cross-track motion "
+                "exceeds its declared ground speed"
+            )
+        along[index] = along[index + 1] + math.sqrt(
+            distance * distance - delta_cross * delta_cross
+        )
     lat, lon = runway_relative_to_latlon(along, cross, runway)
 
     if scenario.barometric_altitude_profile_m == "three_degree":
         height = np.tan(math.radians(3.0)) * np.maximum(along, 0.0)
+    elif scenario.barometric_altitude_profile_m == "steep_final":
+        # A continuous steep-final teaching case: a modestly high intercept,
+        # a sustained correction from 2.5 km to 0.5 km, then a normal finish.
+        height_at_6000 = math.tan(math.radians(3.0)) * 6_000.0
+        height_at_2500 = 200.0
+        height_at_500 = 20.0
+        height = np.where(
+            along >= 6_000.0,
+            np.tan(math.radians(3.0)) * along,
+            np.where(
+                along >= 2_500.0,
+                height_at_2500
+                + (along - 2_500.0) * (height_at_6000 - height_at_2500) / 3_500.0,
+                np.where(
+                    along >= 500.0,
+                    height_at_500
+                    + (along - 500.0) * (height_at_2500 - height_at_500) / 2_000.0,
+                    np.maximum(along, 0.0) * height_at_500 / 500.0,
+                ),
+            ),
+        )
+    elif scenario.barometric_altitude_profile_m == "touch_and_go":
+        height = np.where(
+            along >= 0.0,
+            np.tan(math.radians(3.0)) * along,
+            -0.10 * along,
+        )
     else:
         height = _profile(scenario.barometric_altitude_profile_m, progress)
     barometric = runway.elevation_m + height
+    vertical_rate = np.gradient(barometric, offsets.astype("float64"))
+    if scenario.vertical_rate_override_profile_mps is not None:
+        vertical_rate = _profile(
+            scenario.vertical_rate_override_profile_mps,
+            progress,
+        )
+
+    along_rate = np.gradient(along, offsets.astype("float64"))
+    cross_rate = np.gradient(cross, offsets.astype("float64"))
+    track_offset = np.degrees(np.arctan2(cross_rate, -along_rate))
     onground = np.zeros(len(offsets), dtype=bool)
-    for start, end in scenario.ground_contact_windows:
-        onground |= (progress >= start) & (progress <= end)
+    for start_along_m, end_along_m in scenario.ground_contact_along_windows_m:
+        onground |= (along <= start_along_m) & (along >= end_along_m)
 
     frame = pd.DataFrame({
         "flight_id": f"synthetic-{scenario.scenario_id}",
@@ -98,12 +149,9 @@ def generate_frame(
         "lon": lon,
         "baroaltitude": barometric,
         "geoaltitude": barometric,
-        "velocity": _profile(scenario.ground_speed_profile_mps, progress),
-        "heading": (
-            runway.true_bearing_deg
-            + _profile(scenario.heading_offset_profile_deg, progress)
-        ) % 360.0,
-        "vertrate": _profile(scenario.vertical_rate_profile_mps, progress),
+        "velocity": speed,
+        "heading": (runway.true_bearing_deg + track_offset) % 360.0,
+        "vertrate": vertical_rate,
         "onground": onground,
     })
     if scenario.coverage_gaps:

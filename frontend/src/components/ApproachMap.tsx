@@ -11,7 +11,7 @@ interface Props {
 }
 
 const W = 720;
-const H = 420;
+const H = 280;
 const PAD = 36;
 
 export default function ApproachMap({ path, activeIndex, runway, outcome }: Props) {

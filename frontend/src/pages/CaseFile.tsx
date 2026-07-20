@@ -4,6 +4,7 @@ import { Link, useParams } from "react-router-dom";
 import { getApproach, hasApiStatus, type ApproachDetail } from "../api";
 import ApproachMap from "../components/ApproachMap";
 import ApproachStatus from "../components/ApproachStatus";
+import EvidenceProfiles from "../components/EvidenceProfiles";
 import EvidenceTimeline from "../components/EvidenceTimeline";
 import { formatCoverage, formatTime, humanize, shortDigest, STATUS_COPY } from "../lib/approach";
 
@@ -175,13 +176,18 @@ export default function CaseFile() {
         <div className="dossier-main">
           <section className="evidence-section" aria-labelledby="trajectory-title">
             <div className="section-heading sans">
-              <div><p className="eyebrow">Synchronized generated evidence</p><h2 id="trajectory-title">Generated evidence path</h2><p>All values shown are inside this generated scenario. No recorded flight is represented.</p></div>
+              <div><p className="eyebrow">Synchronized generated evidence</p><h2 id="trajectory-title">Generated evidence</h2><p>All signals belong to one internally consistent generated scenario. No recorded flight is represented.</p></div>
               <span aria-live="polite">
                 {activePoint ? `${formatTime(activePoint.time ?? activeTime)} · ${activePoint.along_track_m == null ? "position observed" : `${Math.round(activePoint.along_track_m / 100) / 10} km from threshold`}` : "No position selected"}
               </span>
             </div>
             {detail.path.length ? (
               <>
+                <EvidenceProfiles
+                  path={detail.path}
+                  criteria={detail.criteria}
+                  activeIndex={activeIndex}
+                />
                 <ApproachMap
                   path={detail.path}
                   activeIndex={activeIndex}

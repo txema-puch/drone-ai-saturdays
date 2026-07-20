@@ -42,7 +42,7 @@ product lock was replaced.
 
 | Lane | Included in archive | Meaning |
 |---|---:|---|
-| Deterministic synthetic demo | Yes | Fourteen generated scenarios, one attempt/case/operation each, for exercising the analyst workflow. They are not recorded flights and do not estimate prevalence. |
+| Deterministic synthetic demo | Yes | Fourteen generated scenarios, one attempt/case/operation each, for exercising the analyst workflow. Their position, speed, track, altitude and vertical-rate channels share one runway-relative kinematic construction. They are not recorded flights and do not estimate prevalence. |
 | Aggregate real-data research | Yes | Suppression-safe counts, rates, coverage, provenance and limitations derived from real OpenSky research cohorts. No row, trajectory, aircraft identifier or exact source timestamp is included. |
 | Ephemeral user upload | No | Bounded CSV or Parquet data evaluated in memory. Inputs and results are not intentionally retained and never alter the demo queue or aggregate findings. |
 
@@ -74,7 +74,7 @@ rule/reference behavior rather than correctness.
 
 The real aggregate lane was derived from OpenSky Network ADS-B observations around
 LEMD. To obtain source observations, use
-[OpenSky data access](https://opensky-network.org/data/data-access) directly and comply
+[OpenSky data access](https://opensky-network.org/data/trino) directly and comply
 with the [OpenSky terms of use](https://opensky-network.org/about/terms-of-use).
 
 Publication notice status is **sent**, dated 2026-07-20. This card does not claim that
@@ -88,10 +88,12 @@ OpenSky citation:
 
 ## What the application does
 
-1. Shows deterministic synthetic scenarios in a queue and analyst dossier.
+1. Shows deterministic, internally consistent synthetic scenarios in a queue and analyst dossier.
 2. Separates insufficient observation quality from observed criterion evidence.
 3. Uses runway-relative geometry and transparent rules for lateral path, barometric
    path proxy, observed descent rate, ground-speed envelope and late track correction.
+   The dossier plots those five synchronized signals and marks persistent review
+   intervals on the signal that produced them.
 4. Shows real research findings only as aggregates with denominators, suppression and
    interpretation limits.
 5. Evaluates a user-supplied bounded file ephemerally against the published rules and
@@ -112,7 +114,8 @@ artifacts only; neither can affect the current Analyst Console verdict or priori
 
 Source Git explains and reproduces the release; the dataset registry stores the
 generated immutable archive. A clean checkout deterministically generates the fourteen
-synthetic cases, combines them with the tracked aggregate resource, validates schema 4,
+synthetic cases without reading row-level source data, checks cross-channel kinematic
+consistency, combines them with the tracked aggregate resource, validates schema 4,
 rebuilds the archive and proves its digest matches the public lock. Production uses the
 explicit `locked-public` path and fails closed if that immutable schema-v4 lock drifts.
 

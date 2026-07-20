@@ -60,7 +60,7 @@ const EVIDENCE: ResearchEvidence = {
   },
   data_access: {
     provider: "OpenSky Network",
-    access_url: "https://opensky-network.org/data/data-access",
+    access_url: "https://opensky-network.org/data/trino",
     terms_url: "https://opensky-network.org/about/terms-of-use",
     citation: CITATION,
     publication_notice_status: "pending",

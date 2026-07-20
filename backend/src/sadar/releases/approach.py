@@ -17,6 +17,8 @@ from itertools import product
 from pathlib import Path, PurePosixPath
 from typing import Any
 
+from sadar.contracts import SYNTHETIC_GENERATOR_VERSION
+
 
 APPROACH_RELEASE_SCHEMA_VERSION = 4
 MANIFEST_NAME = "release-manifest.json"
@@ -276,7 +278,7 @@ def validate_manifest(manifest: Any) -> dict[str, Any]:
         "aggregate_artifact_sha256", "synthetic_generator", "synthetic_seed",
     }, "source")
     _digest(source["aggregate_artifact_sha256"], "source.aggregate_artifact_sha256")
-    if source["synthetic_generator"] != "sadar_synthetic_approach_v1":
+    if source["synthetic_generator"] != SYNTHETIC_GENERATOR_VERSION:
         raise ApproachReleaseFormatError("source.synthetic_generator is unsupported")
     if not _plain_int(source["synthetic_seed"]) or not 0 <= source["synthetic_seed"] <= 4294967295:
         raise ApproachReleaseFormatError("source.synthetic_seed must be a uint32 integer")
@@ -692,7 +694,7 @@ def _validate_aggregate_results(value: Any) -> None:
         "provider", "terms_url", "access_url", "citation", "publication_notice_status",
         "publication_notice_date",
     }, "aggregate_results.data_access")
-    if access["provider"] != "OpenSky Network" or access["terms_url"] != "https://opensky-network.org/about/terms-of-use" or access["access_url"] != "https://opensky-network.org/data/data-access" or access["citation"] != _CITATION:
+    if access["provider"] != "OpenSky Network" or access["terms_url"] != "https://opensky-network.org/about/terms-of-use" or access["access_url"] != "https://opensky-network.org/data/trino" or access["citation"] != _CITATION:
         raise ApproachReleaseFormatError("aggregate_results.data_access citation contract is invalid")
     status = access["publication_notice_status"]
     if status not in {"pending", "sent", "acknowledged"}:
@@ -876,7 +878,7 @@ def _validate_catalog(catalog: Any) -> dict[str, dict[str, Any]]:
     }, "demo.catalog")
     if catalog["schema_version"] != "approach_synthetic_demo_v1":
         raise ApproachReleaseFormatError("demo.catalog schema_version is invalid")
-    if catalog["generator_version"] != "sadar_synthetic_approach_v1":
+    if catalog["generator_version"] != SYNTHETIC_GENERATOR_VERSION:
         raise ApproachReleaseFormatError("demo.catalog.generator_version is unsupported")
     if not _plain_int(catalog["seed"]) or not 0 <= catalog["seed"] <= 4294967295:
         raise ApproachReleaseFormatError("demo.catalog.seed must be uint32")

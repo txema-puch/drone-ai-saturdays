@@ -228,7 +228,7 @@ def project_reviewed_aggregate_results(
         "data_access": {
             "provider": "OpenSky Network",
             "terms_url": "https://opensky-network.org/about/terms-of-use",
-            "access_url": "https://opensky-network.org/data/data-access",
+            "access_url": "https://opensky-network.org/data/trino",
             "citation": "Matthias Schäfer, Martin Strohmeier, Vincent Lenders, Ivan Martinovic, and Matthias Wilhelm. Bringing Up OpenSky: A Large-scale ADS-B Sensor Network for Research. IPSN 2014.",
             "publication_notice_status": PRODUCTION_PUBLICATION_NOTICE_STATUS,
             "publication_notice_date": PRODUCTION_PUBLICATION_NOTICE_DATE,

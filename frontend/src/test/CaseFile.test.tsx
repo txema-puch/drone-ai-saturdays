@@ -27,6 +27,7 @@ describe("attempt dossier", () => {
     renderCase();
     expect(await screen.findByRole("heading", { name: "Review required", level: 1 })).toBeInTheDocument();
     expect(screen.getAllByText(/One or more observed approach criteria crossed/i)).toHaveLength(2);
+    expect(screen.getByRole("img", { name: "Synchronized generated signal profiles" })).toBeInTheDocument();
     expect(screen.getByRole("img", { name: /relative to runway 32L/i })).toBeInTheDocument();
     expect(screen.getByText("-9.2 m/s · limit -7.6", { exact: false })).toBeInTheDocument();
     expect(screen.getByText("config012345")).toBeInTheDocument();
@@ -35,7 +36,7 @@ describe("attempt dossier", () => {
     expect(screen.getByText(/Actual mass.*ATC clearance.*remain unavailable/i)).toBeInTheDocument();
     expect(screen.getByText("Synthetic demonstration case", { selector: ".origin-badge" })).toBeInTheDocument();
     expect(screen.getByText(/Lower-than-reference speed/)).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Generated evidence path" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Generated evidence" })).toBeInTheDocument();
     expect(screen.getByText(/No recorded flight is represented/i)).toBeInTheDocument();
   });
 

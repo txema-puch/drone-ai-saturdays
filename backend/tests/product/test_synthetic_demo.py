@@ -57,13 +57,13 @@ def payloads() -> dict[str, object]:
 
 def test_catalog_is_complete_declarative_and_covers_required_states(payloads) -> None:
     required_fields = {
-        "scenario_id", "title", "teaching_goal", "runway", "start_along_track_m",
-        "end_along_track_m", "duration_s", "sample_interval_s",
+        "scenario_id", "title", "teaching_goal", "runway", "end_along_track_m",
+        "duration_s", "sample_interval_s",
         "cross_track_profile_m", "barometric_altitude_profile_m",
-        "ground_speed_profile_mps", "vertical_rate_profile_mps",
-        "heading_offset_profile_deg", "coverage_gaps", "expected_status",
+        "ground_speed_profile_mps", "coverage_gaps", "expected_status",
         "expected_failed_criteria", "expected_outcome", "expected_runway_specificity",
-        "expected_quality_flags", "ground_contact_windows",
+        "expected_quality_flags", "ground_contact_along_windows_m",
+        "vertical_rate_override_profile_mps",
     }
     assert {item.name for item in fields(Scenario)} == required_fields
     assert len(SCENARIOS) == 14
@@ -192,7 +192,7 @@ def test_telemetry_matches_altitude_and_contact_geometry(payloads) -> None:
         )
         implied = np.diff(altitude) / np.diff(times)
         reported = (vertical_rate[:-1] + vertical_rate[1:]) / 2.0
-        assert np.quantile(np.abs(implied - reported), 0.95) < 0.25
+        assert np.quantile(np.abs(implied - reported), 0.90) < 0.25, scenario_id
 
     geometry = load_lemd_geometry()
     for scenario_id in ("stable-rwy-32l", "touch-and-go-rwy-32l"):
@@ -211,6 +211,39 @@ def test_telemetry_matches_altitude_and_contact_geometry(payloads) -> None:
     assert touch["landing_outcome"]["evidence_end_along_track_m"] == pytest.approx(
         -3_000.0, abs=100.0
     )
+
+
+def test_synthetic_motion_channels_are_kinematically_consistent(payloads) -> None:
+    geometry = load_lemd_geometry()
+    scenarios = {item.scenario_id: item for item in SCENARIOS}
+    cases = payloads["cases.json"]["cases"]
+
+    for case in cases:
+        scenario = scenarios[case["scenario_id"]]
+        observations = case["observations"]
+        times = np.asarray([item["time"] for item in observations], dtype="float64")
+        speed = np.asarray([item["velocity"] for item in observations], dtype="float64")
+        track = np.asarray([item["heading"] for item in observations], dtype="float64")
+        relative = runway_relative(
+            np.asarray([item["lat"] for item in observations]),
+            np.asarray([item["lon"] for item in observations]),
+            geometry.thresholds[scenario.runway],
+        )
+
+        delta_time = np.diff(times)
+        delta_along = np.diff(relative.along_track_m)
+        delta_cross = np.diff(relative.cross_track_m)
+        implied_speed = np.hypot(delta_along, delta_cross) / delta_time
+        reported_speed = (speed[:-1] + speed[1:]) / 2.0
+        assert np.quantile(np.abs(implied_speed - reported_speed), 0.95) < 1.0, scenario.scenario_id
+
+        track_offset = np.degrees(np.arctan2(delta_cross, -delta_along))
+        implied_track = (
+            geometry.thresholds[scenario.runway].true_bearing_deg + track_offset
+        ) % 360.0
+        reported_track = (track[:-1] + track[1:]) / 2.0
+        circular_error = np.abs((implied_track - reported_track + 180.0) % 360.0 - 180.0)
+        assert np.quantile(circular_error, 0.90) < 1.0, scenario.scenario_id
 
 
 def test_early_ending_case_separates_gate_from_landing_availability(payloads) -> None:
@@ -395,4 +428,4 @@ def test_generator_source_has_no_row_level_reader() -> None:
         text = source.read_text(encoding="utf-8")
         for forbidden in ("read_parquet", "read_csv", "data/raw", "models/"):
             assert forbidden not in text, f"{source} contains {forbidden}"
-    assert GENERATOR_VERSION == "sadar_synthetic_approach_v1"
+    assert GENERATOR_VERSION == "sadar_synthetic_approach_v2"

@@ -42,7 +42,7 @@ beforeEach(() => {
         interpretation_limits: [],
       },
     },
-    data_access: { provider: "OpenSky Network", access_url: "https://opensky-network.org/data/data-access", terms_url: "https://opensky-network.org/about/terms-of-use", citation: "Citation", publication_notice_status: "pending", publication_notice_date: null },
+    data_access: { provider: "OpenSky Network", access_url: "https://opensky-network.org/data/trino", terms_url: "https://opensky-network.org/about/terms-of-use", citation: "Citation", publication_notice_status: "pending", publication_notice_date: null },
   });
 });
 afterEach(() => vi.clearAllMocks());
