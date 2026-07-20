@@ -1,6 +1,7 @@
 import { useState } from "react";
 
 import type { ApproachCriterion, ApproachEvidenceSpan } from "../api";
+import { roundedKnots } from "../lib/aviation";
 import { humanize } from "../lib/approach";
 
 interface Props {
@@ -15,12 +16,6 @@ interface Props {
 interface SelectedEvidence {
   criterion: ApproachCriterion;
   span: ApproachEvidenceSpan;
-}
-
-const KNOTS_PER_MPS = 1.943844;
-
-function roundedKnots(value: number): number {
-  return Math.round(value * KNOTS_PER_MPS);
 }
 
 function signed(value: number, unit: string): string {

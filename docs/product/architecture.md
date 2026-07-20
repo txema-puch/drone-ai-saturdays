@@ -66,7 +66,7 @@ historical model releases retain separate validators and semantics.
 Schema v4 has three hard-separated lanes: synthetic demo records, real-data aggregate
 research findings and ephemeral user uploads. The public archive contains the first
 two; uploads are never persisted. The aggregate lane cites OpenSky, links users to
-[OpenSky data access](https://opensky-network.org/data/data-access), records the current
+[OpenSky data access](https://opensky-network.org/data/trino), records the current
 [terms](https://opensky-network.org/about/terms-of-use), and records that publication
 notice was sent on 2026-07-20 without claiming acknowledgement. The withdrawn schema-3 product artifact is not
 a template: it contained row-level upstream observations and remains blocked from the

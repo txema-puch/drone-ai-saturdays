@@ -2,11 +2,11 @@
   "approach_config_sha256": "953a873fea51001069eb7c79fec59dc068d0d7e9a08e79c263a75f531cced7b8",
   "criterion_counts": {
     "late_track_correction": 1,
-    "lateral_path_proxy": 2,
+    "lateral_path_proxy": 3,
     "observed_descent_rate": 2,
     "observed_ground_speed_envelope": 3
   },
-  "generator_version": "sadar_synthetic_approach_v1",
+  "generator_version": "sadar_synthetic_approach_v2",
   "geometry_source_sha256": "37241c1c801cf15be6003ea03d1e3bad1e6f75f1b48eabaee866f4bda061cf05",
   "outcome_counts": {
     "final_gate_observed": 10,
@@ -16,10 +16,10 @@
     "touch_and_go": 1
   },
   "payload_sha256": {
-    "attempts.json": "9371aa60d5ce4a9935a7b3e7f1e8660f273c61da3bfd59fbeb10a7dadedfd20b",
-    "cases.json": "ef899bfd1d245066062d92ea6d637d9ff48b76b9b29841de1016b1cdd5360e74",
-    "catalog.json": "071e8619793b021524e9ecb7a9994e98ea173518525563ff2244aaa822d10652",
-    "operations.json": "cd64fb811b044c4394531405bcfb3078dd47d9ab8d4949217a8600f457e63757"
+    "attempts.json": "441dd2f1933718bf9b85a233c0d2eeaac844ed6586afdd0e009a3771bee16bc6",
+    "cases.json": "b7de309f6185ef7e586152ffee6fc3d44f17dd2cfb66cb49b09a96a0578c8909",
+    "catalog.json": "7ea6e0571e4a56cb537685397eab364a002a24a1729baa2a22815b06018ea1f0",
+    "operations.json": "49585fa80b8740eba0712b0a386ad082c841e9498241b55b95f88c1304ebbdc7"
   },
   "reference_sha256": "c34c293977eb3021e6c72ab1877eafb64513fe9099abba944cda36bfa5df674e",
   "scenario_ids": [
@@ -68,7 +68,7 @@
     {
       "end_along_track_m": 3500.0,
       "failed_criteria": [],
-      "observation_count": 121,
+      "observation_count": 106,
       "outcome": "final_gate_observed",
       "quality_flags": [],
       "runway_direction": "32",
@@ -79,7 +79,7 @@
     {
       "end_along_track_m": 800.0,
       "failed_criteria": [],
-      "observation_count": 151,
+      "observation_count": 124,
       "outcome": "go_around",
       "quality_flags": [],
       "runway_direction": "18",
@@ -92,7 +92,7 @@
       "failed_criteria": [
         "observed_ground_speed_envelope"
       ],
-      "observation_count": 121,
+      "observation_count": 111,
       "outcome": "final_gate_observed",
       "quality_flags": [],
       "runway_direction": "18",
@@ -116,7 +116,8 @@
     {
       "end_along_track_m": 100.0,
       "failed_criteria": [
-        "late_track_correction"
+        "late_track_correction",
+        "lateral_path_proxy"
       ],
       "observation_count": 121,
       "outcome": "final_gate_observed",
@@ -158,7 +159,7 @@
         "observed_descent_rate",
         "observed_ground_speed_envelope"
       ],
-      "observation_count": 121,
+      "observation_count": 111,
       "outcome": "final_gate_observed",
       "quality_flags": [],
       "runway_direction": "18",
@@ -208,7 +209,7 @@
     {
       "end_along_track_m": -3000.0,
       "failed_criteria": [],
-      "observation_count": 151,
+      "observation_count": 148,
       "outcome": "touch_and_go",
       "quality_flags": [],
       "runway_direction": "32",

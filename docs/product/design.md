@@ -237,7 +237,8 @@ evidence-labeling candidate with these limitations visible.
   rules/reference parameters, user responsibility for permission and separation from both
   published lanes before a file is selected and again after success.
 - Queue rows show approach status, inferred runway, failed criteria, and assessability before any model score.
-- Case files lead with the approach verdict and evidence timeline.
+- Case files lead with the approach verdict, synchronized criterion signal profiles,
+  and evidence timeline; the runway-relative map remains supporting spatial context.
 - Reference labels such as emergency squawk or go-around heuristic are contextual metadata, never model detections.
 - The frozen LSTM appears only under `Research benchmark`, with text stating that it does not determine the verdict.
 - Upload evaluation uses the same approach assessment contract and exports its evidence.
