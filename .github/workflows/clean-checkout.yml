@@ -38,14 +38,8 @@ jobs:
           scripts/compile-build-lock.sh
           cmp /tmp/build-requirements.lock delivery/container/build-requirements.lock
 
-      - name: Fetch the immutable historical research releases
-        run: |
-          uv run --project backend/research sadar-research-fetch-release \
-            --lock backend/research/src/sadar_research/trajectory_anomaly/releases/demo_bundle.lock.json \
-            --destination /tmp/sadar-ci-demo-release
-          uv run --project backend/research sadar-research-fetch-training-artifacts \
-            --lock backend/research/src/sadar_research/trajectory_anomaly/releases/phase6_training_artifacts.lock.json \
-            --destination /tmp/sadar-ci-phase6
+      - name: Install the archived research test package
+        run: uv sync --project backend/research
 
       - name: Build and verify the deterministic schema-v4 pre-publication release
         run: |
@@ -69,12 +63,12 @@ jobs:
           assert first.read_bytes() == second.read_bytes()
           PY
 
-      - name: Run the full backend suite against the immutable release
+      - name: Run the full backend suite against the immutable product release
         env:
-          SADAR_RELEASE_DIR: /tmp/sadar-ci-demo-release
-          SADAR_RESEARCH_BUNDLE_DIR: /tmp/sadar-ci-demo-release
-          SADAR_RESEARCH_MODELS_DIR: /tmp/sadar-ci-phase6
           SADAR_APPROACH_RELEASE_DIR: /tmp/sadar-ci-approach-release
+        # Archived research API tests use the deterministic synthetic fixture
+        # assembled by backend/tests/conftest.py. Private historical artifacts
+        # are never a credential or availability dependency of public CI.
         run: uv run --project backend pytest
 
       - name: Install frontend dependencies

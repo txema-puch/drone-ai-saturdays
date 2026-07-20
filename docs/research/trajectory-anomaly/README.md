@@ -9,6 +9,13 @@ did not meet the original overall target and anomaly score did not map to emerge
 incident, or approach-conformance meaning. It is retained as executable historical
 evidence and cannot affect the current product.
 
+The immutable historical releases are retained in the private
+`Txemapuch/sadar-demo-release` audit repository because the earlier demo bundle
+contains real-data-derived row-level evidence. Authorized researchers can use
+the lock-based commands in `reproducibility.yml`. Public CI exercises the
+archived API contracts with a deterministic synthetic test fixture and never
+receives credentials for, or downloads from, that private repository.
+
 - [`reproducibility.yml`](reproducibility.yml) — replay contract and immutable artifacts.
 - [`lifecycle/manifest.yml`](lifecycle/manifest.yml) — full gate ledger and dataset hashes.
 - [`original-design.md`](original-design.md) — original two-layer project design.
