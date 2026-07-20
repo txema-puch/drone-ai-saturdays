@@ -9,10 +9,29 @@ quality, train-only reference envelopes and explicit contextual criteria. The ea
 LSTM trajectory-anomaly model remains historical benchmark evidence and cannot alter
 the Analyst Console verdict or queue priority.
 
+The public application has three deliberately separate evidence lanes:
+
+1. **Synthetic demonstration cases.** Fourteen generated scenarios exercise the
+   analyst workflow and rule explanations. They are not recorded flights, and their
+   scenario mix is not an estimate of operational prevalence.
+2. **Aggregate real-data research.** Counts, rates and limitations derived from
+   reviewed OpenSky research cohorts are published without individual trajectories or
+   source records. Users obtain any source data directly from OpenSky under its terms.
+3. **Ephemeral user uploads.** A bounded CSV or Parquet file is evaluated in memory,
+   is not retained, and never joins either the demo set or the research aggregates.
+   The user remains responsible for permission to process the file.
+
 The application supports:
 
-- a release-backed queue of assessed approach attempts;
+- a release-backed queue of synthetic approach scenarios;
 - attempt and operation evidence inspection;
+- a dedicated Research evidence page for real aggregate findings, source access,
+  citation and qualification limits;
 - bounded, ephemeral CSV or Parquet evaluation using the same published assessment
   contract; and
 - explicit abstention when the available observations cannot support a criterion.
+
+Every route carries the same origin boundary: `Synthetic demo cases · Real research
+results shown only in aggregate.` Research qualification is adjacent but secondary.
+No demo or aggregate result is presented as representative operational performance or
+certified safety evidence.

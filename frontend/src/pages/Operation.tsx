@@ -36,8 +36,8 @@ export default function Operation() {
     <main className="workspace operation-workspace">
       <nav className="breadcrumb sans" aria-label="Breadcrumb"><Link to="/">Attempts</Link><span>/</span><span aria-current="page">Operation {operation.operation_ref}</span></nav>
       <header className="workspace-header">
-        <div><p className="eyebrow">Secondary context</p><h1>Observed operation</h1><p className="workspace-subtitle sans">One source operation may contain multiple independently assessed approach attempts.</p></div>
-        <div className="cohort-summary sans"><span>Operation reference</span><b className="mono">{operation.operation_ref}</b><small>{operation.attempts.length} attempts</small></div>
+        <div><p className="eyebrow">Synthetic demonstration case</p><span className="origin-badge sans">Synthetic demonstration case</span><h1>Generated operation</h1><p className="workspace-subtitle sans"><b>{operation.scenario_title}</b> · {operation.teaching_goal} No recorded flight is represented.</p></div>
+        <div className="cohort-summary sans"><span>Generated operation reference</span><b className="mono">{operation.operation_ref}</b><small>{operation.attempts.length} generated attempts</small></div>
       </header>
       {operation.attempts.length ? (
         <ol className="operation-attempts">

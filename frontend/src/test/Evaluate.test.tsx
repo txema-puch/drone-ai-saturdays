@@ -32,6 +32,8 @@ describe("rules-first upload", () => {
     expect(screen.getByText(/Missing channels abstain/i)).toBeInTheDocument();
     expect(screen.getByText("qnh_hpa")).toBeInTheDocument();
     expect(screen.getByText(/not qualified no independent labels or fresh holdout/i)).toBeInTheDocument();
+    expect(screen.getByText(/third, separate lane/i)).toBeInTheDocument();
+    expect(screen.getByText(/responsible for permission/i)).toBeInTheDocument();
   });
 
   it("retains the selected filename and returns attempt vocabulary", async () => {
@@ -41,6 +43,7 @@ describe("rules-first upload", () => {
     expect(screen.getByText("approaches.csv")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Evaluate approach attempts" }));
     expect(await screen.findByRole("heading", { name: "1 approach attempts" })).toBeInTheDocument();
+    expect(screen.getByText(/Origin: User upload · processed ephemerally · not retained/i)).toBeInTheDocument();
     expect(screen.getByText("Review required")).toBeInTheDocument();
     expect(screen.getByText(/partial evidence retained/i)).toBeInTheDocument();
     await userEvent.click(screen.getByText("Inspect criterion evidence"));
@@ -57,6 +60,7 @@ describe("rules-first upload", () => {
     const alert = await screen.findByRole("alert");
     expect(alert).toHaveFocus();
     expect(alert).toHaveTextContent("Use epoch seconds");
+    expect(alert).not.toHaveTextContent("bad");
     expect(screen.getByText("bad.csv")).toBeInTheDocument();
   });
 
