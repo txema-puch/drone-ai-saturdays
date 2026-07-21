@@ -96,6 +96,7 @@ Thumbs.db
 # writeup drafts are intentionally local. Durable decisions and evidence live
 # in the tracked docs/ tree; the pre-restructure tag preserves older copies.
 .workspace/
+/plans/
 /CLAUDE.md
 /backend/docs/writeup/
 /docs/writeup/
